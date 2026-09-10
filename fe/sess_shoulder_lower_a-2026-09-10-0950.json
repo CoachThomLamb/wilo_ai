@@ -1,0 +1,264 @@
+{
+  "sessionId": "sess_shoulder_lower_a",
+  "sessionName": "Shoulder rotation + lower fun",
+  "finishedAt": "2026-09-10T13:50:05.884Z",
+  "volume": "0 lbs",
+  "completedSets": 1,
+  "exercises": [
+    {
+      "exId": "ex_dead_hang",
+      "blockId": "blk_1",
+      "name": "Dead hang",
+      "planned": "20–30 sec",
+      "swapped": false,
+      "timed": true,
+      "note": "Passive. Let the shoulders come to your ears.",
+      "sets": [
+        {
+          "lbs": 20,
+          "reps": 20,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 20,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 20,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_scap_pullup",
+      "blockId": "blk_1",
+      "name": "Scapular pull-up",
+      "planned": "8 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Shoulders down and back, elbows straight, slow.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_serratus_shrug",
+      "blockId": "blk_1",
+      "name": "Serratus shrug",
+      "planned": "10 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Protract and push, don't row.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_sword_raise",
+      "blockId": "blk_1",
+      "name": "Sword raise",
+      "planned": "12 reps/side",
+      "swapped": false,
+      "timed": false,
+      "note": "Hip to overhead on the diagonal, thumb leading. Light.",
+      "sets": [
+        {
+          "lbs": 10,
+          "reps": 12,
+          "done": false
+        },
+        {
+          "lbs": 10,
+          "reps": 12,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_smith_ohp",
+      "blockId": "blk_1",
+      "name": "Smith overhead press",
+      "planned": "8 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Stop at pain, log it, retry next session.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 8,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_landmine_press",
+      "blockId": "blk_1",
+      "name": "Landmine press",
+      "planned": "10 reps/side",
+      "swapped": false,
+      "timed": false,
+      "note": "Elbow under the line of push.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_lying_leg_curl",
+      "blockId": "blk_2",
+      "name": "Lying leg curl (machine)",
+      "planned": "10 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Pointed toes. Weak side first, single-leg opening set.",
+      "sets": [
+        {
+          "lbs": 90,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 90,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 90,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 90,
+          "reps": 10,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_leg_extension",
+      "blockId": "blk_2",
+      "name": "Leg extension (machine)",
+      "planned": "12 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Light, pump-focused. One leg first, finish with two.",
+      "sets": [
+        {
+          "lbs": 60,
+          "reps": 12,
+          "done": false
+        },
+        {
+          "lbs": 60,
+          "reps": 12,
+          "done": false
+        },
+        {
+          "lbs": 60,
+          "reps": 12,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_bstance_rdl",
+      "blockId": "blk_2",
+      "name": "B-stance RDL",
+      "planned": "8 reps/side",
+      "swapped": false,
+      "timed": false,
+      "note": "Contralateral load.",
+      "sets": [
+        {
+          "lbs": 30,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 30,
+          "reps": 8,
+          "done": false
+        },
+        {
+          "lbs": 30,
+          "reps": 8,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_cranes",
+      "blockId": "blk_2",
+      "name": "Cranes",
+      "planned": "10 reps · loaded",
+      "swapped": false,
+      "timed": false,
+      "note": "Start with both legs.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        },
+        {
+          "lbs": 0,
+          "reps": 10,
+          "done": false
+        }
+      ]
+    }
+  ]
+}

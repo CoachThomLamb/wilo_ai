@@ -26,3 +26,14 @@ http://<your-ip>:8080/tracker.html
 ```bash
 sudo ufw allow 8080
 ```
+
+## Claude Skills
+
+This project uses Claude Code skills tracked in `skills-lock.json`. The skill files
+themselves are gitignored (`.agents/`), so after a fresh clone you need to reinstall them:
+
+```bash
+claude /install-skills
+```
+
+This reads `skills-lock.json` and pulls down the correct versions of each skill.
