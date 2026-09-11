@@ -316,23 +316,27 @@
 
   function makeExercise(def, blockId) {
     const timed = !!(def.target && def.target.duration_sec);
-    const n = def.sets || 1;
     const tgt = targetLabel(def.target, def.load);
-    const lbs = def.start_weight_lbs || 0;
-    const reps = timed ? (def.target.duration_sec[0])
-                       : (def.target && def.target.reps ? def.target.reps : 10);
+    const defaultLbs = def.start_weight_lbs || 0;
+    const defaultReps = timed ? (def.target.duration_sec[0])
+                               : (def.target && def.target.reps ? def.target.reps : 10);
+    // def.sets can be a number (program) or an array of logged sets (export)
+    const sets = Array.isArray(def.sets)
+      ? def.sets.map(s => ({ prev: tgt, lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: false, custom: s.custom || null }))
+      : Array.from({ length: def.sets || 1 }, () => ({ prev: tgt, lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
     return {
       pid: def.id || uid(),
       exId: def.id || uid(),
       blockId,
       timed,
       name: def.name,
+      custom_name: def.custom_name || null,
       note: def.cue || '',
       target: tgt,
       fallback: def.fallback || null,
       swapped: false,
       original: null,
-      sets: Array.from({ length: n }, () => ({ prev: tgt, lbs, reps, done: false }))
+      sets
     };
   }
 
@@ -391,12 +395,12 @@
           <input type="file" accept="image/*" class="photo-input" data-pick="${ex.pid}">
         </div>
         <table>
-          <thead><tr><th>Set</th><th>Target</th><th>lbs</th><th>${unit}</th><th>&check;</th></tr></thead>
+          <thead><tr><th>Set</th><th>Target</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th><th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
             <tr class="${s.done ? 'done' : ''}">
               <td><div class="setno">${i + 1}</div></td>
               <td class="prev">${esc(s.prev)}</td>
-              <td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>
+              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
               <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
               <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
             </tr>`).join('')}</tbody>
@@ -817,21 +821,45 @@
     const slug = (state.sessionId || 'workout').replace(/[^a-z0-9_-]/gi, '');
     const name = `${slug}-${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.json`;
+
+    // Build a lookup of original exercise defs from the loaded program
+    const defById = {};
+    ((loadedProgram.sessions || [])[0]?.blocks || []).forEach(b =>
+      (b.exercises || []).forEach(def => { defById[def.id] = def; })
+    );
+
+    const blocks = state.blocks.map(b => ({
+      id: b.id,
+      name: b.name,
+      notes: b.notes || '',
+      exercises: state.exercises
+        .filter(ex => ex.blockId === b.id)
+        .map(ex => {
+          const def = defById[ex.exId] || {};
+          return {
+            id: ex.exId,
+            name: ex.name,
+            cue: def.cue || ex.note || '',
+            custom_name: def.custom_name || null,
+            target: def.target || null,
+            fallback: def.fallback || null,
+            swapped: ex.swapped,
+            timed: ex.timed,
+            sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+          };
+        })
+    }));
+
     const payload = {
-      sessionId: state.sessionId,
-      sessionName: state.sessionName,
+      program: loadedProgram.program || { id: state.sessionId, name: state.sessionName },
       finishedAt: stamp.toISOString(),
-      volume: document.getElementById('volume').textContent,
-      completedSets: +document.getElementById('setcount').textContent,
-      // Plan vs actual: planned is what the program asked for, sets are
-      // what happened. Same shape, so a diff is trivial downstream.
-      exercises: state.exercises.map(ex => ({
-        exId: ex.exId, blockId: ex.blockId, name: ex.name,
-        planned: ex.target, swapped: ex.swapped, timed: ex.timed,
-        note: ex.note,
-        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done }))
-      }))
+      sessions: [{
+        id: state.sessionId,
+        name: state.sessionName,
+        blocks
+      }]
     };
+
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
