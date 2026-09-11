@@ -1,0 +1,22 @@
+**WILO \u2014 Day Notes, Sept 10 (wrapped 1:52pm)**
+
+**What got done**
+- Tweaked the JSON schema for workout export
+- Decided: export schema = import schema, just with client-updated fields filled in
+- Same shape in, same shape out \u2014 one schema to maintain
+
+**The data flow (deliberately dumb)**
+- Phone: workout file saved manually to Files
+- Transfer: email or LocalSend \u2192 "headquarters" (the machine that does the real work)
+- Headquarters: file becomes the input for a coaching conversation
+- Output: a new workout, in the same JSON schema, back to the phone
+
+**The coaching layer**
+- Phase 1: use Claude to discuss the file and generate the next workout
+- Phase 2: swap Claude for a self-hosted model \u2014 ownership of that piece
+- That conversation is the actual product; everything else is plumbing
+
+**Framing**
+- All work to date = instrumentation
+- Purpose of instrumentation = collect the data the conversation orients around
+- Quality of that conversation is where the time should go from here

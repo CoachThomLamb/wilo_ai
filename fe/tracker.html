@@ -36,9 +36,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="WILO">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta charset="utf-8">
 <title>WILO</title>
 <style>
   :root {
@@ -68,8 +67,7 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 16px; border-bottom: 1px solid var(--line); flex: none;
   }
-  header h1 { font-size: 19px; font-weight: 600; margin: 0; }
-  .saved { margin: 2px 0 0; font-size: 12px; color: var(--dim); }
+.saved { margin: 2px 0 0; font-size: 12px; color: var(--dim); }
   .saved.ok { color: var(--done-line); }
   .finish {
     background: var(--accent); color: #fff; border: 0;
@@ -223,7 +221,8 @@
 <body>
 
 <header>
-<div>
+  <div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-11-002</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
@@ -471,7 +470,7 @@
       const x = +add.dataset.add;
       const sets = state.exercises[x].sets;
       const p = sets[sets.length - 1];
-      sets.push({ prev: "\u2014", lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false });
+      sets.push({ prev: "\u2014", lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
       last = `exercises[${x}].sets.push()`;
       return draw();
     }
@@ -510,7 +509,7 @@
         pid: uid(), exId: uid(), blockId: lastEx ? lastEx.blockId : null,
         timed: false, name: "", note: "", target: "\u2014",
         fallback: null, swapped: false, original: null,
-        sets: [{ prev: "\u2014", lbs: 45, reps: 5, done: false }]
+        sets: [{ prev: "\u2014", lbs: 45, reps: 5, done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
       draw();
