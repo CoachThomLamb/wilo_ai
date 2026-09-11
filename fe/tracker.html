@@ -834,36 +834,25 @@
     const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
 
-    // Build a lookup of original exercise defs from the loaded program
-    const defById = {};
-    ((loadedProgram.sessions || [])[0]?.blocks || []).forEach(b =>
-      (b.exercises || []).forEach(def => { defById[def.id] = def; })
-    );
-
     const blocks = state.blocks.map(b => ({
       id: b.id,
       name: b.name,
       notes: b.notes || '',
       exercises: state.exercises
         .filter(ex => ex.blockId === b.id)
-        .map(ex => {
-          const def = defById[ex.exId] || {};
-          return {
-            id: ex.exId,
-            name: ex.name,
-            cue: def.cue || ex.note || '',
-            custom_name: ex.custom_name || def.custom_name || null,
-            target: def.target || null,
-            fallback: def.fallback || null,
-            swapped: ex.swapped,
-            timed: ex.timed,
-            sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
-          };
-        })
+        .map(ex => ({
+          id: ex.exId,
+          name: ex.name,
+          cue: ex.note || '',
+          custom_name: ex.custom_name || null,
+          timed: ex.timed,
+          swapped: ex.swapped,
+          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+        }))
     }));
 
     const payload = {
-      program: loadedProgram.program || { id: state.sessionId, name: state.sessionName },
+      program: { id: state.sessionId, name: state.sessionName },
       finishedAt: stamp.toISOString(),
       sessions: [{
         id: state.sessionId,
