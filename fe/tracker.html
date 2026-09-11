@@ -126,24 +126,19 @@
     font-size: 20px; line-height: 1; padding: 2px 4px;
   }
 
-  table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; }
-  th:first-child, td:first-child { width: 48px; }
-  th:nth-child(3), th:nth-child(4) { width: 84px; }
-  th:last-child, td:last-child { width: 52px; }
-  .prev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table { width: 100%; max-width: 480px; border-collapse: collapse; table-layout: fixed; }
   th { color: var(--dim); font-size: 13px; font-weight: 500; padding-bottom: 10px; text-align: center; }
-  th:nth-child(2) { text-align: left; }
   td { padding: 4px 0; text-align: center; }
+  td:first-child { text-align: left; }
 
   .setno {
     width: 34px; height: 34px; margin: 0 auto; background: var(--field);
     border-radius: 8px; display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 600;
   }
-  .prev { color: var(--dim); font-size: 15px; text-align: left; }
 
   input[type=number], input[type=text] {
-    width: 76px; height: 38px; background: var(--field); border: 0; border-radius: 8px;
+    width: 72px; height: 38px; background: var(--field); border: 0; border-radius: 8px;
     color: var(--text); font-family: inherit; font-size: 17px; font-weight: 500; text-align: center;
     appearance: textfield; -moz-appearance: textfield;
   }
@@ -154,32 +149,6 @@
   tr.done .check { background: var(--done); color: var(--done-line); }
   tr.done input[type=number], tr.done input[type=text] { background: var(--done); }
 
-  .photo-row { margin: 0 0 14px; }
-  .photo-slot {
-    display: inline-flex; align-items: center; justify-content: center;
-    position: relative; overflow: hidden;
-    min-width: 96px; height: 72px; padding: 0 14px;
-    background: var(--field); border: 1px dashed var(--line); border-radius: 10px;
-    color: var(--dim); font-family: inherit; font-size: 15px; cursor: pointer;
-    -webkit-appearance: none; appearance: none;
-  }
-  /* min-width stays put even with a photo: a broken image must never
-     collapse the slot to a hairline. */
-  .photo-slot.has-photo { border-style: solid; padding: 0; }
-  .photo-slot img { height: 72px; width: auto; max-width: 160px; object-fit: cover; display: block; }
-  .photo-slot.has-photo .photo-hint { display: none; }
-  /* Visually hidden, but still laid out — iOS Safari will not open the
-     picker for an input that is display:none. */
-  .photo-input {
-    position: absolute; width: 1px; height: 1px;
-    opacity: 0; pointer-events: none; border: 0; padding: 0; margin: -1px;
-  }
-  .photo-x {
-    position: absolute; top: 3px; right: 3px;
-    width: 22px; height: 22px; border: 0; border-radius: 50%;
-    background: rgba(0,0,0,.65); color: #fff; font-size: 15px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-  }
   .add, .add-ex {
     width: 100%; padding: 13px; background: var(--field); border: 0;
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px; font-weight: 400;
@@ -231,7 +200,7 @@
     <button class="ghost" id="loadBtn">Load</button>
     <button class="finish" id="finish">Finish</button>
   </div>
-  <input type="file" accept="application/json,.json" id="progFile" class="photo-input">
+  <input type="file" accept="application/json,.json" id="progFile" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
 </header>
 
 <div class="stats">
@@ -326,10 +295,9 @@
                                : (def.target && def.target.reps ? def.target.reps : 10);
     // def.sets can be a number (program) or an array of logged sets (export)
     const sets = Array.isArray(def.sets)
-      ? def.sets.map(s => ({ prev: tgt, lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
-      : Array.from({ length: def.sets || 1 }, () => ({ prev: tgt, lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
+      ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
+      : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
     return {
-      pid: def.id || uid(),
       exId: def.id || uid(),
       blockId,
       timed,
@@ -394,18 +362,11 @@
                data-e="${e}" data-k="note">
         <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
                data-e="${e}" data-k="custom_name">
-        <div class="photo-row">
-          <button type="button" class="photo-slot" data-photo-for="${ex.pid}">
-            <span class="photo-hint">+ Photo</span>
-          </button>
-          <input type="file" accept="image/*" class="photo-input" data-pick="${ex.pid}">
-        </div>
         <table>
-          <thead><tr><th>Set</th><th>Target</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
+          <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
             <tr class="${s.done ? 'done' : ''}">
               <td><div class="setno">${i + 1}</div></td>
-              <td class="prev">${esc(s.prev)}</td>
               ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
               <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
               ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
@@ -423,7 +384,6 @@
     wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
     list.appendChild(wrap);
     sync();
-    paintPhotos();
   }
 
   function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -478,7 +438,7 @@
       const x = +add.dataset.add;
       const sets = state.exercises[x].sets;
       const p = sets[sets.length - 1];
-      sets.push({ prev: "\u2014", lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
+      sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
       last = `exercises[${x}].sets.push()`;
       return draw();
     }
@@ -514,88 +474,15 @@
     if (e.target.id === 'addEx') {
       const lastEx = state.exercises[state.exercises.length - 1];
       state.exercises.push({
-        pid: uid(), exId: uid(), blockId: lastEx ? lastEx.blockId : null,
+        exId: uid(), blockId: lastEx ? lastEx.blockId : null,
         timed: false, name: "", note: "", target: "\u2014",
         fallback: null, swapped: false, original: null,
-        sets: [{ prev: "\u2014", lbs: 45, reps: 5, done: false, custom: null }]
+        sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
       draw();
       const inputs = list.querySelectorAll('.ex-name');
       inputs[inputs.length - 1].focus();
-    }
-  });
-
-  // Photos are stored downscaled: IndexedDB has room for the originals,
-  // but a 4MB shot to fill a 160px slot is wasted read time on every draw.
-  // Always resolves — with the shrunk blob if it can, otherwise the
-  // original. Never rejects, never hangs: a stalled decode used to leave
-  // the await pending forever with nothing on screen to say so.
-  function downscale(file, max = 640) {
-    return new Promise((resolve) => {
-      let settled = false;
-      const url = URL.createObjectURL(file);
-      const finish = (out) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        URL.revokeObjectURL(url);
-        resolve(out || file);
-      };
-      const timer = setTimeout(() => finish(file), 5000);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, max / Math.max(img.width, img.height));
-          const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          const ctx = c.getContext('2d');
-          if (!ctx || !c.toBlob) return finish(file);
-          ctx.drawImage(img, 0, 0, w, h);
-          c.toBlob(b => finish(b), 'image/jpeg', 0.82);
-        } catch { finish(file); }
-      };
-      img.onerror = () => finish(file);
-      img.src = url;
-    });
-  }
-
-  list.addEventListener('change', async e => {
-    const input = e.target.closest('[data-pick]');
-    if (!input || !input.files || !input.files[0]) return;
-    const key = input.dataset.pick;
-    try {
-      const blob = await downscale(input.files[0]);
-      await putPhoto(key, blob);
-      last = 'photo saved: ' + key + ' (' + backend + ')';
-      await paintPhotos();
-      sync();
-    } catch (err) {
-      note("Photo failed: " + (err && err.name ? err.name : err));
-    }
-    input.value = '';   // so picking the same file twice still fires change
-  });
-
-  list.addEventListener('click', async e => {
-    // Delete takes priority — the × sits inside the slot button.
-    const x = e.target.closest('[data-delphoto]');
-    if (x) {
-      e.preventDefault();
-      e.stopPropagation();
-      const key = x.dataset.delphoto;
-      try { await delPhoto(key); } catch {}
-      showHint(x.closest('.photo-slot'));
-      last = 'photo removed: ' + key;
-      return sync();
-    }
-    // Tapping the slot opens the picker. Driven explicitly rather than by
-    // a <label>, which iOS Safari handles inconsistently.
-    const slot = e.target.closest('[data-photo-for]');
-    if (slot) {
-      e.preventDefault();
-      const input = slot.parentElement.querySelector('[data-pick]');
-      if (input) input.click();
     }
   });
 
@@ -621,144 +508,6 @@
   document.addEventListener('focusin', () => {
     requestAnimationFrame(() => { window.scrollTo(0, 0); lockViewport(); });
   });
-
-  // ---- photo storage (IndexedDB) ------------------------------------
-  // localStorage holds the workout JSON; photos are blobs and go here,
-  // where there's room for them.
-  // Two backends. IndexedDB when the page has a real origin; a
-  // localStorage data-URL shim when it doesn't. Sandboxed iframes (the
-  // artifact viewer, some in-app browsers) hand you an opaque origin, and
-  // indexedDB.open() throws SecurityError there. That throw was the source
-  // of the bare "Script error." messages: dbp became a rejected promise
-  // with nothing attached to it yet.
-  const DB_NAME = 'workout-photos', STORE = 'photos';
-  const LS_PREFIX = 'workout-photo:';
-  let dbp = null, backend = 'unknown';
-
-  function db() {
-    if (dbp) return dbp;
-    dbp = new Promise((resolve, reject) => {
-      let req;
-      try {
-        if (!self.indexedDB) throw new Error('no indexedDB');
-        req = indexedDB.open(DB_NAME, 1);
-      } catch (err) { reject(err); return; }
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error || new Error('indexedDB open failed'));
-      req.onblocked = () => reject(new Error('indexedDB blocked'));
-    });
-    // Attach a catch immediately so a rejection is never "unhandled".
-    dbp.catch(() => {});
-    return dbp;
-  }
-
-  // Resolves to true once we know IndexedDB is usable, false if we're
-  // falling back. Checked once, cached.
-  let idbOk = null;
-  async function useIdb() {
-    if (idbOk !== null) return idbOk;
-    try { await db(); idbOk = true; backend = 'IndexedDB'; }
-    catch { idbOk = false; backend = 'localStorage'; }
-    return idbOk;
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = () => reject(r.error || new Error('read failed'));
-      r.readAsDataURL(blob);
-    });
-  }
-
-  async function putPhoto(key, blob) {
-    if (await useIdb()) {
-      const d = await db();
-      return new Promise((resolve, reject) => {
-        const tx = d.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put(blob, key);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error || new Error('aborted'));
-      });
-    }
-    // Fallback: data URL in localStorage. Smaller cap, so downscale harder.
-    const small = await downscale(blob, 320);
-    localStorage.setItem(LS_PREFIX + key, await blobToDataUrl(small));
-  }
-
-  // Returns a string usable as an <img src>, or null.
-  async function getPhotoSrc(key) {
-    if (await useIdb()) {
-      const d = await db();
-      const blob = await new Promise((resolve, reject) => {
-        const tx = d.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).get(key);
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
-      });
-      if (!blob) return null;
-      const url = URL.createObjectURL(blob);
-      urlCache[key] = url;
-      return url;
-    }
-    return localStorage.getItem(LS_PREFIX + key) || null;
-  }
-
-  async function delPhoto(key) {
-    if (await useIdb()) {
-      const d = await db();
-      return new Promise((resolve, reject) => {
-        const tx = d.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).delete(key);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-    localStorage.removeItem(LS_PREFIX + key);
-  }
-
-  // Object URLs are revoked and re-minted on each draw so we don't leak.
-  let urlCache = {};
-  function clearUrls() {
-    Object.values(urlCache).forEach(u => URL.revokeObjectURL(u));
-    urlCache = {};
-  }
-
-  function showHint(el) {
-    el.classList.remove('has-photo');
-    el.innerHTML = '<span class="photo-hint">+ Photo</span>';
-  }
-
-  async function paintPhotos() {
-    clearUrls();
-    for (const el of document.querySelectorAll('[data-photo-for]')) {
-      const key = el.dataset.photoFor;
-      let src = null;
-      try { src = await getPhotoSrc(key); } catch { src = null; }
-      if (!src) { showHint(el); continue; }
-
-      // Built as nodes, not innerHTML, so onerror is attached before the
-      // load can fail. A dead src used to leave a 1px-wide slot — the
-      // hairline in the screenshot.
-      const img = document.createElement('img');
-      img.alt = '';
-      img.onerror = () => showHint(el);
-      const x = document.createElement('button');
-      x.type = 'button';
-      x.className = 'photo-x';
-      x.dataset.delphoto = key;
-      x.innerHTML = '&times;';
-      el.innerHTML = '';
-      el.appendChild(img);
-      el.appendChild(x);
-      el.classList.add('has-photo');
-      img.src = src;
-    }
-  }
 
   // ---- persistence -------------------------------------------------
   const KEY = 'workout-log-draft';
@@ -812,11 +561,8 @@
       state.sessionId = saved.state.sessionId || null;
       state.sessionName = saved.state.sessionName || '';
       if (state.sessionName) document.getElementById('sessName').value = state.sessionName;
-      // Older drafts predate these fields; backfill so draw() doesn't trip.
       state.exercises.forEach(ex => {
-        if (!ex.pid) ex.pid = uid();
         if (ex.timed === undefined) ex.timed = false;
-        if (ex.target === undefined) ex.target = '\u2014';
         if (ex.swapped === undefined) ex.swapped = false;
       });
       const t = new Date(saved.savedAt).toLocaleString([], {
