@@ -142,7 +142,7 @@
   }
   .prev { color: var(--dim); font-size: 15px; text-align: left; }
 
-  input[type=number] {
+  input[type=number], input[type=text] {
     width: 76px; height: 38px; background: var(--field); border: 0; border-radius: 8px;
     color: var(--text); font-family: inherit; font-size: 17px; font-weight: 500; text-align: center;
     appearance: textfield; -moz-appearance: textfield;
@@ -152,7 +152,7 @@
 
   .check { width: 44px; height: 36px; border: 0; border-radius: 8px; background: var(--field); color: var(--dim); font-size: 17px; }
   tr.done .check { background: var(--done); color: var(--done-line); }
-  tr.done input[type=number] { background: var(--done); }
+  tr.done input[type=number], tr.done input[type=text] { background: var(--done); }
 
   .photo-row { margin: 0 0 14px; }
   .photo-slot {
@@ -392,6 +392,8 @@
         </div>
         <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
                data-e="${e}" data-k="note">
+        <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
+               data-e="${e}" data-k="custom_name">
         <div class="photo-row">
           <button type="button" class="photo-slot" data-photo-for="${ex.pid}">
             <span class="photo-hint">+ Photo</span>
@@ -399,13 +401,14 @@
           <input type="file" accept="image/*" class="photo-input" data-pick="${ex.pid}">
         </div>
         <table>
-          <thead><tr><th>Set</th><th>Target</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th><th>&check;</th></tr></thead>
+          <thead><tr><th>Set</th><th>Target</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
             <tr class="${s.done ? 'done' : ''}">
               <td><div class="setno">${i + 1}</div></td>
               <td class="prev">${esc(s.prev)}</td>
               ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
               <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
+              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
               <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
             </tr>`).join('')}</tbody>
         </table>
@@ -440,19 +443,24 @@
     if (typeof queueSave === 'function') queueSave();
   }
 
+  list.addEventListener('blur', e => {
+    if (e.target.dataset.k === 'custom_name') draw();
+  }, true);
+
   list.addEventListener('input', e => {
     const el = e.target;
     if (el.tagName !== 'INPUT') return;
     const x = +el.dataset.e, k = el.dataset.k;
     if (el.dataset.i !== undefined) {
       const i = +el.dataset.i;
-      state.exercises[x].sets[i][k] = el.value === '' ? 0 : +el.value;
+      state.exercises[x].sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
       last = `exercises[${x}].sets[${i}].${k} = ${state.exercises[x].sets[i][k]}`;
+      sync();
     } else {
       state.exercises[x][k] = el.value;
       last = `exercises[${x}].${k}`;
+      sync();
     }
-    sync();
   });
 
   list.addEventListener('click', e => {
@@ -844,7 +852,7 @@
             id: ex.exId,
             name: ex.name,
             cue: def.cue || ex.note || '',
-            custom_name: def.custom_name || null,
+            custom_name: ex.custom_name || def.custom_name || null,
             target: def.target || null,
             fallback: def.fallback || null,
             swapped: ex.swapped,
