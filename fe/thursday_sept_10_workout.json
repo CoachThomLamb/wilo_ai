@@ -1,0 +1,274 @@
+{
+  "sessionId": "sess_knee_chest_arms",
+  "sessionName": "Knee rehab + chest & arms",
+  "finishedAt": "2026-09-10T22:09:19.344Z",
+  "volume": "6,102 lbs",
+  "completedSets": 27,
+  "exercises": [
+    {
+      "exId": "ex_lying_leg_curl",
+      "blockId": "blk_knee",
+      "name": "Lying leg curl",
+      "planned": "15 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Very light. Blood flow only, pointed toes.",
+      "sets": [
+        {
+          "lbs": 50,
+          "reps": 15,
+          "done": false
+        },
+        {
+          "lbs": 50,
+          "reps": 15,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_step_ups",
+      "blockId": "blk_knee",
+      "name": "Step-ups",
+      "planned": "8 reps/side",
+      "swapped": false,
+      "timed": false,
+      "note": "5 risers. Weak leg first. Slow on the way down.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 6,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 6,
+          "done": true
+        },
+        {
+          "lbs": 22,
+          "reps": 8,
+          "done": true
+        },
+        {
+          "lbs": 22,
+          "reps": 3,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex_single_leg_press",
+      "blockId": "blk_knee",
+      "name": "Single-leg press",
+      "planned": "12 reps/side",
+      "swapped": false,
+      "timed": false,
+      "note": "Weak side first, match reps on the strong side.",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 15,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex_preacher_curl",
+      "blockId": "blk_chest_arms",
+      "name": "Preacher curl",
+      "planned": "12 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Decline curl feels incredible. Opens shoulder right up ",
+      "sets": [
+        {
+          "lbs": 10,
+          "reps": 8,
+          "done": true
+        },
+        {
+          "lbs": 10,
+          "reps": 8,
+          "done": true
+        },
+        {
+          "lbs": 10,
+          "reps": 8,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex_chest_dip",
+      "blockId": "blk_chest_arms",
+      "name": "Chest dip (assisted)",
+      "planned": "10 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Aug 26 ladder: 150 → 140 → 120 → 100. Weight column is assist — lower is harder.",
+      "sets": [
+        {
+          "lbs": 130,
+          "reps": 6,
+          "done": true
+        },
+        {
+          "lbs": 170,
+          "reps": 10,
+          "done": true
+        },
+        {
+          "lbs": 170,
+          "reps": 8,
+          "done": true
+        },
+        {
+          "lbs": 170,
+          "reps": 10,
+          "done": false
+        }
+      ]
+    },
+    {
+      "exId": "ex_pushups",
+      "blockId": "blk_chest_arms",
+      "name": "Push-ups",
+      "planned": "to 2 in reserve",
+      "swapped": false,
+      "timed": false,
+      "note": "Wide elbows. Slow. Dick height ",
+      "sets": [
+        {
+          "lbs": 0,
+          "reps": 7,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 7,
+          "done": true
+        },
+        {
+          "lbs": 0,
+          "reps": 7,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex_barbell_curl",
+      "blockId": "blk_chest_arms",
+      "name": "Barbell curl",
+      "planned": "10 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "",
+      "sets": [
+        {
+          "lbs": 40,
+          "reps": 9,
+          "done": true
+        },
+        {
+          "lbs": 40,
+          "reps": 9,
+          "done": true
+        },
+        {
+          "lbs": 40,
+          "reps": 10,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex_triceps_ext",
+      "blockId": "blk_chest_arms",
+      "name": "Triceps extension",
+      "planned": "12 reps",
+      "swapped": false,
+      "timed": false,
+      "note": "Overhead or cable — whichever the shoulder likes.",
+      "sets": [
+        {
+          "lbs": 10,
+          "reps": 12,
+          "done": true
+        },
+        {
+          "lbs": 10,
+          "reps": 12,
+          "done": true
+        },
+        {
+          "lbs": 10,
+          "reps": 12,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex2-aqg0s",
+      "blockId": "blk_chest_arms",
+      "name": "Seated leg curls ",
+      "planned": "—",
+      "swapped": false,
+      "timed": false,
+      "note": "",
+      "sets": [
+        {
+          "lbs": 30,
+          "reps": 5,
+          "done": true
+        },
+        {
+          "lbs": 30,
+          "reps": 5,
+          "done": true
+        }
+      ]
+    },
+    {
+      "exId": "ex4-jofjr",
+      "blockId": "blk_chest_arms",
+      "name": "Prowler drag ",
+      "planned": "—",
+      "swapped": false,
+      "timed": false,
+      "note": "5 minutes front and back. ",
+      "sets": [
+        {
+          "lbs": 45,
+          "reps": 5,
+          "done": false
+        }
+      ]
+    }
+  ]
+}

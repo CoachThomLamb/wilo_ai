@@ -1,0 +1,362 @@
+{
+  "program": {
+    "id": "prog_2026_09",
+    "name": "Shoulder rotation + lower"
+  },
+  "finishedAt": "2026-09-10T17:35:27.617Z",
+  "sessions": [
+    {
+      "id": "sess_shoulder_lower_a",
+      "name": "Shoulder rotation + lower fun",
+      "blocks": [
+        {
+          "id": "blk_1",
+          "name": "Part One — shoulder upward rotation",
+          "notes": "Low load, high attention. Nothing here should hurt.",
+          "exercises": [
+            {
+              "id": "ex_dead_hang",
+              "name": "Dead hang",
+              "cue": "Passive. Let the shoulders come to your ears.",
+              "custom_name": null,
+              "target": {
+                "duration_sec": [
+                  20,
+                  30
+                ]
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": true,
+              "sets": [
+                {
+                  "lbs": 20,
+                  "reps": 20,
+                  "done": true,
+                  "custom": null
+                },
+                {
+                  "lbs": 30,
+                  "reps": 20,
+                  "done": true,
+                  "custom": null
+                },
+                {
+                  "lbs": 40,
+                  "reps": 20,
+                  "done": true,
+                  "custom": null
+                },
+                {
+                  "lbs": 40,
+                  "reps": 20,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_scap_pullup",
+              "name": "Scapular pull-up",
+              "cue": "Shoulders down and back, elbows straight, slow.",
+              "custom_name": null,
+              "target": {
+                "reps": 8
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_serratus_shrug",
+              "name": "Serratus shrug",
+              "cue": "Protract and push, don't row.",
+              "custom_name": null,
+              "target": {
+                "reps": 10
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_sword_raise",
+              "name": "Sword raise",
+              "cue": "Hip to overhead on the diagonal, thumb leading. Light.",
+              "custom_name": null,
+              "target": {
+                "reps": 12,
+                "per_side": true
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 10,
+                  "reps": 12,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 10,
+                  "reps": 12,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_smith_ohp",
+              "name": "Smith overhead press",
+              "cue": "Stop at pain, log it, retry next session.",
+              "custom_name": null,
+              "target": {
+                "reps": 8
+              },
+              "fallback": {
+                "name": "Smith OHP — 50% ROM + 1s hold",
+                "sets": 3,
+                "target": {
+                  "reps": 8
+                },
+                "cue": "Half range, one-second hold at the top."
+              },
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_landmine_press",
+              "name": "Landmine press",
+              "cue": "Elbow under the line of push.",
+              "custom_name": null,
+              "target": {
+                "reps": 10,
+                "per_side": true
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "blk_2",
+          "name": "Part Two — lower fun",
+          "notes": "Hamstrings and glutes. Not knee-aggressive, not shoulder-dependent.",
+          "exercises": [
+            {
+              "id": "ex_lying_leg_curl",
+              "name": "Lying leg curl (machine)",
+              "cue": "Pointed toes. Weak side first, single-leg opening set.",
+              "custom_name": null,
+              "target": {
+                "reps": 10
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 90,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 90,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 90,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 90,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_leg_extension",
+              "name": "Leg extension (machine)",
+              "cue": "Light, pump-focused. One leg first, finish with two.",
+              "custom_name": null,
+              "target": {
+                "reps": 12
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 60,
+                  "reps": 12,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 60,
+                  "reps": 12,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 60,
+                  "reps": 12,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_bstance_rdl",
+              "name": "B-stance RDL",
+              "cue": "Contralateral load.",
+              "custom_name": null,
+              "target": {
+                "reps": 8,
+                "per_side": true
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 30,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 30,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 30,
+                  "reps": 8,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            },
+            {
+              "id": "ex_cranes",
+              "name": "Cranes",
+              "cue": "Start with both legs.",
+              "custom_name": null,
+              "target": {
+                "reps": 10
+              },
+              "fallback": null,
+              "swapped": false,
+              "timed": false,
+              "sets": [
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                },
+                {
+                  "lbs": 0,
+                  "reps": 10,
+                  "done": false,
+                  "custom": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

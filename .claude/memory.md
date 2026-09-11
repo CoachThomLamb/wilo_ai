@@ -5,7 +5,7 @@ Does an AI-generated workout improve the gym session? Nothing else matters yet.
 
 ## Status (2026-09-10)
 - Step 1 ✅ — Finish export works on phone (`fe/sess_shoulder_lower_a-2026-09-10-0950.json`)
-- Step 2 ⬜ — Coach agent: reads session JSONs from `data/sessions/`, generates next workout JSON
+- Step 2 ⬜ — Paste session JSON into Claude on phone, get next workout JSON back
 - Step 3 ⬜ — Take it to the gym
 
 ## Decisions
