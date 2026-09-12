@@ -6,5 +6,9 @@
       "**/.*",
       "**/node_modules/**"
     ]
+  },
+  "firestore": {
+    "database": "wilo",
+    "rules": "firestore.rules"
   }
 }

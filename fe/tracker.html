@@ -31,6 +31,22 @@
 
 <html lang="en">
 <head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  const db = getFirestore(app, "wilo");
+  window.__db = db;
+  window.__setDoc = setDoc;
+  window.__doc = doc;
+</script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -606,6 +622,12 @@
         blocks
       }]
     };
+
+    if (window.__db && window.__doc && window.__setDoc) {
+      const docId = `${state.sessionId}-${stamp.getTime()}`;
+      window.__setDoc(window.__doc(window.__db, 'sessions', docId), payload)
+        .catch(err => note('Firestore save failed: ' + err.message));
+    }
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
