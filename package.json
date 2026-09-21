@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "firebase-admin": "^14.4.0",
+    "supabase": "^2.117.0"
+  }
+}
