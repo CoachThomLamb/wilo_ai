@@ -3,7 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /sessions/{id} {
       allow write: if true;
-      allow read: if false;
+      allow read: if true;
+    }
+    match /programs/{id} {
+      allow write: if true;
+      allow read: if true;
     }
   }
 }
