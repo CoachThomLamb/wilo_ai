@@ -69,6 +69,35 @@
     }
   };
 
+  window.__loadTodayProgram = async function() {
+    try {
+      const today = new Date();
+      const sun = new Date(today);
+      sun.setDate(today.getDate() - today.getDay());
+      const weekOf = sun.toISOString().slice(0, 10);
+      const dayOfWeek = today.getDay();
+
+      const q = query(collection(db, 'microcycles'), where('weekOf', '==', weekOf), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) { console.log('[today] no microcycle for week', weekOf); return null; }
+
+      const mc = snap.docs[0].data();
+      const prog = (mc.programs || []).find(p => p.day === dayOfWeek);
+      if (!prog) { console.log('[today] rest day'); return { restDay: true }; }
+
+      console.log('[today] loaded program:', prog.name);
+      return {
+        microcycleId: snap.docs[0].id,
+        program: { id: prog.id || prog.name, name: prog.name },
+        schedule: Object.fromEntries((mc.programs || []).map(p => [String(p.day), p.id || p.name])),
+        sessions: [{ id: prog.id || prog.name, name: prog.name, blocks: prog.blocks || [] }]
+      };
+    } catch (e) {
+      console.error('[today] failed:', e.message);
+      return null;
+    }
+  };
+
   window.__loadWeekSessions = async function(startIso, endIso) {
     try {
       const q = query(
@@ -277,7 +306,7 @@
     <button class="ghost" id="weekBtn">Week</button>
     <button class="ghost" id="resetBtn">Reset</button>
     <button class="ghost" id="loadBtn">Load</button>
-    <button class="ghost" id="cloudBtn">Cloud</button>
+    <button class="ghost" id="cloudBtn">Today</button>
     <button class="finish" id="finish">Finish</button>
   </div>
   <input type="file" accept="application/json,.json" id="progFile" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
@@ -832,33 +861,36 @@
     note('Reset to ' + (state.sessionName || 'program'));
   });
 
-  document.getElementById('cloudBtn').addEventListener('click', async () => {
-    console.log('[cloud] button clicked');
-    if (!window.__loadFromCloud) {
-      console.warn('[cloud] __loadFromCloud not ready yet');
-      note('Cloud not ready — try again in a moment');
-      return;
-    }
-    note('Loading from cloud...');
-    const data = await window.__loadFromCloud();
-    if (!data) { note('No session found in cloud'); return; }
+  async function loadToday() {
+    if (!window.__loadTodayProgram) { note('Not ready — try again'); return; }
+    note('Loading today…');
+    const data = await window.__loadTodayProgram();
+    if (!data) { note('No microcycle found for this week'); return; }
+    if (data.restDay) { note('Rest day — nothing scheduled today'); return; }
     try {
       loadProgram(data);
       draw();
-      savedEl.textContent = 'Loaded from cloud';
+      savedEl.textContent = "Today's workout loaded";
       savedEl.classList.add('ok');
-      noteUntil = Date.now() + 8000;
-      console.log('[cloud] loadProgram succeeded');
+      noteUntil = Date.now() + 4000;
     } catch (e) {
-      console.error('[cloud] loadProgram failed:', e.message);
-      note('Could not load session: ' + e.message);
+      note('Could not load program: ' + e.message);
     }
-  });
+  }
+
+  document.getElementById('cloudBtn').addEventListener('click', loadToday);
 
   // Boot from seed, restore any local draft.
   loadProgram(SEED);
   restore();
   draw();
+
+  // Auto-load today's program from microcycle unless a draft is in progress.
+  setTimeout(async () => {
+    const hasDraft = !!state.exercises.flatMap(x => x.sets).find(s => s.done);
+    if (hasDraft) return;
+    await loadToday();
+  }, 600);
 </script>
 
 </body>
