@@ -3,6 +3,7 @@ const db = require('./db');
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 function weekOf(date) {
   const d = new Date(date);
@@ -10,36 +11,29 @@ function weekOf(date) {
   return d.toISOString().slice(0, 10);
 }
 
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 function renderWorkout(program) {
+  const allExercises = program.blocks.flatMap(b => b.exercises.map(ex => ({ ...ex, blockId: b.id })));
+
   const blocks = program.blocks.map(block => {
-    const exercises = block.exercises.map((ex, ei) => `
-      <div class="exercise">
-        <div class="ex-name">${ex.name}</div>
-        ${ex.cue ? `<div class="cue">${ex.cue}</div>` : ''}
-        <div class="sets">
-          ${Array.from({ length: ex.sets }, (_, si) => `
-            <div class="set">
-              <span class="set-num">Set ${si + 1}</span>
-              <input type="number" name="ex_${ei}_set_${si}_lbs" value="${ex.start_weight_lbs || ''}" placeholder="lbs" step="5">
-              <input type="number" name="ex_${ei}_set_${si}_reps" placeholder="reps">
-              <label class="done-wrap">
-                <input type="checkbox" name="ex_${ei}_set_${si}_done"> Done
-              </label>
-            </div>
-          `).join('')}
+    const exercises = block.exercises.map(ex => `
+      <div class="exercise" data-id="${esc(ex.id)}" data-block="${esc(block.id)}" data-lbs="${ex.start_weight_lbs || 0}">
+        <div class="ex-head">
+          <input class="ex-name-input" type="text" value="${esc(ex.name)}" placeholder="Exercise name">
         </div>
-        <input type="hidden" name="ex_${ei}_id" value="${ex.id}">
-        <input type="hidden" name="ex_${ei}_name" value="${ex.name}">
-        <input type="hidden" name="ex_${ei}_block" value="${block.id}">
-        <input type="hidden" name="ex_${ei}_sets_count" value="${ex.sets}">
+        ${ex.cue ? `<div class="cue">${esc(ex.cue)}</div>` : ''}
+        <input class="custom-label-input" type="text" placeholder="+ custom field label (e.g. incline height)">
+        <div class="sets"></div>
+        <button type="button" class="add-set-btn ghost-sm">+ Add set</button>
       </div>
     `).join('');
 
     return `
       <div class="block">
         <div class="block-head">
-          <h2>${block.name}</h2>
-          ${block.notes ? `<p>${block.notes}</p>` : ''}
+          <h2>${esc(block.name)}</h2>
+          ${block.notes ? `<p>${esc(block.notes)}</p>` : ''}
         </div>
         ${exercises}
       </div>
@@ -52,9 +46,9 @@ function renderWorkout(program) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>WILO — ${program.name}</title>
+<title>WILO — ${esc(program.name)}</title>
 <style>
-  :root { --bg:#000; --panel:#0e0e0f; --field:#1c1c1e; --line:#262628; --text:#f2f2f7; --dim:#7c7c82; --accent:#0a84ff; --done:#1f4a2c; --done-line:#34c759; }
+  :root { --bg:#000; --panel:#0e0e0f; --field:#1c1c1e; --line:#262628; --text:#f2f2f7; --dim:#7c7c82; --accent:#0a84ff; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text); font: 400 17px/1.3 -apple-system, BlinkMacSystemFont, sans-serif; }
   body { padding-bottom: 100px; }
@@ -65,32 +59,150 @@ function renderWorkout(program) {
   .block-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--dim); text-transform: uppercase; }
   .block-head p { margin: 4px 0 0; font-size: 13px; color: #5c5c62; }
   .exercise { padding: 16px; border-bottom: 1px solid var(--line); }
-  .ex-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-  .cue { font-size: 13px; color: var(--dim); margin-bottom: 12px; }
-  .sets { display: flex; flex-direction: column; gap: 8px; }
+  .ex-head { margin-bottom: 4px; }
+  .ex-name-input { background: transparent; border: 0; border-bottom: 1px solid transparent; color: var(--text); font-size: 16px; font-weight: 600; width: 100%; padding: 0 0 2px; font-family: inherit; }
+  .ex-name-input:focus { outline: none; border-bottom-color: var(--accent); }
+  .cue { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
+  .custom-label-input { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 13px; width: 100%; padding: 4px 0; margin-bottom: 12px; font-family: inherit; }
+  .custom-label-input:focus { outline: none; border-bottom-color: var(--accent); color: var(--text); }
+  .sets { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   .set { display: flex; align-items: center; gap: 8px; }
   .set-num { font-size: 13px; color: var(--dim); width: 42px; flex: none; }
   input[type=number] { background: var(--field); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 16px; width: 72px; }
-  .done-wrap { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--dim); margin-left: 4px; }
+  input[type=text].custom-val { background: var(--field); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 16px; width: 90px; font-family: inherit; }
+  .done-wrap { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--dim); }
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+  .ghost-sm { background: var(--field); color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; font-family: inherit; margin-top: 4px; }
+  .add-ex-wrap { padding: 16px; }
+  .add-ex-btn { width: 100%; background: var(--field); color: var(--accent); border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 16px; font-family: inherit; }
   .finish-wrap { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px; background: var(--bg); border-top: 1px solid var(--line); }
-  button[type=submit] { width: 100%; background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 14px; font-size: 17px; font-weight: 600; }
+  .finish-btn { width: 100%; background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 14px; font-size: 17px; font-weight: 600; font-family: inherit; }
 </style>
 </head>
 <body>
 <header>
-  <h1>${program.name}</h1>
+  <h1>${esc(program.name)}</h1>
   <span style="color:var(--dim);font-size:14px">${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</span>
 </header>
-<form method="POST" action="/finish">
-  <input type="hidden" name="session_id" value="${program.id}">
-  <input type="hidden" name="session_name" value="${program.name}">
-  <input type="hidden" name="ex_count" value="${program.blocks.reduce((n, b) => n + b.exercises.length, 0)}">
+<div id="workout">
   ${blocks}
-  <div class="finish-wrap">
-    <button type="submit">Finish</button>
+  <div class="add-ex-wrap">
+    <button type="button" class="add-ex-btn" id="addExBtn">+ Add exercise</button>
   </div>
-</form>
+</div>
+<div class="finish-wrap">
+  <button type="button" class="finish-btn" id="finishBtn">Finish</button>
+</div>
+<script>
+  const SESSION_ID = ${JSON.stringify(program.id)};
+  const SESSION_NAME = ${JSON.stringify(program.name)};
+
+  function seedSets(exEl) {
+    const lbs = parseFloat(exEl.dataset.lbs) || 0;
+    const setsDiv = exEl.querySelector('.sets');
+    if (setsDiv.children.length === 0) {
+      const count = parseInt(exEl.dataset.sets || '3', 10);
+      for (let i = 0; i < count; i++) addSet(exEl, lbs);
+    }
+  }
+
+  function addSet(exEl, lbs) {
+    const setsDiv = exEl.querySelector('.sets');
+    const si = setsDiv.children.length;
+    const customLabel = exEl.querySelector('.custom-label-input').value.trim();
+    const row = document.createElement('div');
+    row.className = 'set';
+    row.innerHTML =
+      '<span class="set-num">Set ' + (si + 1) + '</span>' +
+      '<input type="number" class="lbs" value="' + (lbs || '') + '" placeholder="lbs" step="5">' +
+      '<input type="number" class="reps" placeholder="reps">' +
+      (customLabel ? '<input type="text" class="custom-val" placeholder="' + customLabel + '">' : '') +
+      '<label class="done-wrap"><input type="checkbox" class="done"> Done</label>';
+    setsDiv.appendChild(row);
+    renumberSets(setsDiv);
+  }
+
+  function renumberSets(setsDiv) {
+    Array.from(setsDiv.children).forEach((row, i) => {
+      const num = row.querySelector('.set-num');
+      if (num) num.textContent = 'Set ' + (i + 1);
+    });
+  }
+
+  function initExercise(exEl) {
+    const defaultLbs = parseFloat(exEl.dataset.lbs) || 0;
+    exEl.querySelector('.add-set-btn').addEventListener('click', () => {
+      const lastRow = exEl.querySelector('.sets').lastElementChild;
+      const lastLbs = lastRow ? parseFloat(lastRow.querySelector('.lbs')?.value) || defaultLbs : defaultLbs;
+      addSet(exEl, lastLbs);
+    });
+    exEl.querySelector('.custom-label-input').addEventListener('change', () => {
+      const label = exEl.querySelector('.custom-label-input').value.trim();
+      const setsDiv = exEl.querySelector('.sets');
+      Array.from(setsDiv.children).forEach(row => {
+        let cv = row.querySelector('.custom-val');
+        if (label && !cv) {
+          cv = document.createElement('input');
+          cv.type = 'text';
+          cv.className = 'custom-val';
+          cv.placeholder = label;
+          row.querySelector('.done-wrap').before(cv);
+        } else if (!label && cv) {
+          cv.remove();
+        } else if (label && cv) {
+          cv.placeholder = label;
+        }
+      });
+    });
+    seedSets(exEl);
+  }
+
+  document.querySelectorAll('.exercise').forEach(ex => {
+    ex.dataset.sets = ex.querySelectorAll('.set').length || '3';
+    initExercise(ex);
+  });
+
+  document.getElementById('addExBtn').addEventListener('click', () => {
+    const name = prompt('Exercise name:');
+    if (!name) return;
+    const exEl = document.createElement('div');
+    exEl.className = 'exercise';
+    exEl.dataset.id = 'custom_' + Date.now();
+    exEl.dataset.block = 'custom';
+    exEl.dataset.lbs = '0';
+    exEl.dataset.sets = '3';
+    exEl.innerHTML =
+      '<div class="ex-head"><input class="ex-name-input" type="text" value="' + name.replace(/"/g,'&quot;') + '" placeholder="Exercise name"></div>' +
+      '<input class="custom-label-input" type="text" placeholder="+ custom field label">' +
+      '<div class="sets"></div>' +
+      '<button type="button" class="add-set-btn ghost-sm">+ Add set</button>';
+    document.querySelector('.add-ex-wrap').before(exEl);
+    initExercise(exEl);
+  });
+
+  document.getElementById('finishBtn').addEventListener('click', () => {
+    const exercises = Array.from(document.querySelectorAll('.exercise')).map(exEl => ({
+      id: exEl.dataset.id,
+      name: exEl.querySelector('.ex-name-input').value,
+      blockId: exEl.dataset.block,
+      customLabel: exEl.querySelector('.custom-label-input').value.trim() || null,
+      sets: Array.from(exEl.querySelectorAll('.sets .set')).map(row => ({
+        lbs: parseFloat(row.querySelector('.lbs')?.value) || 0,
+        reps: parseInt(row.querySelector('.reps')?.value, 10) || 0,
+        done: row.querySelector('.done')?.checked || false,
+        custom: row.querySelector('.custom-val')?.value || null
+      }))
+    }));
+
+    fetch('/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: SESSION_ID, session_name: SESSION_NAME, exercises })
+    }).then(r => r.text()).then(html => {
+      document.open(); document.write(html); document.close();
+    });
+  });
+</script>
 </body>
 </html>`;
 }
@@ -203,24 +315,8 @@ app.get('/week', (req, res) => {
 });
 
 app.post('/finish', (req, res) => {
-  const { session_id, session_name, ex_count, ...fields } = req.body;
-  const count = parseInt(ex_count, 10);
-
-  const exercises = [];
-  for (let ei = 0; ei < count; ei++) {
-    const setCount = parseInt(fields[`ex_${ei}_sets_count`], 10);
-    const sets = [];
-    for (let si = 0; si < setCount; si++) {
-      sets.push({
-        lbs: parseFloat(fields[`ex_${ei}_set_${si}_lbs`]) || 0,
-        reps: parseInt(fields[`ex_${ei}_set_${si}_reps`], 10) || 0,
-        done: !!fields[`ex_${ei}_set_${si}_done`]
-      });
-    }
-    exercises.push({ id: fields[`ex_${ei}_id`], name: fields[`ex_${ei}_name`], blockId: fields[`ex_${ei}_block`], sets });
-  }
-
-  const doneSets = exercises.flatMap(e => e.sets).filter(s => s.done).length;
+  const { session_id, session_name, exercises } = req.body;
+  const doneSets = (exercises || []).flatMap(e => e.sets || []).filter(s => s.done).length;
   const finishedAt = new Date().toISOString();
 
   db.prepare('INSERT INTO sessions (session_id, session_name, finished_at, data) VALUES (?, ?, ?, ?)').run(
