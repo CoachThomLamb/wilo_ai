@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<!--
+  WILO tracker - v3  (2026-09-08)
+  squat-logger v2 + program loading.
+
+  - Loads a WILO program JSON (Program > Session > Blocks > Exercises)
+  - Seed program embedded below so this works as one offline file;
+    the Load button reads any wilo-program-seed.json from Files
+  - Target column shows the plan; you log actual against it
+  - Time-based exercises (dead hang) log secs instead of reps
+  - Exercises with a fallback (Smith OHP 50% ROM) get a Swap button
+  - Everything from v2 kept: photos, autosave, JSON sheet, Finish export
+
+  - Tap the photo slot under any exercise note to pick from the camera roll
+  - Images downscaled to 640px and stored as blobs in IndexedDB (not localStorage)
+  - Each exercise carries a stable pid key; renaming/reordering keeps its photo
+  - Object URLs revoked and re-minted per draw, so no leaks
+  - v1 drafts restore cleanly: missing photo keys are backfilled
+
+  Fixes after first device test (the blank slot + "Script error." pair):
+  - Slot is a button that calls input.click(), not a <label> wrapping a
+    hidden input. iOS Safari would not open the picker for display:none.
+  - IndexedDB is feature-detected and falls back to localStorage data URLs.
+    A sandboxed iframe gives an opaque origin and indexedDB.open() throws
+    SecurityError there; the unhandled rejection was the "Script error."
+  - A broken image can no longer collapse the slot to a 1px hairline.
+  - downscale() always resolves and can never hang on a stalled decode.
+  - Failures print to the on-screen status line and hold for 8s instead of
+    being wiped by the next autosave tick.
+-->
+
+<html lang="en">
+<head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, collection, query, orderBy, limit, where, getDocs } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+  console.log('[firebase] initializing');
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  const db = getFirestore(app, "wilo");
+  console.log('[firebase] firestore ready');
+
+  window.__db = db;
+  window.__setDoc = setDoc;
+  window.__doc = doc;
+
+  window.__loadFromCloud = async function() {
+    console.log('[firebase] fetching latest session');
+    try {
+      const q = query(collection(db, 'programs'), orderBy('finishedAt', 'desc'), limit(1));
+      const snap = await getDocs(q);
+      console.log('[firebase] query complete, empty:', snap.empty);
+      if (snap.empty) return null;
+      const raw = snap.docs[0].data();
+      console.log('[firebase] raw doc fields:', Object.keys(raw));
+      const data = raw.data ? JSON.parse(raw.data) : raw;
+      console.log('[firebase] got program:', data.sessions?.[0]?.name, data.finishedAt);
+      return data;
+    } catch (e) {
+      console.error('[firebase] fetch failed:', e.message);
+      return null;
+    }
+  };
+
+  window.__loadTodayProgram = async function() {
+    try {
+      const today = new Date();
+      const sun = new Date(today);
+      sun.setDate(today.getDate() - today.getDay());
+      const weekOf = sun.toISOString().slice(0, 10);
+      const dayOfWeek = today.getDay();
+
+      const q = query(collection(db, 'microcycles'), where('weekOf', '==', weekOf), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) { console.log('[today] no microcycle for week', weekOf); return null; }
+
+      const mc = snap.docs[0].data();
+      const prog = (mc.programs || []).find(p => p.day === dayOfWeek);
+      if (!prog) { console.log('[today] rest day'); return { restDay: true }; }
+
+      console.log('[today] loaded program:', prog.name);
+      return {
+        microcycleId: snap.docs[0].id,
+        program: { id: prog.id || prog.name, name: prog.name },
+        schedule: Object.fromEntries((mc.programs || []).map(p => [String(p.day), p.id || p.name])),
+        sessions: [{ id: prog.id || prog.name, name: prog.name, blocks: prog.blocks || [] }]
+      };
+    } catch (e) {
+      console.error('[today] failed:', e.message);
+      return null;
+    }
+  };
+
+  window.__loadWeekSessions = async function(startIso, endIso) {
+    try {
+      const q = query(
+        collection(db, 'sessions'),
+        where('finishedAt', '>=', startIso),
+        where('finishedAt', '<=', endIso),
+        orderBy('finishedAt', 'asc')
+      );
+      const snap = await getDocs(q);
+      const byDate = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const date = data.finishedAt ? data.finishedAt.slice(0, 10) : null;
+        if (date) byDate[date] = data;
+      });
+      return byDate;
+    } catch (e) {
+      console.error('[firebase] week query failed:', e.message);
+      return {};
+    }
+  };
+
+  console.log('[firebase] __loadFromCloud registered');
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO</title>
+<style>
+  :root {
+    --bg: #000;
+    --panel: #0e0e0f;
+    --field: #1c1c1e;
+    --line: #262628;
+    --text: #f2f2f7;
+    --dim: #7c7c82;
+    --accent: #0a84ff;
+    --done: #1f4a2c;
+    --done-line: #34c759;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; width: 100%; max-width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 400 17px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 100dvh;
+    height: var(--vvh, 100dvh);
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex: none;
+  }
+.saved { margin: 2px 0 0; font-size: 12px; color: var(--dim); }
+  .saved.ok { color: var(--done-line); }
+  .finish {
+    background: var(--accent); color: #fff; border: 0;
+    padding: 8px 20px; border-radius: 999px; font-size: 16px; font-weight: 500;
+  }
+
+  .hbtns { display: flex; align-items: center; gap: 8px; }
+  .ghost {
+    background: var(--field); color: var(--text); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
+  }
+  .block-head {
+    padding: 16px 16px 6px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .block-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--dim); }
+  .block-head p { margin: 4px 0 0; font-size: 14px; color: #5c5c62; }
+  .swap {
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
+    margin-top: 10px;
+  }
+  .swap.on { color: var(--done-line); border-color: var(--done-line); }
+  .stats {
+    display: flex; padding: 14px 16px; gap: 32px;
+    border-bottom: 1px solid var(--line); flex: none;
+  }
+  .stat span { display: block; color: var(--dim); font-size: 14px; margin-bottom: 3px; }
+  .stat strong { font-size: 21px; font-weight: 600; }
+
+  /* scrolling exercise list */
+  .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
+
+  .exercise { padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+  .exercise, .ex-head { min-width: 0; max-width: 100%; }
+  .ex-head { display: flex; align-items: flex-start; gap: 8px; }
+  .ex-name {
+    flex: 1 1 auto; min-width: 0; background: transparent; border: 0; padding: 0 0 4px;
+    color: var(--accent); font-family: inherit; font-size: 20px; font-weight: 600; line-height: 1.25;
+  }
+  .ex-note {
+    display: block; width: 100%; min-width: 0; max-width: 100%;
+    background: transparent; border: 0; padding: 0 0 14px;
+    color: var(--dim); font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
+  }
+  .ex-name:focus, .ex-note:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
+  .sess-name-input {
+    background: transparent; border: 0; padding: 0; width: 100%;
+    color: inherit; font-family: inherit; font-size: 28px; font-weight: 700; line-height: 1.2;
+  }
+  .sess-name-input:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
+  .ex-name::placeholder { color: #2d5c8a; }
+  .ex-note::placeholder { color: #4a4a4f; }
+  .kill {
+    background: none; border: 0; color: var(--dim);
+    font-size: 20px; line-height: 1; padding: 2px 4px;
+  }
+
+  table { width: 100%; max-width: 480px; border-collapse: collapse; table-layout: fixed; }
+  th { color: var(--dim); font-size: 13px; font-weight: 500; padding-bottom: 10px; text-align: center; }
+  td { padding: 4px 0; text-align: center; }
+  td:first-child { text-align: left; }
+
+  .setno {
+    width: 34px; height: 34px; margin: 0 auto; background: var(--field);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600;
+  }
+
+  input[type=number], input[type=text] {
+    width: 72px; height: 38px; background: var(--field); border: 0; border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 17px; font-weight: 500; text-align: center;
+    appearance: textfield; -moz-appearance: textfield;
+  }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .check { width: 44px; height: 36px; border: 0; border-radius: 8px; background: var(--field); color: var(--dim); font-size: 17px; }
+  tr.done .check { background: var(--done); color: var(--done-line); }
+  tr.done input[type=number], tr.done input[type=text] { background: var(--done); }
+
+  .add, .add-ex {
+    width: 100%; padding: 13px; background: var(--field); border: 0;
+    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px; font-weight: 400;
+  }
+  .add { margin-top: 14px; }
+  .add-ex-wrap { padding: 18px 16px; }
+  .add-ex { width: 100%; color: var(--accent); }
+
+  /* JSON sheet */
+  .json-btn {
+    position: fixed; right: 16px; bottom: 20px; z-index: 3;
+    background: var(--field); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 18px; border-radius: 999px;
+    font: 500 15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+  }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+    background: var(--panel); border-top: 1px solid var(--line);
+    height: 55vh; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform .28s cubic-bezier(.3,.8,.4,1);
+  }
+  .sheet.open { transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .sheet-head span { font-size: 13px; color: var(--dim); }
+  .sheet-head .last { color: var(--accent); font-family: ui-monospace, Menlo, monospace; }
+  .sheet-head button { background: none; border: 0; color: var(--accent); font-family: inherit; font-size: 16px; }
+  pre {
+    flex: 1; overflow: auto; margin: 0; padding: 12px 16px;
+    font: 400 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #a8d5ff; white-space: pre-wrap;
+  }
+
+  /* week view */
+  .week-view { display: none; flex: 1; overflow-y: auto; padding: 16px 8px; }
+  .week-view.open { display: block; }
+  .week-hdr { font-size: 13px; color: var(--dim); margin-bottom: 14px; padding: 0 8px; }
+  .week-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .week-table th { color: var(--dim); font-size: 12px; font-weight: 500; text-align: left; padding: 0 8px 10px; border-bottom: 1px solid var(--line); }
+  .week-table th:first-child { width: 52px; }
+  .week-table td { padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 14px; word-break: break-word; }
+  .week-day-name { font-weight: 600; font-size: 14px; }
+  .week-day-num { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+  .week-plan { color: var(--dim); }
+  .week-done { color: var(--done-line); }
+  .week-done.empty { color: #3a3a3e; }
+  .today-row td { background: rgba(10,132,255,0.07); }
+  .today-row .week-day-name { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">2026-09-13</div>
+    <input id="sessName" class="sess-name-input" value="WILO">
+    <p class="saved" id="saved">Not saved yet</p>
+  </div>
+  <div class="hbtns">
+    <button class="ghost" id="weekBtn">Week</button>
+    <button class="ghost" id="resetBtn">Reset</button>
+    <button class="ghost" id="loadBtn">Load</button>
+    <button class="ghost" id="cloudBtn">Today</button>
+    <button class="finish" id="finish">Finish</button>
+  </div>
+  <input type="file" accept="application/json,.json" id="progFile" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+</header>
+
+<div class="stats">
+  <div class="stat"><span>Volume</span><strong id="volume">0 lbs</strong></div>
+  <div class="stat"><span>Sets</span><strong id="setcount">0</strong></div>
+</div>
+
+<div class="list" id="list"></div>
+<div class="week-view" id="weekView"></div>
+
+<button class="json-btn" id="jsonBtn">{ }</button>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-head">
+    <span class="last" id="last">state</span>
+    <button id="closeSheet">Close</button>
+  </div>
+  <pre id="state"></pre>
+</div>
+
+<script>
+  let nextId = 1;
+  const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
+
+  // ---- embedded seed program ---------------------------------------
+  // Same shape as wilo-program-seed.json. Load replaces this at runtime.
+  const SEED = {
+    "program": { "id": "prog_2026_09", "name": "Shoulder rotation + lower" },
+    "schedule": { "1": "sess_shoulder_lower_a", "4": "sess_shoulder_lower_a" },
+    "sessions": [{
+      "id": "sess_shoulder_lower_a",
+      "name": "Shoulder rotation + lower fun",
+      "blocks": [
+        { "id": "blk_1", "name": "Part One \u2014 shoulder upward rotation",
+          "notes": "Low load, high attention. Nothing here should hurt.",
+          "exercises": [
+            { "id": "ex_dead_hang", "name": "Dead hang", "sets": 3,
+              "target": { "duration_sec": [20, 30] },
+              "cue": "Passive. Let the shoulders come to your ears." },
+            { "id": "ex_scap_pullup", "name": "Scapular pull-up", "sets": 3,
+              "target": { "reps": 8 },
+              "cue": "Shoulders down and back, elbows straight, slow." },
+            { "id": "ex_serratus_shrug", "name": "Serratus shrug", "sets": 3,
+              "target": { "reps": 10 },
+              "cue": "Protract and push, don't row." },
+            { "id": "ex_sword_raise", "name": "Sword raise", "sets": 2,
+              "target": { "reps": 12, "per_side": true }, "start_weight_lbs": 10,
+              "cue": "Hip to overhead on the diagonal, thumb leading. Light." },
+            { "id": "ex_smith_ohp", "name": "Smith overhead press", "sets": 3,
+              "target": { "reps": 8 },
+              "cue": "Stop at pain, log it, retry next session.",
+              "fallback": { "name": "Smith OHP \u2014 50% ROM + 1s hold", "sets": 3,
+                            "target": { "reps": 8 },
+                            "cue": "Half range, one-second hold at the top." } },
+            { "id": "ex_landmine_press", "name": "Landmine press", "sets": 2,
+              "target": { "reps": 10, "per_side": true },
+              "cue": "Elbow under the line of push." }
+          ] },
+        { "id": "blk_2", "name": "Part Two \u2014 lower fun",
+          "notes": "Hamstrings and glutes. Not knee-aggressive, not shoulder-dependent.",
+          "exercises": [
+            { "id": "ex_lying_leg_curl", "name": "Lying leg curl (machine)", "sets": 4,
+              "target": { "reps": 10 }, "start_weight_lbs": 90,
+              "cue": "Pointed toes. Weak side first, single-leg opening set." },
+            { "id": "ex_leg_extension", "name": "Leg extension (machine)", "sets": 3,
+              "target": { "reps": 12 }, "start_weight_lbs": 60,
+              "cue": "Light, pump-focused. One leg first, finish with two." },
+            { "id": "ex_bstance_rdl", "name": "B-stance RDL", "sets": 3,
+              "target": { "reps": 8, "per_side": true }, "start_weight_lbs": 30,
+              "cue": "Contralateral load." },
+            { "id": "ex_cranes", "name": "Cranes", "sets": 3,
+              "target": { "reps": 10 }, "load": "loaded",
+              "cue": "Start with both legs." }
+          ] }
+      ]
+    }]
+  };
+
+  // ---- program -> logging state -------------------------------------
+  function targetLabel(t, load) {
+    if (!t) return load || '\u2014';
+    if (t.duration_sec) return t.duration_sec[0] + '\u2013' + t.duration_sec[1] + ' sec';
+    let s = t.reps + (t.unit === 'round' ? ' round' : ' reps');
+    if (t.per_side) s += '/side';
+    if (load) s += ' \u00b7 ' + load;
+    return s;
+  }
+
+  function makeExercise(def, blockId) {
+    const timed = !!(def.target && def.target.duration_sec);
+    const tgt = targetLabel(def.target, def.load);
+    const defaultLbs = def.start_weight_lbs || 0;
+    const defaultReps = timed ? (def.target.duration_sec[0])
+                               : (def.target && def.target.reps ? def.target.reps : 10);
+    // def.sets can be a number (program) or an array of logged sets (export)
+    const sets = Array.isArray(def.sets)
+      ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
+      : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
+    return {
+      exId: def.id || uid(),
+      blockId,
+      timed,
+      name: def.name,
+      custom_name: def.custom_name || null,
+      note: def.cue || '',
+      target: tgt,
+      fallback: def.fallback || null,
+      swapped: false,
+      original: null,
+      sets
+    };
+  }
+
+  // The program the session came from, kept so Reset can rebuild from it.
+  let loadedProgram = SEED;
+
+  function loadProgram(doc) {
+    const sess = (doc.sessions && doc.sessions[0]) || null;
+    if (!sess) throw new Error('no session in file');
+    loadedProgram = doc;
+    state.sessionId = sess.id;
+    state.sessionName = sess.name;
+    state.blocks = (sess.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
+    state.exercises = [];
+    (sess.blocks || []).forEach(b => {
+      (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def, b.id)));
+    });
+    document.getElementById('sessName').value = sess.name || 'WILO';
+  }
+
+  const state = { sessionId: null, sessionName: '', blocks: [], exercises: [] };
+
+  const list = document.getElementById('list');
+  const sheet = document.getElementById('sheet');
+  let last = 'state';
+
+  function draw() {
+    list.innerHTML = '';
+    let currentBlock = null;
+    state.exercises.forEach((ex, e) => {
+      if (ex.blockId && ex.blockId !== currentBlock) {
+        currentBlock = ex.blockId;
+        const b = state.blocks.find(x => x.id === ex.blockId);
+        if (b) {
+          const h = document.createElement('div');
+          h.className = 'block-head';
+          h.innerHTML = `<h2>${esc(b.name)}</h2>` + (b.notes ? `<p>${esc(b.notes)}</p>` : '');
+          list.appendChild(h);
+        }
+      }
+      const unit = ex.timed ? 'secs' : 'reps';
+      const el = document.createElement('div');
+      el.className = 'exercise';
+      el.innerHTML = `
+        <div class="ex-head">
+          <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
+                 data-e="${e}" data-k="name">
+          <button class="kill" data-kill="${e}">&times;</button>
+        </div>
+        <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
+               data-e="${e}" data-k="note">
+        <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
+               data-e="${e}" data-k="custom_name">
+        <table>
+          <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
+          <tbody>${ex.sets.map((s, i) => `
+            <tr class="${s.done ? 'done' : ''}">
+              <td><div class="setno">${i + 1}</div></td>
+              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
+              <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
+              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
+              <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
+            </tr>`).join('')}</tbody>
+        </table>
+        <button class="add" data-add="${e}">+ Add Set</button>
+        ${ex.fallback || ex.swapped
+          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${e}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
+          : ''}`;
+      list.appendChild(el);
+    });
+    const wrap = document.createElement('div');
+    wrap.className = 'add-ex-wrap';
+    wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
+    list.appendChild(wrap);
+    sync();
+  }
+
+  function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+  function sync() {
+    const done = state.exercises.flatMap(x => x.sets).filter(s => s.done);
+    // Timed work has no meaningful tonnage - a 30-second hang isn't 30 reps.
+    const vol = state.exercises
+      .filter(x => !x.timed)
+      .flatMap(x => x.sets)
+      .filter(s => s.done)
+      .reduce((t, s) => t + s.lbs * s.reps, 0);
+    document.getElementById('volume').textContent = vol.toLocaleString() + ' lbs';
+    document.getElementById('setcount').textContent = done.length;
+    document.getElementById('state').textContent = JSON.stringify(state, null, 2);
+    document.getElementById('last').textContent = last;
+    if (typeof queueSave === 'function') queueSave();
+  }
+
+  list.addEventListener('blur', e => {
+    if (e.target.dataset.k === 'custom_name') draw();
+  }, true);
+
+  list.addEventListener('input', e => {
+    const el = e.target;
+    if (el.tagName !== 'INPUT') return;
+    const x = +el.dataset.e, k = el.dataset.k;
+    if (el.dataset.i !== undefined) {
+      const i = +el.dataset.i;
+      state.exercises[x].sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
+      last = `exercises[${x}].sets[${i}].${k} = ${state.exercises[x].sets[i][k]}`;
+      sync();
+    } else {
+      state.exercises[x][k] = el.value;
+      last = `exercises[${x}].${k}`;
+      sync();
+    }
+  });
+
+  list.addEventListener('click', e => {
+    const chk = e.target.closest('.check');
+    if (chk) {
+      const x = +chk.dataset.e, i = +chk.dataset.i;
+      const s = state.exercises[x].sets[i];
+      s.done = !s.done;
+      chk.closest('tr').classList.toggle('done', s.done);
+      last = `exercises[${x}].sets[${i}].done = ${s.done}`;
+      return sync();
+    }
+    const add = e.target.closest('[data-add]');
+    if (add) {
+      const x = +add.dataset.add;
+      const sets = state.exercises[x].sets;
+      const p = sets[sets.length - 1];
+      sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
+      last = `exercises[${x}].sets.push()`;
+      return draw();
+    }
+    const sw = e.target.closest('[data-swap]');
+    if (sw) {
+      const x = +sw.dataset.swap;
+      const ex = state.exercises[x];
+      if (!ex.swapped && ex.fallback) {
+        // Keep the original so coming back is one tap, not a reload.
+        ex.original = { name: ex.name, note: ex.note, target: ex.target, sets: ex.sets };
+        const f = ex.fallback;
+        ex.name = f.name;
+        ex.note = f.cue || ex.note;
+        ex.target = targetLabel(f.target, f.load);
+        ex.sets = Array.from({ length: f.sets || ex.sets.length },
+          () => ({ prev: ex.target, lbs: 0, reps: (f.target && f.target.reps) || 8, done: false }));
+        ex.swapped = true;
+      } else if (ex.original) {
+        Object.assign(ex, ex.original);
+        ex.swapped = false;
+        ex.original = null;
+      }
+      last = `exercises[${x}].swapped = ${ex.swapped}`;
+      return draw();
+    }
+    const kill = e.target.closest('[data-kill]');
+    if (kill) {
+      const x = +kill.dataset.kill;
+      last = `exercises.splice(${x}, 1)`;
+      state.exercises.splice(x, 1);
+      return draw();
+    }
+    if (e.target.id === 'addEx') {
+      const lastEx = state.exercises[state.exercises.length - 1];
+      state.exercises.push({
+        exId: uid(), blockId: lastEx ? lastEx.blockId : null,
+        timed: false, name: "", note: "", target: "\u2014",
+        fallback: null, swapped: false, original: null,
+        sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
+      });
+      last = `exercises.push() \u2192 ${state.exercises.length}`;
+      draw();
+      const inputs = list.querySelectorAll('.ex-name');
+      inputs[inputs.length - 1].focus();
+    }
+  });
+
+  document.getElementById('jsonBtn').addEventListener('click', () => sheet.classList.toggle('open'));
+  document.getElementById('closeSheet').addEventListener('click', () => sheet.classList.remove('open'));
+
+  // Lock the app to the visual viewport: the keyboard shrinks the scroll
+  // area instead of displacing the whole layout.
+  const vv = window.visualViewport;
+  function lockViewport() {
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--vvh', h + 'px');
+    window.scrollTo(0, 0);
+  }
+  if (vv) {
+    vv.addEventListener('resize', lockViewport);
+    vv.addEventListener('scroll', lockViewport);
+  }
+  window.addEventListener('resize', lockViewport);
+  lockViewport();
+
+  // iOS still nudges the document on focus; snap it back on the next frame.
+  document.addEventListener('focusin', () => {
+    requestAnimationFrame(() => { window.scrollTo(0, 0); lockViewport(); });
+  });
+
+  // ---- persistence -------------------------------------------------
+  const KEY = 'workout-log-draft';
+  const savedEl = document.getElementById('saved');
+
+  // One place to surface a problem. The status line is already on screen,
+  // which beats a console you can't open on a phone.
+  // Errors hold the line for a few seconds. Without this the autosave tick
+  // (400ms) overwrites the message with "Saved 3:57 PM" before it can be read.
+  let noteUntil = 0;
+  function note(msg) {
+    savedEl.textContent = msg;
+    savedEl.classList.remove('ok');
+    noteUntil = Date.now() + 8000;
+  }
+  window.addEventListener('error', ev => {
+    note('Error: ' + (ev.message || 'unknown') + (ev.lineno ? ' @' + ev.lineno : ''));
+  });
+  window.addEventListener('unhandledrejection', ev => {
+    const r = ev.reason;
+    note('Error: ' + (r && (r.name || r.message) ? (r.name || r.message) : r));
+  });
+  let saveTimer = null;
+
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), state }));
+      if (Date.now() < noteUntil) return;   // don't stomp a visible error
+      const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+      savedEl.textContent = 'Saved ' + t;
+      savedEl.classList.add('ok');
+    } catch (err) {
+      note("Couldn't save to this browser");
+    }
+  }
+
+  function queueSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 400);
+  }
+
+  function restore() {
+    let raw;
+    try { raw = localStorage.getItem(KEY); } catch (err) { return; }
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw);
+      if (!saved.state || !Array.isArray(saved.state.exercises)) return;
+      state.exercises = saved.state.exercises;
+      state.blocks = saved.state.blocks || [];
+      state.sessionId = saved.state.sessionId || null;
+      state.sessionName = saved.state.sessionName || '';
+      if (state.sessionName) document.getElementById('sessName').value = state.sessionName;
+      state.exercises.forEach(ex => {
+        if (ex.timed === undefined) ex.timed = false;
+        if (ex.swapped === undefined) ex.swapped = false;
+      });
+      const t = new Date(saved.savedAt).toLocaleString([], {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+      savedEl.textContent = 'Restored from ' + t;
+      savedEl.classList.add('ok');
+    } catch (err) { /* corrupt draft: start fresh */ }
+  }
+
+  function download() {
+    const stamp = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const progName = (state.sessionName || (loadedProgram && loadedProgram.program && loadedProgram.program.name) || 'workout').replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const dateStr = `${months[stamp.getMonth()]}${stamp.getDate()}`;
+    const name = `${progName}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${dateStr}.json`;
+
+    const blocks = state.blocks.map(b => ({
+      id: b.id,
+      name: b.name,
+      notes: b.notes || '',
+      exercises: state.exercises
+        .filter(ex => ex.blockId === b.id)
+        .map(ex => ({
+          id: ex.exId,
+          name: ex.name,
+          cue: ex.note || '',
+          custom_name: ex.custom_name || null,
+          timed: ex.timed,
+          swapped: ex.swapped,
+          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+        }))
+    }));
+
+    const payload = {
+      program: { id: state.sessionId, name: state.sessionName },
+      finishedAt: stamp.toISOString(),
+      sessions: [{
+        id: state.sessionId,
+        name: state.sessionName,
+        blocks
+      }]
+    };
+
+    if (window.__db && window.__doc && window.__setDoc) {
+      const docId = `${state.sessionId}-${stamp.getTime()}`;
+      window.__setDoc(window.__doc(window.__db, 'sessions', docId), payload)
+        .catch(err => note('Firestore save failed: ' + err.message));
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return name;
+  }
+
+  document.getElementById('finish').addEventListener('click', () => {
+    persist();
+    const name = download();
+    const today = new Date();
+    const dk = `workout-done-${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    try {
+      localStorage.setItem(dk, JSON.stringify({
+        sessionId: state.sessionId,
+        sessionName: state.sessionName,
+        finishedAt: today.toISOString(),
+        sets: +document.getElementById('setcount').textContent,
+        volume: document.getElementById('volume').textContent
+      }));
+    } catch {}
+    savedEl.textContent = 'Downloaded ' + name;
+    savedEl.classList.add('ok');
+  });
+
+  // ---- week view ---------------------------------------------------
+  const weekView = document.getElementById('weekView');
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  async function drawWeek() {
+    const schedule = loadedProgram.schedule || {};
+    const sessMap = {};
+    (loadedProgram.sessions || []).forEach(s => { sessMap[s.id] = s; });
+
+    const today = new Date();
+    const sun = new Date(today);
+    sun.setDate(today.getDate() - today.getDay());
+    const sunEnd = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate() + 6, 23, 59, 59);
+
+    const weekLabel = sun.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const endLabel = sunEnd.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    weekView.innerHTML = `<div class="week-hdr">Loading…</div>`;
+
+    const byDate = window.__loadWeekSessions
+      ? await window.__loadWeekSessions(sun.toISOString(), sunEnd.toISOString())
+      : {};
+
+    let rows = '';
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate() + d);
+      const isToday = date.toDateString() === today.toDateString();
+      const dk = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+      const sessId = schedule[String(d)];
+      const sess = sessId ? sessMap[sessId] : null;
+      const planLabel = sess ? esc(sess.name) : '<span style="color:#3a3a3e">Rest</span>';
+
+      let doneLabel = '<span class="week-done empty">—</span>';
+      const completed = byDate[dk];
+      if (completed) {
+        const name = esc(completed.sessions?.[0]?.name || completed.sessionName || '');
+        const blocks = completed.sessions?.[0]?.blocks || [];
+        const sets = blocks.flatMap(b => b.exercises || []).flatMap(e => e.sets || []).filter(s => s.done).length;
+        doneLabel = `<span class="week-done">${name}<br><span style="font-size:12px;color:var(--dim)">${sets} sets done</span></span>`;
+      }
+
+      rows += `<tr class="${isToday ? 'today-row' : ''}">
+        <td><span class="week-day-name">${DAYS[d]}</span><span class="week-day-num">${date.getDate()}</span></td>
+        <td class="week-plan">${planLabel}</td>
+        <td>${doneLabel}</td>
+      </tr>`;
+    }
+
+    weekView.innerHTML = `
+      <div class="week-hdr">Week of ${weekLabel} – ${endLabel}</div>
+      <table class="week-table">
+        <thead><tr><th>Day</th><th>Plan</th><th>Done</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  let weekOpen = false;
+  document.getElementById('weekBtn').addEventListener('click', () => {
+    weekOpen = !weekOpen;
+    document.getElementById('weekBtn').textContent = weekOpen ? 'Today' : 'Week';
+    weekView.classList.toggle('open', weekOpen);
+    document.getElementById('list').style.display = weekOpen ? 'none' : '';
+    document.querySelector('.stats').style.display = weekOpen ? 'none' : '';
+    document.getElementById('jsonBtn').style.display = weekOpen ? 'none' : '';
+    if (weekOpen) drawWeek();
+  });
+
+  // ---- program loading ----------------------------------------------
+  const progFile = document.getElementById('progFile');
+  document.getElementById('sessName').addEventListener('input', e => {
+    state.sessionName = e.target.value;
+  });
+
+  document.getElementById('loadBtn').addEventListener('click', () => progFile.click());
+  progFile.addEventListener('change', async () => {
+    const f = progFile.files && progFile.files[0];
+    progFile.value = '';
+    if (!f) return;
+    try {
+      const doc = JSON.parse(await f.text());
+      loadProgram(doc);
+      last = 'loaded ' + (state.sessionId || f.name);
+      draw();
+      note('Loaded ' + (state.sessionName || f.name));
+    } catch (err) {
+      note("Couldn't read that file: " + (err && err.message ? err.message : err));
+    }
+  });
+
+  // ---- reset ---------------------------------------------------------
+  // Without this the only way to clear a stale draft is the Files app.
+  // Resets to whatever program is currently loaded, so if you loaded a
+  // file this session you get that back, not the built-in seed.
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
+    const msg = logged
+      ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
+      : 'Reset to the program?';
+    if (!confirm(msg)) return;
+    try { localStorage.removeItem(KEY); } catch {}
+    loadProgram(loadedProgram);
+    last = 'reset to ' + (state.sessionId || 'program');
+    draw();
+    note('Reset to ' + (state.sessionName || 'program'));
+  });
+
+  async function loadToday() {
+    if (!window.__loadTodayProgram) { note('Not ready — try again'); return; }
+    note('Loading today…');
+    const data = await window.__loadTodayProgram();
+    if (!data) { note('No microcycle found for this week'); return; }
+    if (data.restDay) { note('Rest day — nothing scheduled today'); return; }
+    try {
+      loadProgram(data);
+      draw();
+      savedEl.textContent = "Today's workout loaded";
+      savedEl.classList.add('ok');
+      noteUntil = Date.now() + 4000;
+    } catch (e) {
+      note('Could not load program: ' + e.message);
+    }
+  }
+
+  document.getElementById('cloudBtn').addEventListener('click', loadToday);
+
+  // Boot from seed, restore any local draft.
+  loadProgram(SEED);
+  restore();
+  draw();
+
+  // Auto-load today's program from microcycle unless a draft is in progress.
+  setTimeout(async () => {
+    const hasDraft = !!state.exercises.flatMap(x => x.sets).find(s => s.done);
+    if (hasDraft) return;
+    await loadToday();
+  }, 600);
+</script>
+
+</body>
+</html>
