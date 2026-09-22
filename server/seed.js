@@ -15,6 +15,9 @@ const microcycle = {
           name: 'Upper',
           notes: 'Decline curl first — loads the scapula, makes bench feel better.',
           exercises: [
+            { id: 'ex_dead_hang', name: 'Dead hang', sets: 3, cue: 'Max time. Decompress the spine.', start_weight_lbs: 0 },
+            { id: 'ex_sword_raise', name: 'Sword raise', sets: 3, cue: 'Diagonal. Slow and controlled. 8 reps.', start_weight_lbs: 5 },
+            { id: 'ex_shrug', name: 'Shrug', sets: 3, cue: 'Full elevation. Hold at top.', start_weight_lbs: 160 },
             { id: 'ex_decline_curl', name: 'Decline biceps curl', sets: 3, cue: 'Full stretch at bottom.', start_weight_lbs: 20 },
             { id: 'ex_bench', name: 'Bench press', sets: 3, cue: 'Upper back already loaded from curls. Use it.', start_weight_lbs: 135 },
             { id: 'ex_ohp', name: 'Barbell overhead press', sets: 3, cue: 'Full lockout. Elbows forward at bottom.', start_weight_lbs: 65 },
