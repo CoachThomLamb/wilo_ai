@@ -498,22 +498,29 @@
     const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
 
-    const blocks = state.blocks.map(b => ({
-      id: b.id,
-      name: b.name,
-      notes: b.notes || '',
-      exercises: state.exercises
-        .filter(ex => ex.blockId === b.id)
-        .map(ex => ({
-          id: ex.exId,
-          name: ex.name,
-          cue: ex.note || '',
-          custom_name: ex.custom_name || null,
-          timed: ex.timed,
-          swapped: ex.swapped,
-          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    const serializeEx = ex => ({
+      id: ex.exId,
+      name: ex.name,
+      cue: ex.note || '',
+      custom_name: ex.custom_name || null,
+      timed: ex.timed,
+      swapped: ex.swapped,
+      sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    });
+
+    const blocks = state.blocks.length
+      ? state.blocks.map(b => ({
+          id: b.id,
+          name: b.name,
+          notes: b.notes || '',
+          exercises: state.exercises.filter(ex => ex.blockId === b.id).map(serializeEx)
         }))
-    }));
+      : [{
+          id: 'blk_default',
+          name: '',
+          notes: '',
+          exercises: state.exercises.map(serializeEx)
+        }];
 
     const payload = {
       program: { id: state.sessionId, name: state.sessionName },
