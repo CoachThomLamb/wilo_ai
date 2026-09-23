@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WILO Builder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  const db = getFirestore(app, "wilo");
+  window.__db = db;
+  window.__collection = collection;
+  window.__addDoc = addDoc;
+</script>
+<style>
+  :root {
+    --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
+    --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 400 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 20px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .stamp { font-size: 11px; color: #4caf50; margin-bottom: 16px; }
+  label { display: block; font-size: 12px; color: var(--dim); margin: 8px 0 4px; }
+  input[type=text], input[type=number], textarea {
+    width: 100%; background: var(--field); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    font: inherit;
+  }
+  textarea { min-height: 40px; resize: vertical; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .block, .ex {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; margin: 12px 0; background: var(--panel);
+  }
+  .ex { background: var(--field); margin: 8px 0; }
+  .head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .head strong { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  button {
+    background: var(--field); color: var(--text); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 999px; font: inherit; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { background: transparent; color: #ff453a; border-color: transparent; padding: 4px 8px; }
+  .actions { display: flex; gap: 8px; margin-top: 20px; }
+  .status { font-size: 13px; color: var(--dim); margin-top: 12px; }
+  .status.ok { color: #34c759; }
+  .status.err { color: #ff453a; }
+</style>
+</head>
+<body>
+  <h1>WILO Builder</h1>
+  <div class="stamp">v2026-09-23-001</div>
+
+  <label>Program name</label>
+  <input type="text" id="progName" placeholder="e.g. Shoulder rotation + lower">
+
+  <label>Session name</label>
+  <input type="text" id="sessName" placeholder="e.g. Monday A">
+
+  <div id="blocks"></div>
+
+  <div class="actions">
+    <button id="addBlock">+ Block</button>
+    <button id="save" class="primary">Save to Firestore</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+<script>
+  const uid = (p) => p + '-' + Math.random().toString(36).slice(2, 8);
+  const state = { blocks: [] };
+
+  function newBlock() {
+    return { id: uid('blk'), name: '', notes: '', exercises: [newExercise()] };
+  }
+  function newExercise() {
+    return { id: uid('ex'), name: '', sets: 3, reps: 8, cue: '', start_weight_lbs: '' };
+  }
+
+  function render() {
+    const root = document.getElementById('blocks');
+    root.innerHTML = '';
+    state.blocks.forEach((b, bi) => {
+      const div = document.createElement('div');
+      div.className = 'block';
+      div.innerHTML = `
+        <div class="head">
+          <strong>Block ${bi + 1}</strong>
+          <button class="danger" data-del-block="${bi}">Remove block</button>
+        </div>
+        <label>Block name</label>
+        <input type="text" data-block="${bi}" data-field="name" value="${escapeAttr(b.name)}">
+        <label>Notes</label>
+        <textarea data-block="${bi}" data-field="notes">${escapeText(b.notes)}</textarea>
+        <div data-exs="${bi}"></div>
+        <button data-add-ex="${bi}" style="margin-top:8px;">+ Exercise</button>
+      `;
+      root.appendChild(div);
+      const exRoot = div.querySelector(`[data-exs="${bi}"]`);
+      b.exercises.forEach((e, ei) => {
+        const ex = document.createElement('div');
+        ex.className = 'ex';
+        ex.innerHTML = `
+          <div class="head">
+            <strong>Exercise ${ei + 1}</strong>
+            <button class="danger" data-del-ex="${bi}:${ei}">Remove</button>
+          </div>
+          <label>Name</label>
+          <input type="text" data-ex="${bi}:${ei}" data-field="name" value="${escapeAttr(e.name)}">
+          <div class="row">
+            <div>
+              <label>Sets</label>
+              <input type="number" data-ex="${bi}:${ei}" data-field="sets" value="${e.sets}">
+            </div>
+            <div>
+              <label>Reps</label>
+              <input type="number" data-ex="${bi}:${ei}" data-field="reps" value="${e.reps}">
+            </div>
+            <div>
+              <label>Start weight (lbs)</label>
+              <input type="number" data-ex="${bi}:${ei}" data-field="start_weight_lbs" value="${e.start_weight_lbs}">
+            </div>
+          </div>
+          <label>Cue</label>
+          <input type="text" data-ex="${bi}:${ei}" data-field="cue" value="${escapeAttr(e.cue)}">
+        `;
+        exRoot.appendChild(ex);
+      });
+    });
+  }
+
+  function escapeAttr(s) { return String(s || '').replace(/"/g, '&quot;'); }
+  function escapeText(s) { return String(s || '').replace(/</g, '&lt;'); }
+
+  document.getElementById('blocks').addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.block !== undefined && t.dataset.field) {
+      state.blocks[+t.dataset.block][t.dataset.field] = t.value;
+    } else if (t.dataset.ex && t.dataset.field) {
+      const [bi, ei] = t.dataset.ex.split(':').map(Number);
+      const f = t.dataset.field;
+      state.blocks[bi].exercises[ei][f] = (t.type === 'number') ? (t.value === '' ? '' : Number(t.value)) : t.value;
+    }
+  });
+
+  document.getElementById('blocks').addEventListener('click', e => {
+    const t = e.target;
+    if (t.dataset.delBlock !== undefined) {
+      state.blocks.splice(+t.dataset.delBlock, 1); render();
+    } else if (t.dataset.delEx !== undefined) {
+      const [bi, ei] = t.dataset.delEx.split(':').map(Number);
+      state.blocks[bi].exercises.splice(ei, 1); render();
+    } else if (t.dataset.addEx !== undefined) {
+      state.blocks[+t.dataset.addEx].exercises.push(newExercise()); render();
+    }
+  });
+
+  document.getElementById('addBlock').addEventListener('click', () => {
+    state.blocks.push(newBlock()); render();
+  });
+
+  document.getElementById('save').addEventListener('click', async () => {
+    const status = document.getElementById('status');
+    status.className = 'status';
+    const progName = document.getElementById('progName').value.trim();
+    const sessName = document.getElementById('sessName').value.trim();
+    if (!progName || !sessName) {
+      status.textContent = 'Program and session name are required.';
+      status.classList.add('err'); return;
+    }
+    if (!state.blocks.length) {
+      status.textContent = 'Add at least one block.';
+      status.classList.add('err'); return;
+    }
+    const payload = {
+      program: { id: uid('prog'), name: progName },
+      sessions: [{
+        id: uid('sess'),
+        name: sessName,
+        blocks: state.blocks.map(b => ({
+          id: b.id,
+          name: b.name,
+          notes: b.notes,
+          exercises: b.exercises.map(e => {
+            const ex = { id: e.id, name: e.name, sets: Number(e.sets) || 0, target: { reps: Number(e.reps) || 0 } };
+            if (e.cue) ex.cue = e.cue;
+            if (e.start_weight_lbs !== '' && e.start_weight_lbs != null) ex.start_weight_lbs = Number(e.start_weight_lbs);
+            return ex;
+          })
+        }))
+      }],
+      finishedAt: new Date().toISOString()
+    };
+    try {
+      status.textContent = 'Saving…';
+      const ref = await window.__addDoc(window.__collection(window.__db, 'programs'), payload);
+      status.textContent = 'Saved as ' + ref.id;
+      status.classList.add('ok');
+    } catch (err) {
+      status.textContent = 'Save failed: ' + (err && err.message ? err.message : err);
+      status.classList.add('err');
+    }
+  });
+
+  state.blocks.push(newBlock());
+  render();
+</script>
+</body>
+</html>
