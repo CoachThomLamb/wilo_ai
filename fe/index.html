@@ -112,13 +112,6 @@
     margin-top: 10px;
   }
   .swap.on { color: var(--done-line); border-color: var(--done-line); }
-  .stats {
-    display: flex; padding: 14px 16px; gap: 32px;
-    border-bottom: 1px solid var(--line); flex: none;
-  }
-  .stat span { display: block; color: var(--dim); font-size: 14px; margin-bottom: 3px; }
-  .stat strong { font-size: 21px; font-weight: 600; }
-
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -222,11 +215,6 @@
     <button class="finish" id="finish">Finish</button>
   </div>
 </header>
-
-<div class="stats">
-  <div class="stat"><span>Volume</span><strong id="volume">0 lbs</strong></div>
-  <div class="stat"><span>Sets</span><strong id="setcount">0</strong></div>
-</div>
 
 <div class="list" id="list"></div>
 
@@ -409,15 +397,6 @@
   function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
   function sync() {
-    const done = state.exercises.flatMap(x => x.sets).filter(s => s.done);
-    // Timed work has no meaningful tonnage - a 30-second hang isn't 30 reps.
-    const vol = state.exercises
-      .filter(x => !x.timed)
-      .flatMap(x => x.sets)
-      .filter(s => s.done)
-      .reduce((t, s) => t + s.lbs * s.reps, 0);
-    document.getElementById('volume').textContent = vol.toLocaleString() + ' lbs';
-    document.getElementById('setcount').textContent = done.length;
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
     if (typeof queueSave === 'function') queueSave();
