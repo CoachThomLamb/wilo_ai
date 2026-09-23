@@ -33,7 +33,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
     authDomain: "wilo2-1ee44.firebaseapp.com",
@@ -46,6 +46,11 @@
   window.__db = db;
   window.__setDoc = setDoc;
   window.__doc = doc;
+  window.__collection = collection;
+  window.__getDocs = getDocs;
+  window.__query = query;
+  window.__orderBy = orderBy;
+  window.__limit = limit;
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -207,7 +212,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-11-002</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-23-001</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
@@ -216,7 +221,6 @@
     <button class="ghost" id="loadBtn">Load</button>
     <button class="finish" id="finish">Finish</button>
   </div>
-  <input type="file" accept="application/json,.json" id="progFile" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
 </header>
 
 <div class="stats">
@@ -649,24 +653,27 @@
   });
 
   // ---- program loading ----------------------------------------------
-  const progFile = document.getElementById('progFile');
   document.getElementById('sessName').addEventListener('input', e => {
     state.sessionName = e.target.value;
   });
 
-  document.getElementById('loadBtn').addEventListener('click', () => progFile.click());
-  progFile.addEventListener('change', async () => {
-    const f = progFile.files && progFile.files[0];
-    progFile.value = '';
-    if (!f) return;
+  document.getElementById('loadBtn').addEventListener('click', async () => {
     try {
-      const doc = JSON.parse(await f.text());
+      note('Loading latest program…');
+      const q = window.__query(
+        window.__collection(window.__db, 'programs'),
+        window.__orderBy('finishedAt', 'desc'),
+        window.__limit(1)
+      );
+      const snap = await window.__getDocs(q);
+      if (snap.empty) { note('No programs found'); return; }
+      const doc = snap.docs[0].data();
       loadProgram(doc);
-      last = 'loaded ' + (state.sessionId || f.name);
+      last = 'loaded ' + (state.sessionId || snap.docs[0].id);
       draw();
-      note('Loaded ' + (state.sessionName || f.name));
+      note('Loaded ' + (state.sessionName || snap.docs[0].id));
     } catch (err) {
-      note("Couldn't read that file: " + (err && err.message ? err.message : err));
+      note("Couldn't load program: " + (err && err.message ? err.message : err));
     }
   });
 
