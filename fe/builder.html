@@ -1,12 +1,39 @@
 <!DOCTYPE html>
+<!--
+  WILO tracker - v3  (2026-09-08)
+  squat-logger v2 + program loading.
+
+  - Loads a WILO program JSON (Program > Session > Blocks > Exercises)
+  - Seed program embedded below so this works as one offline file;
+    the Load button reads any wilo-program-seed.json from Files
+  - Target column shows the plan; you log actual against it
+  - Time-based exercises (dead hang) log secs instead of reps
+  - Exercises with a fallback (Smith OHP 50% ROM) get a Swap button
+  - Everything from v2 kept: photos, autosave, JSON sheet, Finish export
+
+  - Tap the photo slot under any exercise note to pick from the camera roll
+  - Images downscaled to 640px and stored as blobs in IndexedDB (not localStorage)
+  - Each exercise carries a stable pid key; renaming/reordering keeps its photo
+  - Object URLs revoked and re-minted per draw, so no leaks
+  - v1 drafts restore cleanly: missing photo keys are backfilled
+
+  Fixes after first device test (the blank slot + "Script error." pair):
+  - Slot is a button that calls input.click(), not a <label> wrapping a
+    hidden input. iOS Safari would not open the picker for display:none.
+  - IndexedDB is feature-detected and falls back to localStorage data URLs.
+    A sandboxed iframe gives an opaque origin and indexedDB.open() throws
+    SecurityError there; the unhandled rejection was the "Script error."
+  - A broken image can no longer collapse the slot to a 1px hairline.
+  - downscale() always resolves and can never hang on a stalled decode.
+  - Failures print to the on-screen status line and hold for 8s instead of
+    being wiped by the next autosave tick.
+-->
+
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>WILO Builder</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
     authDomain: "wilo2-1ee44.firebaseapp.com",
@@ -17,210 +44,540 @@
   });
   const db = getFirestore(app, "wilo");
   window.__db = db;
-  window.__collection = collection;
-  window.__addDoc = addDoc;
+  window.__setDoc = setDoc;
+  window.__doc = doc;
 </script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Builder</title>
 <style>
   :root {
-    --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
-    --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff;
+    --bg: #000;
+    --panel: #0e0e0f;
+    --field: #1c1c1e;
+    --line: #262628;
+    --text: #f2f2f7;
+    --dim: #7c7c82;
+    --accent: #0a84ff;
+    --done: #1f4a2c;
+    --done-line: #34c759;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; width: 100%; max-width: 100%; overflow-x: hidden; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 400 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    max-width: 900px; margin: 0 auto; padding: 20px;
+    background: var(--bg); color: var(--text);
+    font: 400 17px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 100dvh;
+    height: var(--vvh, 100dvh);
   }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .stamp { font-size: 11px; color: #4caf50; margin-bottom: 16px; }
-  label { display: block; font-size: 12px; color: var(--dim); margin: 8px 0 4px; }
-  input[type=text], input[type=number], textarea {
-    width: 100%; background: var(--field); color: var(--text);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
-    font: inherit;
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex: none;
   }
-  textarea { min-height: 40px; resize: vertical; }
-  .row { display: flex; gap: 8px; }
-  .row > * { flex: 1; }
-  .block, .ex {
-    border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px; margin: 12px 0; background: var(--panel);
+.saved { margin: 2px 0 0; font-size: 12px; color: var(--dim); }
+  .saved.ok { color: var(--done-line); }
+  .finish {
+    background: var(--accent); color: #fff; border: 0;
+    padding: 8px 20px; border-radius: 999px; font-size: 16px; font-weight: 500;
   }
-  .ex { background: var(--field); margin: 8px 0; }
-  .head {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 6px;
-  }
-  .head strong { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
-  button {
+
+  .hbtns { display: flex; align-items: center; gap: 8px; }
+  .ghost {
     background: var(--field); color: var(--text); border: 1px solid var(--line);
-    padding: 8px 14px; border-radius: 999px; font: inherit; cursor: pointer;
+    padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
   }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.danger { background: transparent; color: #ff453a; border-color: transparent; padding: 4px 8px; }
-  .actions { display: flex; gap: 8px; margin-top: 20px; }
-  .status { font-size: 13px; color: var(--dim); margin-top: 12px; }
-  .status.ok { color: #34c759; }
-  .status.err { color: #ff453a; }
+  .block-head {
+    padding: 16px 16px 6px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .block-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--dim); }
+  .block-head p { margin: 4px 0 0; font-size: 14px; color: #5c5c62; }
+  .swap {
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
+    margin-top: 10px;
+  }
+  .swap.on { color: var(--done-line); border-color: var(--done-line); }
+  .stats {
+    display: flex; padding: 14px 16px; gap: 32px;
+    border-bottom: 1px solid var(--line); flex: none;
+  }
+  .stat span { display: block; color: var(--dim); font-size: 14px; margin-bottom: 3px; }
+  .stat strong { font-size: 21px; font-weight: 600; }
+
+  /* scrolling exercise list */
+  .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
+
+  .exercise { padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+  .exercise, .ex-head { min-width: 0; max-width: 100%; }
+  .ex-head { display: flex; align-items: flex-start; gap: 8px; }
+  .ex-name {
+    flex: 1 1 auto; min-width: 0; background: transparent; border: 0; padding: 0 0 4px;
+    color: var(--accent); font-family: inherit; font-size: 20px; font-weight: 600; line-height: 1.25;
+  }
+  .ex-note {
+    display: block; width: 100%; min-width: 0; max-width: 100%;
+    background: transparent; border: 0; padding: 0 0 14px;
+    color: var(--dim); font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
+  }
+  .ex-name:focus, .ex-note:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
+  .sess-name-input {
+    background: transparent; border: 0; padding: 0; width: 100%;
+    color: inherit; font-family: inherit; font-size: 28px; font-weight: 700; line-height: 1.2;
+  }
+  .sess-name-input:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
+  .ex-name::placeholder { color: #2d5c8a; }
+  .ex-note::placeholder { color: #4a4a4f; }
+  .kill {
+    background: none; border: 0; color: var(--dim);
+    font-size: 20px; line-height: 1; padding: 2px 4px;
+  }
+
+  table { width: 100%; max-width: 480px; border-collapse: collapse; table-layout: fixed; }
+  th { color: var(--dim); font-size: 13px; font-weight: 500; padding-bottom: 10px; text-align: center; }
+  td { padding: 4px 0; text-align: center; }
+  td:first-child { text-align: left; }
+
+  .setno {
+    width: 34px; height: 34px; margin: 0 auto; background: var(--field);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600;
+  }
+
+  input[type=number], input[type=text] {
+    width: 72px; height: 38px; background: var(--field); border: 0; border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 17px; font-weight: 500; text-align: center;
+    appearance: textfield; -moz-appearance: textfield;
+  }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .check { width: 44px; height: 36px; border: 0; border-radius: 8px; background: var(--field); color: var(--dim); font-size: 17px; }
+  tr.done .check { background: var(--done); color: var(--done-line); }
+  tr.done input[type=number], tr.done input[type=text] { background: var(--done); }
+
+  .add, .add-ex {
+    width: 100%; padding: 13px; background: var(--field); border: 0;
+    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px; font-weight: 400;
+  }
+  .add { margin-top: 14px; }
+  .add-ex-wrap { padding: 18px 16px; }
+  .add-ex { width: 100%; color: var(--accent); }
+
+  /* JSON sheet */
+  .json-btn {
+    position: fixed; right: 16px; bottom: 20px; z-index: 3;
+    background: var(--field); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 18px; border-radius: 999px;
+    font: 500 15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+  }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+    background: var(--panel); border-top: 1px solid var(--line);
+    height: 55vh; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform .28s cubic-bezier(.3,.8,.4,1);
+  }
+  .sheet.open { transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .sheet-head span { font-size: 13px; color: var(--dim); }
+  .sheet-head .last { color: var(--accent); font-family: ui-monospace, Menlo, monospace; }
+  .sheet-head button { background: none; border: 0; color: var(--accent); font-family: inherit; font-size: 16px; }
+  pre {
+    flex: 1; overflow: auto; margin: 0; padding: 12px 16px;
+    font: 400 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #a8d5ff; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
-  <h1>WILO Builder</h1>
-  <div class="stamp">v2026-09-23-001</div>
 
-  <label>Program name</label>
-  <input type="text" id="progName" placeholder="e.g. Shoulder rotation + lower">
-
-  <label>Session name</label>
-  <input type="text" id="sessName" placeholder="e.g. Monday A">
-
-  <div id="blocks"></div>
-
-  <div class="actions">
-    <button id="addBlock">+ Block</button>
-    <button id="save" class="primary">Save to Firestore</button>
+<header>
+  <div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">builder v2026-09-23-001</div>
+    <input id="sessName" class="sess-name-input" placeholder="Untitled program">
+    <p class="saved" id="saved">Not saved yet</p>
   </div>
+  <div class="hbtns">
+    <button class="ghost" id="resetBtn">Reset</button>
+    <button class="finish" id="finish">Save</button>
+  </div>
+</header>
 
-  <div class="status" id="status"></div>
+<div class="stats">
+  <div class="stat"><span>Volume</span><strong id="volume">0 lbs</strong></div>
+  <div class="stat"><span>Sets</span><strong id="setcount">0</strong></div>
+</div>
+
+<div class="list" id="list"></div>
+
+<button class="json-btn" id="jsonBtn">{ }</button>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-head">
+    <span class="last" id="last">state</span>
+    <button id="closeSheet">Close</button>
+  </div>
+  <pre id="state"></pre>
+</div>
 
 <script>
-  const uid = (p) => p + '-' + Math.random().toString(36).slice(2, 8);
-  const state = { blocks: [] };
+  let nextId = 1;
+  const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
 
-  function newBlock() {
-    return { id: uid('blk'), name: '', notes: '', exercises: [newExercise()] };
-  }
-  function newExercise() {
-    return { id: uid('ex'), name: '', sets: 3, reps: 8, cue: '', start_weight_lbs: '' };
+  function targetLabel(t, load) {
+    if (!t) return load || '\u2014';
+    if (t.duration_sec) return t.duration_sec[0] + '\u2013' + t.duration_sec[1] + ' sec';
+    let s = t.reps + (t.unit === 'round' ? ' round' : ' reps');
+    if (t.per_side) s += '/side';
+    if (load) s += ' \u00b7 ' + load;
+    return s;
   }
 
-  function render() {
-    const root = document.getElementById('blocks');
-    root.innerHTML = '';
-    state.blocks.forEach((b, bi) => {
-      const div = document.createElement('div');
-      div.className = 'block';
-      div.innerHTML = `
-        <div class="head">
-          <strong>Block ${bi + 1}</strong>
-          <button class="danger" data-del-block="${bi}">Remove block</button>
+  const state = { sessionId: null, sessionName: '', blocks: [], exercises: [] };
+
+  const list = document.getElementById('list');
+  const sheet = document.getElementById('sheet');
+  let last = 'state';
+
+  function draw() {
+    list.innerHTML = '';
+    let currentBlock = null;
+    state.exercises.forEach((ex, e) => {
+      if (ex.blockId && ex.blockId !== currentBlock) {
+        currentBlock = ex.blockId;
+        const b = state.blocks.find(x => x.id === ex.blockId);
+        if (b) {
+          const h = document.createElement('div');
+          h.className = 'block-head';
+          h.innerHTML = `<h2>${esc(b.name)}</h2>` + (b.notes ? `<p>${esc(b.notes)}</p>` : '');
+          list.appendChild(h);
+        }
+      }
+      const unit = ex.timed ? 'secs' : 'reps';
+      const el = document.createElement('div');
+      el.className = 'exercise';
+      el.innerHTML = `
+        <div class="ex-head">
+          <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
+                 data-e="${e}" data-k="name">
+          <button class="kill" data-kill="${e}">&times;</button>
         </div>
-        <label>Block name</label>
-        <input type="text" data-block="${bi}" data-field="name" value="${escapeAttr(b.name)}">
-        <label>Notes</label>
-        <textarea data-block="${bi}" data-field="notes">${escapeText(b.notes)}</textarea>
-        <div data-exs="${bi}"></div>
-        <button data-add-ex="${bi}" style="margin-top:8px;">+ Exercise</button>
-      `;
-      root.appendChild(div);
-      const exRoot = div.querySelector(`[data-exs="${bi}"]`);
-      b.exercises.forEach((e, ei) => {
-        const ex = document.createElement('div');
-        ex.className = 'ex';
-        ex.innerHTML = `
-          <div class="head">
-            <strong>Exercise ${ei + 1}</strong>
-            <button class="danger" data-del-ex="${bi}:${ei}">Remove</button>
-          </div>
-          <label>Name</label>
-          <input type="text" data-ex="${bi}:${ei}" data-field="name" value="${escapeAttr(e.name)}">
-          <div class="row">
-            <div>
-              <label>Sets</label>
-              <input type="number" data-ex="${bi}:${ei}" data-field="sets" value="${e.sets}">
-            </div>
-            <div>
-              <label>Reps</label>
-              <input type="number" data-ex="${bi}:${ei}" data-field="reps" value="${e.reps}">
-            </div>
-            <div>
-              <label>Start weight (lbs)</label>
-              <input type="number" data-ex="${bi}:${ei}" data-field="start_weight_lbs" value="${e.start_weight_lbs}">
-            </div>
-          </div>
-          <label>Cue</label>
-          <input type="text" data-ex="${bi}:${ei}" data-field="cue" value="${escapeAttr(e.cue)}">
-        `;
-        exRoot.appendChild(ex);
-      });
+        <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
+               data-e="${e}" data-k="note">
+        <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
+               data-e="${e}" data-k="custom_name">
+        <table>
+          <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
+          <tbody>${ex.sets.map((s, i) => `
+            <tr class="${s.done ? 'done' : ''}">
+              <td><div class="setno">${i + 1}</div></td>
+              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
+              <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
+              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
+              <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
+            </tr>`).join('')}</tbody>
+        </table>
+        <button class="add" data-add="${e}">+ Add Set</button>
+        ${ex.fallback || ex.swapped
+          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${e}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
+          : ''}`;
+      list.appendChild(el);
     });
+    const wrap = document.createElement('div');
+    wrap.className = 'add-ex-wrap';
+    wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
+    list.appendChild(wrap);
+    sync();
   }
 
-  function escapeAttr(s) { return String(s || '').replace(/"/g, '&quot;'); }
-  function escapeText(s) { return String(s || '').replace(/</g, '&lt;'); }
+  function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-  document.getElementById('blocks').addEventListener('input', e => {
-    const t = e.target;
-    if (t.dataset.block !== undefined && t.dataset.field) {
-      state.blocks[+t.dataset.block][t.dataset.field] = t.value;
-    } else if (t.dataset.ex && t.dataset.field) {
-      const [bi, ei] = t.dataset.ex.split(':').map(Number);
-      const f = t.dataset.field;
-      state.blocks[bi].exercises[ei][f] = (t.type === 'number') ? (t.value === '' ? '' : Number(t.value)) : t.value;
+  function sync() {
+    const done = state.exercises.flatMap(x => x.sets).filter(s => s.done);
+    // Timed work has no meaningful tonnage - a 30-second hang isn't 30 reps.
+    const vol = state.exercises
+      .filter(x => !x.timed)
+      .flatMap(x => x.sets)
+      .filter(s => s.done)
+      .reduce((t, s) => t + s.lbs * s.reps, 0);
+    document.getElementById('volume').textContent = vol.toLocaleString() + ' lbs';
+    document.getElementById('setcount').textContent = done.length;
+    document.getElementById('state').textContent = JSON.stringify(state, null, 2);
+    document.getElementById('last').textContent = last;
+    if (typeof queueSave === 'function') queueSave();
+  }
+
+  list.addEventListener('blur', e => {
+    if (e.target.dataset.k === 'custom_name') draw();
+  }, true);
+
+  list.addEventListener('input', e => {
+    const el = e.target;
+    if (el.tagName !== 'INPUT') return;
+    const x = +el.dataset.e, k = el.dataset.k;
+    if (el.dataset.i !== undefined) {
+      const i = +el.dataset.i;
+      state.exercises[x].sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
+      last = `exercises[${x}].sets[${i}].${k} = ${state.exercises[x].sets[i][k]}`;
+      sync();
+    } else {
+      state.exercises[x][k] = el.value;
+      last = `exercises[${x}].${k}`;
+      sync();
     }
   });
 
-  document.getElementById('blocks').addEventListener('click', e => {
-    const t = e.target;
-    if (t.dataset.delBlock !== undefined) {
-      state.blocks.splice(+t.dataset.delBlock, 1); render();
-    } else if (t.dataset.delEx !== undefined) {
-      const [bi, ei] = t.dataset.delEx.split(':').map(Number);
-      state.blocks[bi].exercises.splice(ei, 1); render();
-    } else if (t.dataset.addEx !== undefined) {
-      state.blocks[+t.dataset.addEx].exercises.push(newExercise()); render();
+  list.addEventListener('click', e => {
+    const chk = e.target.closest('.check');
+    if (chk) {
+      const x = +chk.dataset.e, i = +chk.dataset.i;
+      const s = state.exercises[x].sets[i];
+      s.done = !s.done;
+      chk.closest('tr').classList.toggle('done', s.done);
+      last = `exercises[${x}].sets[${i}].done = ${s.done}`;
+      return sync();
+    }
+    const add = e.target.closest('[data-add]');
+    if (add) {
+      const x = +add.dataset.add;
+      const sets = state.exercises[x].sets;
+      const p = sets[sets.length - 1];
+      sets.push({ lbs: p ? p.lbs : '', reps: p ? p.reps : '', done: false, custom: null });
+      last = `exercises[${x}].sets.push()`;
+      return draw();
+    }
+    const sw = e.target.closest('[data-swap]');
+    if (sw) {
+      const x = +sw.dataset.swap;
+      const ex = state.exercises[x];
+      if (!ex.swapped && ex.fallback) {
+        // Keep the original so coming back is one tap, not a reload.
+        ex.original = { name: ex.name, note: ex.note, target: ex.target, sets: ex.sets };
+        const f = ex.fallback;
+        ex.name = f.name;
+        ex.note = f.cue || ex.note;
+        ex.target = targetLabel(f.target, f.load);
+        ex.sets = Array.from({ length: f.sets || ex.sets.length },
+          () => ({ prev: ex.target, lbs: 0, reps: (f.target && f.target.reps) || 8, done: false }));
+        ex.swapped = true;
+      } else if (ex.original) {
+        Object.assign(ex, ex.original);
+        ex.swapped = false;
+        ex.original = null;
+      }
+      last = `exercises[${x}].swapped = ${ex.swapped}`;
+      return draw();
+    }
+    const kill = e.target.closest('[data-kill]');
+    if (kill) {
+      const x = +kill.dataset.kill;
+      last = `exercises.splice(${x}, 1)`;
+      state.exercises.splice(x, 1);
+      return draw();
+    }
+    if (e.target.id === 'addEx') {
+      const lastEx = state.exercises[state.exercises.length - 1];
+      state.exercises.push({
+        exId: uid(), blockId: lastEx ? lastEx.blockId : null,
+        timed: false, name: "", note: "", target: "\u2014",
+        fallback: null, swapped: false, original: null,
+        sets: [{ lbs: '', reps: '', done: false, custom: null }]
+      });
+      last = `exercises.push() \u2192 ${state.exercises.length}`;
+      draw();
+      const inputs = list.querySelectorAll('.ex-name');
+      inputs[inputs.length - 1].focus();
     }
   });
 
-  document.getElementById('addBlock').addEventListener('click', () => {
-    state.blocks.push(newBlock()); render();
+  document.getElementById('jsonBtn').addEventListener('click', () => sheet.classList.toggle('open'));
+  document.getElementById('closeSheet').addEventListener('click', () => sheet.classList.remove('open'));
+
+  // Lock the app to the visual viewport: the keyboard shrinks the scroll
+  // area instead of displacing the whole layout.
+  const vv = window.visualViewport;
+  function lockViewport() {
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--vvh', h + 'px');
+    window.scrollTo(0, 0);
+  }
+  if (vv) {
+    vv.addEventListener('resize', lockViewport);
+    vv.addEventListener('scroll', lockViewport);
+  }
+  window.addEventListener('resize', lockViewport);
+  lockViewport();
+
+  // iOS still nudges the document on focus; snap it back on the next frame.
+  document.addEventListener('focusin', () => {
+    requestAnimationFrame(() => { window.scrollTo(0, 0); lockViewport(); });
   });
 
-  document.getElementById('save').addEventListener('click', async () => {
-    const status = document.getElementById('status');
-    status.className = 'status';
-    const progName = document.getElementById('progName').value.trim();
-    const sessName = document.getElementById('sessName').value.trim();
-    if (!progName || !sessName) {
-      status.textContent = 'Program and session name are required.';
-      status.classList.add('err'); return;
-    }
-    if (!state.blocks.length) {
-      status.textContent = 'Add at least one block.';
-      status.classList.add('err'); return;
-    }
-    const payload = {
-      program: { id: uid('prog'), name: progName },
-      sessions: [{
-        id: uid('sess'),
-        name: sessName,
-        blocks: state.blocks.map(b => ({
-          id: b.id,
-          name: b.name,
-          notes: b.notes,
-          exercises: b.exercises.map(e => {
-            const ex = { id: e.id, name: e.name, sets: Number(e.sets) || 0, target: { reps: Number(e.reps) || 0 } };
-            if (e.cue) ex.cue = e.cue;
-            if (e.start_weight_lbs !== '' && e.start_weight_lbs != null) ex.start_weight_lbs = Number(e.start_weight_lbs);
-            return ex;
-          })
-        }))
-      }],
-      finishedAt: new Date().toISOString()
-    };
+  // ---- persistence -------------------------------------------------
+  const KEY = 'workout-builder-draft';
+  const savedEl = document.getElementById('saved');
+
+  // One place to surface a problem. The status line is already on screen,
+  // which beats a console you can't open on a phone.
+  // Errors hold the line for a few seconds. Without this the autosave tick
+  // (400ms) overwrites the message with "Saved 3:57 PM" before it can be read.
+  let noteUntil = 0;
+  function note(msg) {
+    savedEl.textContent = msg;
+    savedEl.classList.remove('ok');
+    noteUntil = Date.now() + 8000;
+  }
+  window.addEventListener('error', ev => {
+    note('Error: ' + (ev.message || 'unknown') + (ev.lineno ? ' @' + ev.lineno : ''));
+  });
+  window.addEventListener('unhandledrejection', ev => {
+    const r = ev.reason;
+    note('Error: ' + (r && (r.name || r.message) ? (r.name || r.message) : r));
+  });
+  let saveTimer = null;
+
+  function persist() {
     try {
-      status.textContent = 'Saving…';
-      const ref = await window.__addDoc(window.__collection(window.__db, 'programs'), payload);
-      status.textContent = 'Saved as ' + ref.id;
-      status.classList.add('ok');
+      localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), state }));
+      if (Date.now() < noteUntil) return;   // don't stomp a visible error
+      const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+      savedEl.textContent = 'Saved ' + t;
+      savedEl.classList.add('ok');
     } catch (err) {
-      status.textContent = 'Save failed: ' + (err && err.message ? err.message : err);
-      status.classList.add('err');
+      note("Couldn't save to this browser");
     }
+  }
+
+  function queueSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 400);
+  }
+
+  function restore() {
+    let raw;
+    try { raw = localStorage.getItem(KEY); } catch (err) { return; }
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw);
+      if (!saved.state || !Array.isArray(saved.state.exercises)) return;
+      state.exercises = saved.state.exercises;
+      state.blocks = saved.state.blocks || [];
+      state.sessionId = saved.state.sessionId || null;
+      state.sessionName = saved.state.sessionName || '';
+      if (state.sessionName) document.getElementById('sessName').value = state.sessionName;
+      state.exercises.forEach(ex => {
+        if (ex.timed === undefined) ex.timed = false;
+        if (ex.swapped === undefined) ex.swapped = false;
+      });
+      const t = new Date(saved.savedAt).toLocaleString([], {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+      savedEl.textContent = 'Restored from ' + t;
+      savedEl.classList.add('ok');
+    } catch (err) { /* corrupt draft: start fresh */ }
+  }
+
+  function download() {
+    const stamp = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const slug = `${state.sessionName || ''}-${state.sessionId || 'workout'}`.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
+                 `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
+
+    const blocks = state.blocks.map(b => ({
+      id: b.id,
+      name: b.name,
+      notes: b.notes || '',
+      exercises: state.exercises
+        .filter(ex => ex.blockId === b.id)
+        .map(ex => ({
+          id: ex.exId,
+          name: ex.name,
+          cue: ex.note || '',
+          custom_name: ex.custom_name || null,
+          timed: ex.timed,
+          swapped: ex.swapped,
+          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+        }))
+    }));
+
+    const payload = {
+      program: { id: state.sessionId, name: state.sessionName },
+      finishedAt: stamp.toISOString(),
+      sessions: [{
+        id: state.sessionId,
+        name: state.sessionName,
+        blocks
+      }]
+    };
+
+    if (window.__db && window.__doc && window.__setDoc) {
+      const docId = `${state.sessionId || 'prog'}-${stamp.getTime()}`;
+      window.__setDoc(window.__doc(window.__db, 'programs', docId), payload)
+        .catch(err => note('Firestore save failed: ' + err.message));
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return name;
+  }
+
+  document.getElementById('finish').addEventListener('click', () => {
+    persist();
+    const name = download();
+    savedEl.textContent = 'Downloaded ' + name;
+    savedEl.classList.add('ok');
   });
 
-  state.blocks.push(newBlock());
-  render();
+  // ---- program loading ----------------------------------------------
+  document.getElementById('sessName').addEventListener('input', e => {
+    state.sessionName = e.target.value;
+  });
+
+  // ---- reset ---------------------------------------------------------
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    const n = state.exercises.length;
+    const msg = n
+      ? `Discard ${n} exercise${n === 1 ? '' : 's'} and start over?`
+      : 'Clear the builder?';
+    if (!confirm(msg)) return;
+    try { localStorage.removeItem(KEY); } catch {}
+    state.sessionId = 'prog_' + Date.now();
+    state.sessionName = '';
+    state.blocks = [];
+    state.exercises = [];
+    document.getElementById('sessName').value = '';
+    last = 'reset';
+    draw();
+    note('Cleared');
+  });
+
+  // Boot empty, then let any saved draft override.
+  state.sessionId = 'prog_' + Date.now();
+  restore();
+  draw();
 </script>
+
 </body>
 </html>
