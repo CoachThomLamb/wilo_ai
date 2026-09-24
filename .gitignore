@@ -72,3 +72,6 @@ prior-art/runpod/venv
 .agents/
 .claude/skills/
 
+# Local Firestore document dumps (see scripts/fetch_session.py)
+data/
+
