@@ -218,7 +218,6 @@
 </header>
 
 <div class="stats">
-  <div class="stat"><span>Volume</span><strong id="volume">0 lbs</strong></div>
   <div class="stat"><span>Sets</span><strong id="setcount">0</strong></div>
 </div>
 
@@ -308,13 +307,6 @@
 
   function sync() {
     const done = state.exercises.flatMap(x => x.sets).filter(s => s.done);
-    // Timed work has no meaningful tonnage - a 30-second hang isn't 30 reps.
-    const vol = state.exercises
-      .filter(x => !x.timed)
-      .flatMap(x => x.sets)
-      .filter(s => s.done)
-      .reduce((t, s) => t + s.lbs * s.reps, 0);
-    document.getElementById('volume').textContent = vol.toLocaleString() + ' lbs';
     document.getElementById('setcount').textContent = done.length;
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
