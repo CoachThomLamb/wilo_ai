@@ -33,7 +33,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
     authDomain: "wilo2-1ee44.firebaseapp.com",
@@ -46,11 +46,6 @@
   window.__db = db;
   window.__setDoc = setDoc;
   window.__doc = doc;
-  window.__collection = collection;
-  window.__getDocs = getDocs;
-  window.__query = query;
-  window.__orderBy = orderBy;
-  window.__limit = limit;
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,7 +54,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta charset="utf-8">
-<title>WILO</title>
+<title>WILO Builder</title>
 <style>
   :root {
     --bg: #000;
@@ -112,6 +107,13 @@
     margin-top: 10px;
   }
   .swap.on { color: var(--done-line); border-color: var(--done-line); }
+  .stats {
+    display: flex; padding: 14px 16px; gap: 32px;
+    border-bottom: 1px solid var(--line); flex: none;
+  }
+  .stat span { display: block; color: var(--dim); font-size: 14px; margin-bottom: 3px; }
+  .stat strong { font-size: 21px; font-weight: 600; }
+
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -205,16 +207,20 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-23-001</div>
-    <input id="sessName" class="sess-name-input" value="WILO">
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">builder v2026-09-23-001</div>
+    <input id="sessName" class="sess-name-input" placeholder="Untitled program">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
-    <button class="ghost" id="loadBtn">Load</button>
-    <button class="finish" id="finish">Finish</button>
+    <button class="finish" id="finish">Save</button>
   </div>
 </header>
+
+<div class="stats">
+  <div class="stat"><span>Volume</span><strong id="volume">0 lbs</strong></div>
+  <div class="stat"><span>Sets</span><strong id="setcount">0</strong></div>
+</div>
 
 <div class="list" id="list"></div>
 
@@ -232,60 +238,6 @@
   let nextId = 1;
   const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
 
-  // ---- embedded seed program ---------------------------------------
-  // Same shape as wilo-program-seed.json. Load replaces this at runtime.
-  const SEED = {
-    "program": { "id": "prog_2026_09", "name": "Shoulder rotation + lower" },
-    "sessions": [{
-      "id": "sess_shoulder_lower_a",
-      "name": "Shoulder rotation + lower fun",
-      "blocks": [
-        { "id": "blk_1", "name": "Part One \u2014 shoulder upward rotation",
-          "notes": "Low load, high attention. Nothing here should hurt.",
-          "exercises": [
-            { "id": "ex_dead_hang", "name": "Dead hang", "sets": 3,
-              "target": { "duration_sec": [20, 30] },
-              "cue": "Passive. Let the shoulders come to your ears." },
-            { "id": "ex_scap_pullup", "name": "Scapular pull-up", "sets": 3,
-              "target": { "reps": 8 },
-              "cue": "Shoulders down and back, elbows straight, slow." },
-            { "id": "ex_serratus_shrug", "name": "Serratus shrug", "sets": 3,
-              "target": { "reps": 10 },
-              "cue": "Protract and push, don't row." },
-            { "id": "ex_sword_raise", "name": "Sword raise", "sets": 2,
-              "target": { "reps": 12, "per_side": true }, "start_weight_lbs": 10,
-              "cue": "Hip to overhead on the diagonal, thumb leading. Light." },
-            { "id": "ex_smith_ohp", "name": "Smith overhead press", "sets": 3,
-              "target": { "reps": 8 },
-              "cue": "Stop at pain, log it, retry next session.",
-              "fallback": { "name": "Smith OHP \u2014 50% ROM + 1s hold", "sets": 3,
-                            "target": { "reps": 8 },
-                            "cue": "Half range, one-second hold at the top." } },
-            { "id": "ex_landmine_press", "name": "Landmine press", "sets": 2,
-              "target": { "reps": 10, "per_side": true },
-              "cue": "Elbow under the line of push." }
-          ] },
-        { "id": "blk_2", "name": "Part Two \u2014 lower fun",
-          "notes": "Hamstrings and glutes. Not knee-aggressive, not shoulder-dependent.",
-          "exercises": [
-            { "id": "ex_lying_leg_curl", "name": "Lying leg curl (machine)", "sets": 4,
-              "target": { "reps": 10 }, "start_weight_lbs": 90,
-              "cue": "Pointed toes. Weak side first, single-leg opening set." },
-            { "id": "ex_leg_extension", "name": "Leg extension (machine)", "sets": 3,
-              "target": { "reps": 12 }, "start_weight_lbs": 60,
-              "cue": "Light, pump-focused. One leg first, finish with two." },
-            { "id": "ex_bstance_rdl", "name": "B-stance RDL", "sets": 3,
-              "target": { "reps": 8, "per_side": true }, "start_weight_lbs": 30,
-              "cue": "Contralateral load." },
-            { "id": "ex_cranes", "name": "Cranes", "sets": 3,
-              "target": { "reps": 10 }, "load": "loaded",
-              "cue": "Start with both legs." }
-          ] }
-      ]
-    }]
-  };
-
-  // ---- program -> logging state -------------------------------------
   function targetLabel(t, load) {
     if (!t) return load || '\u2014';
     if (t.duration_sec) return t.duration_sec[0] + '\u2013' + t.duration_sec[1] + ' sec';
@@ -293,48 +245,6 @@
     if (t.per_side) s += '/side';
     if (load) s += ' \u00b7 ' + load;
     return s;
-  }
-
-  function makeExercise(def, blockId) {
-    const timed = !!(def.target && def.target.duration_sec);
-    const tgt = targetLabel(def.target, def.load);
-    const defaultLbs = def.start_weight_lbs || 0;
-    const defaultReps = timed ? (def.target.duration_sec[0])
-                               : (def.target && def.target.reps ? def.target.reps : 10);
-    // def.sets can be a number (program) or an array of logged sets (export)
-    const sets = Array.isArray(def.sets)
-      ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
-      : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
-    return {
-      exId: def.id || uid(),
-      blockId,
-      timed,
-      name: def.name,
-      custom_name: def.custom_name || null,
-      note: def.cue || '',
-      target: tgt,
-      fallback: def.fallback || null,
-      swapped: false,
-      original: null,
-      sets
-    };
-  }
-
-  // The program the session came from, kept so Reset can rebuild from it.
-  let loadedProgram = SEED;
-
-  function loadProgram(doc) {
-    const sess = (doc.sessions && doc.sessions[0]) || null;
-    if (!sess) throw new Error('no session in file');
-    loadedProgram = doc;
-    state.sessionId = sess.id;
-    state.sessionName = sess.name;
-    state.blocks = (sess.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
-    state.exercises = [];
-    (sess.blocks || []).forEach(b => {
-      (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def, b.id)));
-    });
-    document.getElementById('sessName').value = sess.name || 'WILO';
   }
 
   const state = { sessionId: null, sessionName: '', blocks: [], exercises: [] };
@@ -397,6 +307,15 @@
   function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
   function sync() {
+    const done = state.exercises.flatMap(x => x.sets).filter(s => s.done);
+    // Timed work has no meaningful tonnage - a 30-second hang isn't 30 reps.
+    const vol = state.exercises
+      .filter(x => !x.timed)
+      .flatMap(x => x.sets)
+      .filter(s => s.done)
+      .reduce((t, s) => t + s.lbs * s.reps, 0);
+    document.getElementById('volume').textContent = vol.toLocaleString() + ' lbs';
+    document.getElementById('setcount').textContent = done.length;
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
     if (typeof queueSave === 'function') queueSave();
@@ -437,7 +356,7 @@
       const x = +add.dataset.add;
       const sets = state.exercises[x].sets;
       const p = sets[sets.length - 1];
-      sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
+      sets.push({ lbs: p ? p.lbs : '', reps: p ? p.reps : '', done: false, custom: null });
       last = `exercises[${x}].sets.push()`;
       return draw();
     }
@@ -476,7 +395,7 @@
         exId: uid(), blockId: lastEx ? lastEx.blockId : null,
         timed: false, name: "", note: "", target: "\u2014",
         fallback: null, swapped: false, original: null,
-        sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
+        sets: [{ lbs: '', reps: '', done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
       draw();
@@ -509,7 +428,7 @@
   });
 
   // ---- persistence -------------------------------------------------
-  const KEY = 'workout-log-draft';
+  const KEY = 'workout-builder-draft';
   const savedEl = document.getElementById('saved');
 
   // One place to surface a problem. The status line is already on screen,
@@ -579,22 +498,29 @@
     const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
 
-    const blocks = state.blocks.map(b => ({
-      id: b.id,
-      name: b.name,
-      notes: b.notes || '',
-      exercises: state.exercises
-        .filter(ex => ex.blockId === b.id)
-        .map(ex => ({
-          id: ex.exId,
-          name: ex.name,
-          cue: ex.note || '',
-          custom_name: ex.custom_name || null,
-          timed: ex.timed,
-          swapped: ex.swapped,
-          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    const serializeEx = ex => ({
+      id: ex.exId,
+      name: ex.name,
+      cue: ex.note || '',
+      custom_name: ex.custom_name || null,
+      timed: ex.timed,
+      swapped: ex.swapped,
+      sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    });
+
+    const blocks = state.blocks.length
+      ? state.blocks.map(b => ({
+          id: b.id,
+          name: b.name,
+          notes: b.notes || '',
+          exercises: state.exercises.filter(ex => ex.blockId === b.id).map(serializeEx)
         }))
-    }));
+      : [{
+          id: 'blk_default',
+          name: '',
+          notes: '',
+          exercises: state.exercises.map(serializeEx)
+        }];
 
     const payload = {
       program: { id: state.sessionId, name: state.sessionName },
@@ -607,8 +533,8 @@
     };
 
     if (window.__db && window.__doc && window.__setDoc) {
-      const docId = `${state.sessionId}-${stamp.getTime()}`;
-      window.__setDoc(window.__doc(window.__db, 'sessions', docId), payload)
+      const docId = `${state.sessionId || 'prog'}-${stamp.getTime()}`;
+      window.__setDoc(window.__doc(window.__db, 'programs', docId), payload)
         .catch(err => note('Firestore save failed: ' + err.message));
     }
 
@@ -636,45 +562,26 @@
     state.sessionName = e.target.value;
   });
 
-  document.getElementById('loadBtn').addEventListener('click', async () => {
-    try {
-      note('Loading latest program…');
-      const q = window.__query(
-        window.__collection(window.__db, 'programs'),
-        window.__orderBy('finishedAt', 'desc'),
-        window.__limit(1)
-      );
-      const snap = await window.__getDocs(q);
-      if (snap.empty) { note('No programs found'); return; }
-      const doc = snap.docs[0].data();
-      loadProgram(doc);
-      last = 'loaded ' + (state.sessionId || snap.docs[0].id);
-      draw();
-      note('Loaded ' + (state.sessionName || snap.docs[0].id));
-    } catch (err) {
-      note("Couldn't load program: " + (err && err.message ? err.message : err));
-    }
-  });
-
   // ---- reset ---------------------------------------------------------
-  // Without this the only way to clear a stale draft is the Files app.
-  // Resets to whatever program is currently loaded, so if you loaded a
-  // file this session you get that back, not the built-in seed.
   document.getElementById('resetBtn').addEventListener('click', () => {
-    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-    const msg = logged
-      ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
-      : 'Reset to the program?';
+    const n = state.exercises.length;
+    const msg = n
+      ? `Discard ${n} exercise${n === 1 ? '' : 's'} and start over?`
+      : 'Clear the builder?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadProgram(loadedProgram);
-    last = 'reset to ' + (state.sessionId || 'program');
+    state.sessionId = 'prog_' + Date.now();
+    state.sessionName = '';
+    state.blocks = [];
+    state.exercises = [];
+    document.getElementById('sessName').value = '';
+    last = 'reset';
     draw();
-    note('Reset to ' + (state.sessionName || 'program'));
+    note('Cleared');
   });
 
-  // Boot from the embedded seed, then let any saved draft override it.
-  loadProgram(SEED);
+  // Boot empty, then let any saved draft override.
+  state.sessionId = 'prog_' + Date.now();
   restore();
   draw();
 </script>
