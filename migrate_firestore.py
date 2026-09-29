@@ -18,10 +18,13 @@ except ValueError:
 
 db = firestore.client(database_id='wilo')
 
-def migrate_collection(source_collection, target_collection):
+def migrate_collection(source_collection, target_collection, timestamp_field=None):
     """
     Migrate from source to target collection.
     Extracts sessions[0] from each document and writes to target.
+
+    timestamp_field: if 'assignedFor', rename program's finishedAt to assignedFor.
+                     if 'finishedAt', keep program's finishedAt as finishedAt.
     """
     print(f"\nMigrating {source_collection} → {target_collection}...")
 
@@ -47,9 +50,9 @@ def migrate_collection(source_collection, target_collection):
             'blocks': session.get('blocks', [])
         }
 
-        # Preserve finishedAt from program level if it exists
-        if 'finishedAt' in program:
-            new_doc['finishedAt'] = program['finishedAt']
+        # Preserve timestamp from program level with appropriate field name
+        if 'finishedAt' in program and timestamp_field:
+            new_doc[timestamp_field] = program['finishedAt']
 
         # Preserve any extra fields from the session
         for key in session:
@@ -67,11 +70,11 @@ def migrate_collection(source_collection, target_collection):
 if __name__ == '__main__':
     print("Starting Firestore migration...")
 
-    # Migrate programs → assigned
-    programs_count = migrate_collection('programs', 'assigned')
+    # Migrate programs → assigned (rename finishedAt to assignedFor)
+    programs_count = migrate_collection('programs', 'assigned', timestamp_field='assignedFor')
 
-    # Migrate sessions → completed
-    sessions_count = migrate_collection('sessions', 'completed')
+    # Migrate sessions → completed (keep finishedAt)
+    sessions_count = migrate_collection('sessions', 'completed', timestamp_field='finishedAt')
 
     print(f"\n✓ Migration complete!")
     print(f"  assigned: {programs_count} docs")
