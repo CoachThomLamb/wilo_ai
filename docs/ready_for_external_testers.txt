@@ -1,0 +1,5 @@
+**WILO — Ready for External Testers Checklist**
+
+Things to do before letting anyone else use this:
+
+[ ] Firestore security rules — lock down write access (auth or rate limiting)

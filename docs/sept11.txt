@@ -1,0 +1,31 @@
+**WILO — Day Notes, Sept 11**
+
+**What got done**
+- Confirmed export → load roundtrip works on phone (was broken: old flat schema didn't match what loadProgram() expected)
+- Fixed makeExercise() to handle sets as either a number (program JSON) or array (session export)
+- done flag now carries through on reload (was hardcoded false)
+- Session title is now editable inline, flows through to export and filename
+- Filename format changed to date-first: YYYY-MM-DD-HHmm-name-id.json
+- Added custom_name / custom fields to schema — UI wired, column appears when custom_name is set
+- custom_name input blurs before redraw so typing doesn't break focus
+- lbs column hidden for timed exercises
+- Removed Target column entirely — sets array is the single source of truth
+- Removed photos entirely (-264 lines) — IndexedDB, downscale, paintPhotos, all gone
+- Simplified export: reads from state only, no more defById / loadedProgram lookup
+- Table layout cleaned up: equal columns, centered headers, Set left-aligned
+- 4 cleanup fixes: duplicate viewport meta, dead CSS rule, missing custom:null on ad-hoc sets, header indent
+- Repo tidied: code/ → prior-art/runpod/, devops/ → prior-art/version_2/, dev-ops/ → docs/dev-ops/
+- admin-agent/ deleted (not needed — flat JSON files replace Qdrant for now)
+- .gitignore updated: prior-art/runpod/venv, .agents/, .claude/skills/
+- README updated with Claude skills reinstall instructions
+- Dev branch pushed to GitHub
+
+**Where things stand**
+- Export/load loop is solid. One schema, in and out.
+- Sets array is the single source of truth — what was planned and what happened live in the same place
+- Coach is still Claude on the phone — paste session JSON in, get next workout JSON back
+- That's enough to take to the gym
+
+**Next**
+- Take it to the gym once and run the coaching loop manually
+- See if the output is actually useful
