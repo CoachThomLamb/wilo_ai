@@ -245,13 +245,12 @@
   let nextId = 1;
   const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
 
-  // ---- embedded seed program ---------------------------------------
-  // Same shape as wilo-program-seed.json. Load replaces this at runtime.
+  // ---- embedded seed workout ----------------------------------------
+  // assigned: the workout plan. completed: what actually happened (created on Finish).
   const SEED = {
-    "program": { "id": "prog_2026_09", "name": "Shoulder rotation + lower" },
-    "sessions": [{
-      "id": "sess_shoulder_lower_a",
-      "name": "Shoulder rotation + lower fun",
+    "assigned": {
+      "id": "prog_2026_09",
+      "name": "Shoulder rotation + lower",
       "blocks": [
         { "id": "blk_1", "name": "Part One \u2014 shoulder upward rotation",
           "notes": "Low load, high attention. Nothing here should hurt.",
@@ -295,7 +294,8 @@
               "cue": "Start with both legs." }
           ] }
       ]
-    }]
+    },
+    "completed": null
   };
 
   // ---- program -> logging state -------------------------------------
@@ -330,24 +330,23 @@
     };
   }
 
-  // The program the session came from, kept so Reset can rebuild from it.
-  let loadedProgram = SEED;
+  // The assigned workout, kept so Reset can rebuild from it.
+  let loadedWorkout = SEED.assigned;
 
-  function loadProgram(doc) {
-    const sess = (doc.sessions && doc.sessions[0]) || null;
-    if (!sess) throw new Error('no session in file');
-    loadedProgram = doc;
-    state.sessionId = sess.id;
-    state.sessionName = sess.name;
-    state.blocks = (sess.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
+  function loadWorkout(assigned) {
+    if (!assigned || !assigned.id) throw new Error('invalid workout');
+    loadedWorkout = assigned;
+    state.workoutId = assigned.id;
+    state.workoutName = assigned.name;
+    state.blocks = (assigned.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
     state.exercises = [];
-    (sess.blocks || []).forEach(b => {
+    (assigned.blocks || []).forEach(b => {
       (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def, b.id)));
     });
-    document.getElementById('sessName').textContent = sess.name || 'WILO';
+    document.getElementById('sessName').textContent = assigned.name || 'WILO';
   }
 
-  const state = { sessionId: null, sessionName: '', blocks: [], exercises: [] };
+  const state = { workoutId: null, workoutName: '', blocks: [], exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -787,9 +786,9 @@
       if (!saved.state || !Array.isArray(saved.state.exercises)) return;
       state.exercises = saved.state.exercises;
       state.blocks = saved.state.blocks || [];
-      state.sessionId = saved.state.sessionId || null;
-      state.sessionName = saved.state.sessionName || '';
-      if (state.sessionName) document.getElementById('sessName').textContent = state.sessionName;
+      state.workoutId = saved.state.workoutId || null;
+      state.workoutName = saved.state.workoutName || '';
+      if (state.workoutName) document.getElementById('sessName').textContent = state.workoutName;
       // Older drafts predate these fields; backfill so draw() doesn't trip.
       state.exercises.forEach(ex => {
         if (!ex.pid) ex.pid = uid();
@@ -808,17 +807,18 @@
   function download() {
     const stamp = new Date();
     const pad = n => String(n).padStart(2, '0');
-    const slug = (state.sessionId || 'workout').replace(/[^a-z0-9_-]/gi, '');
+    const slug = (state.workoutId || 'workout').replace(/[^a-z0-9_-]/gi, '');
     const name = `${slug}-${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.json`;
+    // Create a completed workout document with the same structure as assigned,
+    // but with logged performance data.
     const payload = {
-      sessionId: state.sessionId,
-      sessionName: state.sessionName,
+      id: state.workoutId,
+      name: state.workoutName,
       finishedAt: stamp.toISOString(),
       volume: document.getElementById('volume').textContent,
       completedSets: +document.getElementById('setcount').textContent,
-      // Plan vs actual: planned is what the program asked for, sets are
-      // what happened. Same shape, so a diff is trivial downstream.
+      blocks: state.blocks,
       exercises: state.exercises.map(ex => ({
         exId: ex.exId, blockId: ex.blockId, name: ex.name,
         planned: ex.target, swapped: ex.swapped, timed: ex.timed,
@@ -845,7 +845,7 @@
     savedEl.classList.add('ok');
   });
 
-  // ---- program loading ----------------------------------------------
+  // ---- workout loading ----------------------------------------------
   const progFile = document.getElementById('progFile');
   document.getElementById('loadBtn').addEventListener('click', () => progFile.click());
   progFile.addEventListener('change', async () => {
@@ -854,10 +854,12 @@
     if (!f) return;
     try {
       const doc = JSON.parse(await f.text());
-      loadProgram(doc);
-      last = 'loaded ' + (state.sessionId || f.name);
+      // Support both: { assigned: {...} } and direct workout format { id, name, blocks }
+      const assigned = doc.assigned || doc;
+      loadWorkout(assigned);
+      last = 'loaded ' + (state.workoutId || f.name);
       draw();
-      note('Loaded ' + (state.sessionName || f.name));
+      note('Loaded ' + (state.workoutName || f.name));
     } catch (err) {
       note("Couldn't read that file: " + (err && err.message ? err.message : err));
     }
@@ -865,23 +867,23 @@
 
   // ---- reset ---------------------------------------------------------
   // Without this the only way to clear a stale draft is the Files app.
-  // Resets to whatever program is currently loaded, so if you loaded a
+  // Resets to whatever workout is currently loaded, so if you loaded a
   // file this session you get that back, not the built-in seed.
   document.getElementById('resetBtn').addEventListener('click', () => {
     const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
     const msg = logged
       ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
-      : 'Reset to the program?';
+      : 'Reset to the assigned workout?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadProgram(loadedProgram);
-    last = 'reset to ' + (state.sessionId || 'program');
+    loadWorkout(loadedWorkout);
+    last = 'reset to ' + (state.workoutId || 'workout');
     draw();
-    note('Reset to ' + (state.sessionName || 'program'));
+    note('Reset to ' + (state.workoutName || 'assigned'));
   });
 
   // Boot from the embedded seed, then let any saved draft override it.
-  loadProgram(SEED);
+  loadWorkout(SEED.assigned);
   restore();
   draw();
 </script>
