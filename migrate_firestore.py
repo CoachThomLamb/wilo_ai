@@ -30,6 +30,7 @@ def migrate_collection(source_collection, target_collection):
 
     for doc in docs:
         data = doc.to_dict()
+        program = data.get('program', {})
         sessions = data.get('sessions', [])
 
         if not sessions:
@@ -45,6 +46,10 @@ def migrate_collection(source_collection, target_collection):
             'name': session.get('name'),
             'blocks': session.get('blocks', [])
         }
+
+        # Preserve finishedAt from program level if it exists
+        if 'finishedAt' in program:
+            new_doc['finishedAt'] = program['finishedAt']
 
         # Preserve any extra fields from the session
         for key in session:
