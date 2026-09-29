@@ -52,9 +52,9 @@ def migrate_collection(source_collection, target_collection, timestamp_field=Non
                 'blocks': session.get('blocks', [])
             }
 
-            # Preserve timestamp from program level with appropriate field name
-            if 'finishedAt' in program and timestamp_field:
-                new_doc[timestamp_field] = program['finishedAt']
+            # Preserve timestamp from root level with appropriate field name
+            if 'finishedAt' in data and timestamp_field:
+                new_doc[timestamp_field] = data['finishedAt']
 
             # Preserve any extra fields from the session
             for key in session:
