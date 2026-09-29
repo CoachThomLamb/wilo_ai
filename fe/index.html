@@ -546,13 +546,7 @@
       id: state.workoutId,
       name: state.workoutName,
       finishedAt: stamp.toISOString(),
-      blocks,
-      exercises: state.exercises.map(ex => ({
-        exId: ex.exId, blockId: ex.blockId, name: ex.name,
-        planned: ex.target, swapped: ex.swapped, timed: ex.timed,
-        note: ex.note,
-        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done }))
-      }))
+      blocks
     };
 
     if (window.__db && window.__doc && window.__setDoc) {
