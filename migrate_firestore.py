@@ -16,7 +16,7 @@ try:
 except ValueError:
     firebase_admin.initialize_app()
 
-db = firestore.client(database='wilo')
+db = firestore.client(database_id='wilo')
 
 def migrate_collection(source_collection, target_collection):
     """
@@ -29,7 +29,7 @@ def migrate_collection(source_collection, target_collection):
     count = 0
 
     for doc in docs:
-        data = doc.data()
+        data = doc.to_dict()
         sessions = data.get('sessions', [])
 
         if not sessions:
