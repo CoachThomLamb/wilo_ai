@@ -99,8 +99,6 @@ def flatten_blocks(collection_name):
             exercises = []
             for block in blocks:
                 for ex in block.get('exercises', []):
-                    # Preserve blockId for reference if needed
-                    ex['blockId'] = block.get('id')
                     exercises.append(ex)
 
             # Create flattened document
