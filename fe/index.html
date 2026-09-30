@@ -426,11 +426,16 @@
       }
     }
     if (e.target.id === 'addEx') {
-      const lastEx = state.exercises[state.exercises.length - 1];
       state.exercises.push({
-        exId: uid(), blockId: lastEx ? lastEx.blockId : null,
-        timed: false, name: "", note: "", target: "\u2014",
-        fallback: null, swapped: false, original: null,
+        instanceId: uid(),
+        exId: '',
+        timed: false,
+        name: '',
+        custom_name: null,
+        note: '',
+        fallback: null,
+        swapped: false,
+        original: null,
         sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
