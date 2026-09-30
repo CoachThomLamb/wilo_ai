@@ -10,6 +10,7 @@ program + sessions layers), extracts the session data, and writes to new
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
+import re
 
 # Initialize Firebase (uses GOOGLE_APPLICATION_CREDENTIALS env var)
 try:
@@ -126,7 +127,7 @@ def flatten_blocks(collection_name):
 
                     flattened_ex = {
                         'instanceId': ex_id,  # Firestore's id becomes instanceId
-                        'exId': name.lower().replace(' ', '-').replace('_', '-'),  # derive from name
+                        'exId': re.sub(r'[^a-z0-9-]', '', re.sub(r'\s+', '-', name.lower())),
                         'name': name,
                         'timed': ex.get('timed', False),
                         'custom_name': ex.get('custom_name'),

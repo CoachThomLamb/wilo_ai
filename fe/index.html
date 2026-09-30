@@ -255,7 +255,8 @@
       ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
       : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
 
-    // Derive exId from name if not provided, or use provided exId
+    // Standard exId derivation: lowercase → replace whitespace with dash → remove non-alphanumeric+dash
+    // Used in makeExercise, restore(), and migration script for consistency
     const deriveExId = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     const exId = def.exId || deriveExId(def.name || '');
 
@@ -521,7 +522,7 @@
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
         if (!ex.instanceId) ex.instanceId = uid();
-        if (!ex.exId && ex.name) ex.exId = ex.name.toLowerCase().replace(/\s+/g, '-');
+        if (!ex.exId && ex.name) ex.exId = ex.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         if (ex.timed === undefined) ex.timed = false;
         if (ex.swapped === undefined) ex.swapped = false;
       });
