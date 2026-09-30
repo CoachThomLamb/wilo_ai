@@ -75,6 +75,66 @@ def migrate_collection(source_collection, target_collection, timestamp_field=Non
         print(f"  {len(errors)} errors encountered")
     return count, errors
 
+def flatten_blocks(collection_name):
+    """
+    Flatten blocks into a direct exercises array.
+    Removes blocks layer, keeps exercises at root level with blockId preserved.
+    """
+    print(f"\nFlattening blocks in {collection_name} collection...")
+
+    docs = db.collection(collection_name).stream()
+    count = 0
+    errors = []
+
+    for doc in docs:
+        try:
+            data = doc.to_dict()
+            blocks = data.get('blocks', [])
+
+            if not blocks:
+                print(f"  ⚠ {doc.id}: no blocks found, skipping")
+                continue
+
+            # Flatten: extract all exercises from blocks into a single array
+            exercises = []
+            for block in blocks:
+                for ex in block.get('exercises', []):
+                    # Preserve blockId for reference if needed
+                    ex['blockId'] = block.get('id')
+                    exercises.append(ex)
+
+            # Create flattened document
+            flattened = {
+                'id': data.get('id'),
+                'name': data.get('name'),
+                'exercises': exercises
+            }
+
+            # Preserve timestamp fields
+            if 'assignedFor' in data:
+                flattened['assignedFor'] = data['assignedFor']
+            if 'finishedAt' in data:
+                flattened['finishedAt'] = data['finishedAt']
+
+            # Preserve any other fields
+            for key in data:
+                if key not in ['id', 'name', 'blocks', 'exercises', 'assignedFor', 'finishedAt']:
+                    flattened[key] = data[key]
+
+            # Write back to same document (overwrites)
+            db.collection(collection_name).document(doc.id).set(flattened)
+            print(f"  ✓ {doc.id}: flattened ({len(exercises)} exercises)")
+            count += 1
+        except Exception as e:
+            error_msg = f"  ✗ {doc.id}: {str(e)}"
+            print(error_msg)
+            errors.append(error_msg)
+
+    print(f"Flattened {count} documents")
+    if errors:
+        print(f"  {len(errors)} errors encountered")
+    return count, errors
+
 def validate_collection(target_collection, timestamp_field):
     """
     Validate all documents in the target collection.
@@ -95,14 +155,14 @@ def validate_collection(target_collection, timestamp_field):
             failures.append(f"{doc.id}: empty document")
             continue
 
-        # Check required fields
+        # Check required fields (for flattened structure)
         missing = []
         if not data.get('id'):
             missing.append('id')
         if not data.get('name'):
             missing.append('name')
-        if 'blocks' not in data:
-            missing.append('blocks')
+        if 'exercises' not in data:
+            missing.append('exercises')
         if timestamp_field and timestamp_field not in data:
             missing.append(timestamp_field)
 
@@ -127,30 +187,45 @@ if __name__ == '__main__':
 
     all_errors = []
 
-    # Migrate programs → assigned (rename finishedAt to assignedFor)
+    # Phase 1: Migrate programs → assigned and sessions → completed (if needed)
+    print("Phase 1: Initial migration (programs/sessions → assigned/completed)")
     programs_count, programs_errors = migrate_collection('programs', 'assigned', timestamp_field='assignedFor')
     all_errors.extend(programs_errors)
 
-    # Migrate sessions → completed (keep finishedAt)
     sessions_count, sessions_errors = migrate_collection('sessions', 'completed', timestamp_field='finishedAt')
     all_errors.extend(sessions_errors)
 
     print(f"\n{'='*60}")
-    print(f"Migration Summary:")
+    print(f"Phase 1 Summary:")
     print(f"  assigned: {programs_count} docs")
     print(f"  completed: {sessions_count} docs")
     if all_errors:
         print(f"  total errors: {len(all_errors)}")
     print(f"{'='*60}")
 
-    # Validate migrated data
+    # Phase 2: Flatten blocks in assigned/completed
+    print("\n\nPhase 2: Flatten blocks in assigned/completed collections")
+    assigned_flatten_count, assigned_flatten_errors = flatten_blocks('assigned')
+    all_errors.extend(assigned_flatten_errors)
+
+    completed_flatten_count, completed_flatten_errors = flatten_blocks('completed')
+    all_errors.extend(completed_flatten_errors)
+
     print(f"\n{'='*60}")
+    print(f"Phase 2 Summary:")
+    print(f"  assigned: {assigned_flatten_count} docs flattened")
+    print(f"  completed: {completed_flatten_count} docs flattened")
+    print(f"{'='*60}")
+
+    # Validate flattened data
+    print(f"\n{'='*60}")
+    print("Validating flattened structure...")
     assigned_valid, assigned_invalid, assigned_failures = validate_collection('assigned', 'assignedFor')
     completed_valid, completed_invalid, completed_failures = validate_collection('completed', 'finishedAt')
     print(f"{'='*60}")
 
     print(f"\n{'='*60}")
-    print(f"Validation Summary:")
+    print(f"Final Validation Summary:")
     print(f"  assigned: {assigned_valid} valid, {assigned_invalid} invalid")
     print(f"  completed: {completed_valid} valid, {completed_invalid} invalid")
 
