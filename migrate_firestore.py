@@ -78,7 +78,8 @@ def migrate_collection(source_collection, target_collection, timestamp_field=Non
 def flatten_blocks(collection_name):
     """
     Flatten blocks into a direct exercises array.
-    Removes blocks layer, keeps exercises at root level with blockId preserved.
+    Removes blocks layer, keeps exercises at root level.
+    Renames exercise id → instanceId, derives exId from name.
     """
     print(f"\nFlattening blocks in {collection_name} collection...")
 
@@ -99,7 +100,31 @@ def flatten_blocks(collection_name):
             exercises = []
             for block in blocks:
                 for ex in block.get('exercises', []):
-                    exercises.append(ex)
+                    # Transform exercise structure:
+                    # - id → instanceId
+                    # - derive exId from name
+                    name = ex.get('name', '')
+                    ex_id = ex.get('id')
+
+                    flattened_ex = {
+                        'instanceId': ex_id,  # Firestore's id becomes instanceId
+                        'exId': name.lower().replace(' ', '-').replace('_', '-'),  # derive from name
+                        'name': name,
+                        'timed': ex.get('timed', False),
+                        'custom_name': ex.get('custom_name'),
+                        'note': ex.get('note', ''),
+                        'fallback': ex.get('fallback'),
+                        'swapped': ex.get('swapped', False),
+                        'original': ex.get('original'),
+                        'sets': ex.get('sets', [])
+                    }
+
+                    # Copy any other fields not explicitly handled
+                    for key in ex:
+                        if key not in ['id', 'name', 'timed', 'custom_name', 'note', 'fallback', 'swapped', 'original', 'sets']:
+                            flattened_ex[key] = ex[key]
+
+                    exercises.append(flattened_ex)
 
             # Create flattened document
             flattened = {
@@ -161,6 +186,15 @@ def validate_collection(target_collection, timestamp_field):
             missing.append('name')
         if 'exercises' not in data:
             missing.append('exercises')
+        else:
+            # Check exercises have required fields
+            for i, ex in enumerate(data.get('exercises', [])):
+                if not ex.get('instanceId'):
+                    missing.append(f'exercises[{i}].instanceId')
+                if not ex.get('exId'):
+                    missing.append(f'exercises[{i}].exId')
+                if not ex.get('name'):
+                    missing.append(f'exercises[{i}].name')
         if timestamp_field and timestamp_field not in data:
             missing.append(timestamp_field)
 
