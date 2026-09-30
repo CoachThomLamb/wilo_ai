@@ -10,6 +10,7 @@ program + sessions layers), extracts the session data, and writes to new
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
+import hashlib
 import re
 
 # Initialize Firebase (uses GOOGLE_APPLICATION_CREDENTIALS env var)
@@ -20,19 +21,19 @@ except ValueError:
 
 db = firestore.client(database_id='wilo')
 
-def generate_doc_name(timestamp_str, workout_name):
+def generate_doc_name(timestamp_str, workout_name, source_id):
     """
-    Generate document name from timestamp and workout name.
-    Format: DD-mmm-HH:MM-XXXXX where XXXXX is first 5 chars of name
+    Generate document name from timestamp, workout name, and source doc ID.
+    Format: DD-mmm-HH:MM-XXXXX-YYYY where XXXXX is first 5 chars of name,
+    YYYY is first 4 chars of sha1(source_id) — deterministic so re-running
+    the migration produces the same target ID (idempotent).
     """
     try:
-        # Parse ISO timestamp
         dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-        # Format: 27-sep-14:30
         date_time = dt.strftime('%d-%b-%H:%M').lower()
-        # First 5 chars of name, sanitized
         name_slug = workout_name[:5].lower().replace(' ', '-')
-        return f"{date_time}-{name_slug}"
+        suffix = hashlib.sha1(source_id.encode()).hexdigest()[:4]
+        return f"{date_time}-{name_slug}-{suffix}"
     except Exception as e:
         print(f"  Warning: couldn't generate name from {timestamp_str}: {e}")
         return None
@@ -166,7 +167,7 @@ def flatten_blocks(collection_name):
             # Generate new document name based on timestamp and workout name
             timestamp_field = 'assignedFor' if collection_name == 'assigned' else 'finishedAt'
             timestamp = flattened.get(timestamp_field)
-            new_doc_name = generate_doc_name(timestamp, flattened.get('name', 'workout')) if timestamp else None
+            new_doc_name = generate_doc_name(timestamp, flattened.get('name', 'workout'), doc.id) if timestamp else None
 
             if new_doc_name:
                 # Write to new document name
