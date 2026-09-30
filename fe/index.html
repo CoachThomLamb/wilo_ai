@@ -558,7 +558,12 @@
     };
 
     if (window.__db && window.__doc && window.__setDoc) {
-      const docId = `${state.workoutId}-${stamp.getTime()}`;
+      const day = pad(stamp.getDate());
+      const month = stamp.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+      const hour = pad(stamp.getHours());
+      const minute = pad(stamp.getMinutes());
+      const nameSlug = (state.workoutName || 'workout').slice(0, 5).toLowerCase().replace(/\s+/g, '-');
+      const docId = `${day}-${month}-${hour}:${minute}-${nameSlug}`;
       window.__setDoc(window.__doc(window.__db, 'completed', docId), payload)
         .catch(err => note('Firestore save failed: ' + err.message));
     }
