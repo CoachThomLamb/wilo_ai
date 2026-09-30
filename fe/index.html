@@ -245,9 +245,8 @@
     return s;
   }
 
-  function makeExercise(def, blockId) {
+  function makeExercise(def) {
     const timed = !!(def.target && def.target.duration_sec);
-    const tgt = targetLabel(def.target, def.load);
     const defaultLbs = def.start_weight_lbs || 0;
     const defaultReps = timed ? (def.target.duration_sec[0])
                                : (def.target && def.target.reps ? def.target.reps : 10);
@@ -255,17 +254,21 @@
     const sets = Array.isArray(def.sets)
       ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
       : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
+
+    // Derive exId from name if not provided, or use provided exId
+    const deriveExId = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const exId = def.exId || deriveExId(def.name || '');
+
     return {
-      exId: def.id || uid(),
-      blockId,
+      instanceId: def.instanceId || def.id || uid(),
+      exId,
       timed,
       name: def.name,
       custom_name: def.custom_name || null,
-      note: def.cue || '',
-      target: tgt,
+      note: def.cue || def.note || '',
       fallback: def.fallback || null,
-      swapped: false,
-      original: null,
+      swapped: def.swapped || false,
+      original: def.original || null,
       sets
     };
   }
@@ -275,15 +278,23 @@
     loadedWorkout = assigned;
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
-    state.blocks = (assigned.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
     state.exercises = [];
-    (assigned.blocks || []).forEach(b => {
-      (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def, b.id)));
-    });
+
+    // Handle both flat and nested (legacy) structures
+    if (assigned.exercises && Array.isArray(assigned.exercises)) {
+      // Flat structure
+      assigned.exercises.forEach(def => state.exercises.push(makeExercise(def)));
+    } else if (assigned.blocks && Array.isArray(assigned.blocks)) {
+      // Legacy nested structure - flatten
+      assigned.blocks.forEach(b => {
+        (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def)));
+      });
+    }
+
     document.getElementById('sessName').value = assigned.name || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', blocks: [], exercises: [] };
+  const state = { workoutId: null, workoutName: '', exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -291,43 +302,32 @@
 
   function draw() {
     list.innerHTML = '';
-    let currentBlock = null;
     state.exercises.forEach((ex, e) => {
-      if (ex.blockId && ex.blockId !== currentBlock) {
-        currentBlock = ex.blockId;
-        const b = state.blocks.find(x => x.id === ex.blockId);
-        if (b) {
-          const h = document.createElement('div');
-          h.className = 'block-head';
-          h.innerHTML = `<h2>${esc(b.name)}</h2>` + (b.notes ? `<p>${esc(b.notes)}</p>` : '');
-          list.appendChild(h);
-        }
-      }
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
       el.className = 'exercise';
       el.innerHTML = `
         <div class="ex-head">
           <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
-                 data-e="${e}" data-k="name">
-          <button class="kill" data-kill="${e}">&times;</button>
+                 data-id="${ex.instanceId}" data-k="name">
+          <button class="kill" data-kill="${ex.instanceId}">&times;</button>
         </div>
         <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
-               data-e="${e}" data-k="note">
+               data-id="${ex.instanceId}" data-k="note">
         <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
-               data-e="${e}" data-k="custom_name">
+               data-id="${ex.instanceId}" data-k="custom_name">
         <table>
           <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
             <tr class="${s.done ? 'done' : ''}">
               <td><div class="setno">${i + 1}</div></td>
-              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
-              <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
-              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
-              <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
+              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-id="${ex.instanceId}" data-i="${i}" data-k="lbs"></td>`}
+              <td><input type="number" inputmode="numeric" value="${s.reps}" data-id="${ex.instanceId}" data-i="${i}" data-k="reps"></td>
+              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-id="${ex.instanceId}" data-i="${i}" data-k="custom"></td>` : ''}
+              <td><button class="check" data-id="${ex.instanceId}" data-i="${i}">&check;</button></td>
             </tr>`).join('')}</tbody>
         </table>
-        <button class="add" data-add="${e}">+ Add Set</button>
+        <button class="add" data-add="${ex.instanceId}">+ Add Set</button>
         ${ex.fallback || ex.swapped
           ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${e}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
           : ''}`;
@@ -355,15 +355,18 @@
   list.addEventListener('input', e => {
     const el = e.target;
     if (el.tagName !== 'INPUT') return;
-    const x = +el.dataset.e, k = el.dataset.k;
+    const id = el.dataset.id, k = el.dataset.k;
+    const ex = state.exercises.find(x => x.instanceId === id);
+    if (!ex) return;
+
     if (el.dataset.i !== undefined) {
       const i = +el.dataset.i;
-      state.exercises[x].sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
-      last = `exercises[${x}].sets[${i}].${k} = ${state.exercises[x].sets[i][k]}`;
+      ex.sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
+      last = `${ex.name}.sets[${i}].${k} = ${ex.sets[i][k]}`;
       sync();
     } else {
-      state.exercises[x][k] = el.value;
-      last = `exercises[${x}].${k}`;
+      ex[k] = el.value;
+      last = `${ex.name}.${k}`;
       sync();
     }
   });
@@ -371,50 +374,56 @@
   list.addEventListener('click', e => {
     const chk = e.target.closest('.check');
     if (chk) {
-      const x = +chk.dataset.e, i = +chk.dataset.i;
-      const s = state.exercises[x].sets[i];
+      const id = chk.dataset.id, i = +chk.dataset.i;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) return;
+      const s = ex.sets[i];
       s.done = !s.done;
       chk.closest('tr').classList.toggle('done', s.done);
-      last = `exercises[${x}].sets[${i}].done = ${s.done}`;
+      last = `${ex.name}.sets[${i}].done = ${s.done}`;
       return sync();
     }
     const add = e.target.closest('[data-add]');
     if (add) {
-      const x = +add.dataset.add;
-      const sets = state.exercises[x].sets;
+      const id = add.dataset.add;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) return;
+      const sets = ex.sets;
       const p = sets[sets.length - 1];
       sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
-      last = `exercises[${x}].sets.push()`;
+      last = `${ex.name}.sets.push()`;
       return draw();
     }
     const sw = e.target.closest('[data-swap]');
     if (sw) {
-      const x = +sw.dataset.swap;
-      const ex = state.exercises[x];
+      const id = sw.dataset.swap;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) return;
       if (!ex.swapped && ex.fallback) {
-        // Keep the original so coming back is one tap, not a reload.
-        ex.original = { name: ex.name, note: ex.note, target: ex.target, sets: ex.sets };
+        ex.original = { name: ex.name, note: ex.note, sets: ex.sets };
         const f = ex.fallback;
         ex.name = f.name;
         ex.note = f.cue || ex.note;
-        ex.target = targetLabel(f.target, f.load);
         ex.sets = Array.from({ length: f.sets || ex.sets.length },
-          () => ({ prev: ex.target, lbs: 0, reps: (f.target && f.target.reps) || 8, done: false }));
+          () => ({ lbs: 0, reps: (f.target && f.target.reps) || 8, done: false, custom: null }));
         ex.swapped = true;
       } else if (ex.original) {
         Object.assign(ex, ex.original);
         ex.swapped = false;
         ex.original = null;
       }
-      last = `exercises[${x}].swapped = ${ex.swapped}`;
+      last = `${ex.name}.swapped = ${ex.swapped}`;
       return draw();
     }
     const kill = e.target.closest('[data-kill]');
     if (kill) {
-      const x = +kill.dataset.kill;
-      last = `exercises.splice(${x}, 1)`;
-      state.exercises.splice(x, 1);
-      return draw();
+      const id = kill.dataset.kill;
+      const idx = state.exercises.findIndex(x => x.instanceId === id);
+      if (idx >= 0) {
+        last = `exercises.splice(${idx}, 1)`;
+        state.exercises.splice(idx, 1);
+        return draw();
+      }
     }
     if (e.target.id === 'addEx') {
       const lastEx = state.exercises[state.exercises.length - 1];
@@ -502,11 +511,12 @@
       const saved = JSON.parse(raw);
       if (!saved.state || !Array.isArray(saved.state.exercises)) return;
       state.exercises = saved.state.exercises;
-      state.blocks = saved.state.blocks || [];
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
+        if (!ex.instanceId) ex.instanceId = uid();
+        if (!ex.exId && ex.name) ex.exId = ex.name.toLowerCase().replace(/\s+/g, '-');
         if (ex.timed === undefined) ex.timed = false;
         if (ex.swapped === undefined) ex.swapped = false;
       });
@@ -525,28 +535,21 @@
     const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
 
-    const blocks = state.blocks.map(b => ({
-      id: b.id,
-      name: b.name,
-      notes: b.notes || '',
-      exercises: state.exercises
-        .filter(ex => ex.blockId === b.id)
-        .map(ex => ({
-          id: ex.exId,
-          name: ex.name,
-          cue: ex.note || '',
-          custom_name: ex.custom_name || null,
-          timed: ex.timed,
-          swapped: ex.swapped,
-          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
-        }))
-    }));
-
     const payload = {
       id: state.workoutId,
       name: state.workoutName,
       finishedAt: stamp.toISOString(),
-      blocks
+      exercises: state.exercises.map(ex => ({
+        instanceId: ex.instanceId,
+        exId: ex.exId,
+        name: ex.name,
+        cue: ex.note || '',
+        custom_name: ex.custom_name || null,
+        timed: ex.timed,
+        swapped: ex.swapped,
+        fallback: ex.fallback || null,
+        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+      }))
     };
 
     if (window.__db && window.__doc && window.__setDoc) {
