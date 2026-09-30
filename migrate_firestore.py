@@ -9,6 +9,7 @@ program + sessions layers), extracts the session data, and writes to new
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+from datetime import datetime
 
 # Initialize Firebase (uses GOOGLE_APPLICATION_CREDENTIALS env var)
 try:
@@ -17,6 +18,23 @@ except ValueError:
     firebase_admin.initialize_app()
 
 db = firestore.client(database_id='wilo')
+
+def generate_doc_name(timestamp_str, workout_name):
+    """
+    Generate document name from timestamp and workout name.
+    Format: DD-mmm-HH:MM-XXXXX where XXXXX is first 5 chars of name
+    """
+    try:
+        # Parse ISO timestamp
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        # Format: 27-sep-14:30
+        date_time = dt.strftime('%d-%b-%H:%M').lower()
+        # First 5 chars of name, sanitized
+        name_slug = workout_name[:5].lower().replace(' ', '-')
+        return f"{date_time}-{name_slug}"
+    except Exception as e:
+        print(f"  Warning: couldn't generate name from {timestamp_str}: {e}")
+        return None
 
 def migrate_collection(source_collection, target_collection, timestamp_field=None):
     """
@@ -144,9 +162,21 @@ def flatten_blocks(collection_name):
                 if key not in ['id', 'name', 'blocks', 'exercises', 'assignedFor', 'finishedAt']:
                     flattened[key] = data[key]
 
-            # Write back to same document (overwrites)
-            db.collection(collection_name).document(doc.id).set(flattened)
-            print(f"  ✓ {doc.id}: flattened ({len(exercises)} exercises)")
+            # Generate new document name based on timestamp and workout name
+            timestamp_field = 'assignedFor' if collection_name == 'assigned' else 'finishedAt'
+            timestamp = flattened.get(timestamp_field)
+            new_doc_name = generate_doc_name(timestamp, flattened.get('name', 'workout')) if timestamp else None
+
+            if new_doc_name:
+                # Write to new document name
+                db.collection(collection_name).document(new_doc_name).set(flattened)
+                # Delete old document
+                db.collection(collection_name).document(doc.id).delete()
+                print(f"  ✓ {doc.id} → {new_doc_name}: flattened ({len(exercises)} exercises)")
+            else:
+                # Fallback: write to same document if naming fails
+                db.collection(collection_name).document(doc.id).set(flattened)
+                print(f"  ✓ {doc.id}: flattened ({len(exercises)} exercises, name generation failed)")
             count += 1
         except Exception as e:
             error_msg = f"  ✗ {doc.id}: {str(e)}"
