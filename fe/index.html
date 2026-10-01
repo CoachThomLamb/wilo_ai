@@ -1,32 +1,21 @@
 <!DOCTYPE html>
 <!--
-  WILO tracker - v3  (2026-09-08)
-  squat-logger v2 + program loading.
+  WILO workout tracker — single-user, flat exercise list.
 
-  - Loads a WILO program JSON (Program > Session > Blocks > Exercises)
-  - Seed program embedded below so this works as one offline file;
-    the Load button reads any wilo-program-seed.json from Files
-  - Target column shows the plan; you log actual against it
-  - Time-based exercises (dead hang) log secs instead of reps
-  - Exercises with a fallback (Smith OHP 50% ROM) get a Swap button
-  - Everything from v2 kept: photos, autosave, JSON sheet, Finish export
+  - Boot: loads the latest assigned workout from Firestore `assigned`
+    (ordered by assignedFor desc). Load button re-runs the same query.
+  - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
+    Optional custom_name per exercise adds a 4th column for free-form data.
+  - Swap: exercises with a `fallback` get a button to switch to the easier
+    variant; swap again to restore. Logged values on the original survive
+    a swap round-trip (captured by reference).
+  - Persistence: draft autosaves to localStorage; Finish downloads JSON
+    and writes to Firestore `completed` with a DD-mmm-HH:MM-slug-rand doc id.
 
-  - Tap the photo slot under any exercise note to pick from the camera roll
-  - Images downscaled to 640px and stored as blobs in IndexedDB (not localStorage)
-  - Each exercise carries a stable pid key; renaming/reordering keeps its photo
-  - Object URLs revoked and re-minted per draw, so no leaks
-  - v1 drafts restore cleanly: missing photo keys are backfilled
-
-  Fixes after first device test (the blank slot + "Script error." pair):
-  - Slot is a button that calls input.click(), not a <label> wrapping a
-    hidden input. iOS Safari would not open the picker for display:none.
-  - IndexedDB is feature-detected and falls back to localStorage data URLs.
-    A sandboxed iframe gives an opaque origin and indexedDB.open() throws
-    SecurityError there; the unhandled rejection was the "Script error."
-  - A broken image can no longer collapse the slot to a 1px hairline.
-  - downscale() always resolves and can never hang on a stalled decode.
-  - Failures print to the on-screen status line and hold for 8s instead of
-    being wiped by the next autosave tick.
+  Error surface: thrown errors go to window.onerror -> note() -> the
+  on-screen status line. The line holds errors for 8s so autosave ticks
+  don't overwrite them. (Phone has no devtools, so the status line is
+  the only diagnostic.)
 -->
 
 <html lang="en">
@@ -100,12 +89,6 @@
     background: var(--field); color: var(--text); border: 1px solid var(--line);
     padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
   }
-  .block-head {
-    padding: 16px 16px 6px; border-bottom: 1px solid var(--line);
-    background: var(--panel);
-  }
-  .block-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--dim); }
-  .block-head p { margin: 4px 0 0; font-size: 14px; color: #5c5c62; }
   .swap {
     background: none; border: 1px solid var(--line); border-radius: 999px;
     color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
@@ -205,7 +188,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-23-001</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-30-refactor</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
@@ -231,73 +214,14 @@
 <script>
   let nextId = 1;
   const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
+  const deriveExId = name => (name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-  // ---- embedded seed program ---------------------------------------
-  // Same shape as wilo-program-seed.json. Load replaces this at runtime.
-  const SEED = {
-    "program": { "id": "prog_2026_09", "name": "Shoulder rotation + lower" },
-    "sessions": [{
-      "id": "sess_shoulder_lower_a",
-      "name": "Shoulder rotation + lower fun",
-      "blocks": [
-        { "id": "blk_1", "name": "Part One \u2014 shoulder upward rotation",
-          "notes": "Low load, high attention. Nothing here should hurt.",
-          "exercises": [
-            { "id": "ex_dead_hang", "name": "Dead hang", "sets": 3,
-              "target": { "duration_sec": [20, 30] },
-              "cue": "Passive. Let the shoulders come to your ears." },
-            { "id": "ex_scap_pullup", "name": "Scapular pull-up", "sets": 3,
-              "target": { "reps": 8 },
-              "cue": "Shoulders down and back, elbows straight, slow." },
-            { "id": "ex_serratus_shrug", "name": "Serratus shrug", "sets": 3,
-              "target": { "reps": 10 },
-              "cue": "Protract and push, don't row." },
-            { "id": "ex_sword_raise", "name": "Sword raise", "sets": 2,
-              "target": { "reps": 12, "per_side": true }, "start_weight_lbs": 10,
-              "cue": "Hip to overhead on the diagonal, thumb leading. Light." },
-            { "id": "ex_smith_ohp", "name": "Smith overhead press", "sets": 3,
-              "target": { "reps": 8 },
-              "cue": "Stop at pain, log it, retry next session.",
-              "fallback": { "name": "Smith OHP \u2014 50% ROM + 1s hold", "sets": 3,
-                            "target": { "reps": 8 },
-                            "cue": "Half range, one-second hold at the top." } },
-            { "id": "ex_landmine_press", "name": "Landmine press", "sets": 2,
-              "target": { "reps": 10, "per_side": true },
-              "cue": "Elbow under the line of push." }
-          ] },
-        { "id": "blk_2", "name": "Part Two \u2014 lower fun",
-          "notes": "Hamstrings and glutes. Not knee-aggressive, not shoulder-dependent.",
-          "exercises": [
-            { "id": "ex_lying_leg_curl", "name": "Lying leg curl (machine)", "sets": 4,
-              "target": { "reps": 10 }, "start_weight_lbs": 90,
-              "cue": "Pointed toes. Weak side first, single-leg opening set." },
-            { "id": "ex_leg_extension", "name": "Leg extension (machine)", "sets": 3,
-              "target": { "reps": 12 }, "start_weight_lbs": 60,
-              "cue": "Light, pump-focused. One leg first, finish with two." },
-            { "id": "ex_bstance_rdl", "name": "B-stance RDL", "sets": 3,
-              "target": { "reps": 8, "per_side": true }, "start_weight_lbs": 30,
-              "cue": "Contralateral load." },
-            { "id": "ex_cranes", "name": "Cranes", "sets": 3,
-              "target": { "reps": 10 }, "load": "loaded",
-              "cue": "Start with both legs." }
-          ] }
-      ]
-    }]
-  };
+  // Assigned workout loaded from Firestore assigned collection
+  let loadedWorkout = null;
 
   // ---- program -> logging state -------------------------------------
-  function targetLabel(t, load) {
-    if (!t) return load || '\u2014';
-    if (t.duration_sec) return t.duration_sec[0] + '\u2013' + t.duration_sec[1] + ' sec';
-    let s = t.reps + (t.unit === 'round' ? ' round' : ' reps');
-    if (t.per_side) s += '/side';
-    if (load) s += ' \u00b7 ' + load;
-    return s;
-  }
-
-  function makeExercise(def, blockId) {
+  function makeExercise(def) {
     const timed = !!(def.target && def.target.duration_sec);
-    const tgt = targetLabel(def.target, def.load);
     const defaultLbs = def.start_weight_lbs || 0;
     const defaultReps = timed ? (def.target.duration_sec[0])
                                : (def.target && def.target.reps ? def.target.reps : 10);
@@ -305,39 +229,33 @@
     const sets = Array.isArray(def.sets)
       ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
       : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
+
+    const exId = def.exId || deriveExId(def.name);
+
     return {
-      exId: def.id || uid(),
-      blockId,
+      instanceId: def.instanceId || def.id || uid(),
+      exId,
       timed,
       name: def.name,
       custom_name: def.custom_name || null,
-      note: def.cue || '',
-      target: tgt,
+      note: def.cue || def.note || '',
       fallback: def.fallback || null,
-      swapped: false,
-      original: null,
+      swapped: def.swapped || false,
+      original: def.original || null,
       sets
     };
   }
 
-  // The program the session came from, kept so Reset can rebuild from it.
-  let loadedProgram = SEED;
-
-  function loadProgram(doc) {
-    const sess = (doc.sessions && doc.sessions[0]) || null;
-    if (!sess) throw new Error('no session in file');
-    loadedProgram = doc;
-    state.sessionId = sess.id;
-    state.sessionName = sess.name;
-    state.blocks = (sess.blocks || []).map(b => ({ id: b.id, name: b.name, notes: b.notes || '' }));
-    state.exercises = [];
-    (sess.blocks || []).forEach(b => {
-      (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def, b.id)));
-    });
-    document.getElementById('sessName').value = sess.name || 'WILO';
+  function loadWorkout(assigned) {
+    if (!assigned || !assigned.id) throw new Error('invalid workout');
+    loadedWorkout = assigned;
+    state.workoutId = assigned.id;
+    state.workoutName = assigned.name;
+    state.exercises = (assigned.exercises || []).map(makeExercise);
+    document.getElementById('sessName').value = assigned.name || 'WILO';
   }
 
-  const state = { sessionId: null, sessionName: '', blocks: [], exercises: [] };
+  const state = { workoutId: null, workoutName: '', exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -345,45 +263,34 @@
 
   function draw() {
     list.innerHTML = '';
-    let currentBlock = null;
-    state.exercises.forEach((ex, e) => {
-      if (ex.blockId && ex.blockId !== currentBlock) {
-        currentBlock = ex.blockId;
-        const b = state.blocks.find(x => x.id === ex.blockId);
-        if (b) {
-          const h = document.createElement('div');
-          h.className = 'block-head';
-          h.innerHTML = `<h2>${esc(b.name)}</h2>` + (b.notes ? `<p>${esc(b.notes)}</p>` : '');
-          list.appendChild(h);
-        }
-      }
+    state.exercises.forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
       el.className = 'exercise';
       el.innerHTML = `
         <div class="ex-head">
           <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
-                 data-e="${e}" data-k="name">
-          <button class="kill" data-kill="${e}">&times;</button>
+                 data-id="${ex.instanceId}" data-k="name">
+          <button class="kill" data-kill="${ex.instanceId}">&times;</button>
         </div>
         <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
-               data-e="${e}" data-k="note">
+               data-id="${ex.instanceId}" data-k="note">
         <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
-               data-e="${e}" data-k="custom_name">
+               data-id="${ex.instanceId}" data-k="custom_name">
         <table>
           <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
             <tr class="${s.done ? 'done' : ''}">
               <td><div class="setno">${i + 1}</div></td>
-              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-e="${e}" data-i="${i}" data-k="lbs"></td>`}
-              <td><input type="number" inputmode="numeric" value="${s.reps}" data-e="${e}" data-i="${i}" data-k="reps"></td>
-              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-e="${e}" data-i="${i}" data-k="custom"></td>` : ''}
-              <td><button class="check" data-e="${e}" data-i="${i}">&check;</button></td>
+              ${ex.timed ? '' : `<td><input type="number" inputmode="numeric" value="${s.lbs}" data-id="${ex.instanceId}" data-i="${i}" data-k="lbs"></td>`}
+              <td><input type="number" inputmode="numeric" value="${s.reps}" data-id="${ex.instanceId}" data-i="${i}" data-k="reps"></td>
+              ${ex.custom_name ? `<td><input type="text" value="${esc(s.custom || '')}" data-id="${ex.instanceId}" data-i="${i}" data-k="custom"></td>` : ''}
+              <td><button class="check" data-id="${ex.instanceId}" data-i="${i}">&check;</button></td>
             </tr>`).join('')}</tbody>
         </table>
-        <button class="add" data-add="${e}">+ Add Set</button>
+        <button class="add" data-add="${ex.instanceId}">+ Add Set</button>
         ${ex.fallback || ex.swapped
-          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${e}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
+          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${ex.instanceId}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
           : ''}`;
       list.appendChild(el);
     });
@@ -399,7 +306,7 @@
   function sync() {
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
-    if (typeof queueSave === 'function') queueSave();
+    queueSave();
   }
 
   list.addEventListener('blur', e => {
@@ -409,15 +316,19 @@
   list.addEventListener('input', e => {
     const el = e.target;
     if (el.tagName !== 'INPUT') return;
-    const x = +el.dataset.e, k = el.dataset.k;
+    const id = el.dataset.id, k = el.dataset.k;
+    const ex = state.exercises.find(x => x.instanceId === id);
+    if (!ex) return;
+
     if (el.dataset.i !== undefined) {
       const i = +el.dataset.i;
-      state.exercises[x].sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
-      last = `exercises[${x}].sets[${i}].${k} = ${state.exercises[x].sets[i][k]}`;
+      ex.sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
+      last = `${ex.name}.sets[${i}].${k} = ${ex.sets[i][k]}`;
       sync();
     } else {
-      state.exercises[x][k] = el.value;
-      last = `exercises[${x}].${k}`;
+      ex[k] = el.value;
+      if (k === 'name') ex.exId = deriveExId(el.value);
+      last = `${ex.name}.${k}`;
       sync();
     }
   });
@@ -425,57 +336,67 @@
   list.addEventListener('click', e => {
     const chk = e.target.closest('.check');
     if (chk) {
-      const x = +chk.dataset.e, i = +chk.dataset.i;
-      const s = state.exercises[x].sets[i];
+      const id = chk.dataset.id, i = +chk.dataset.i;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) throw new Error('no exercise for id ' + id);
+      const s = ex.sets[i];
       s.done = !s.done;
       chk.closest('tr').classList.toggle('done', s.done);
-      last = `exercises[${x}].sets[${i}].done = ${s.done}`;
+      last = `${ex.name}.sets[${i}].done = ${s.done}`;
       return sync();
     }
     const add = e.target.closest('[data-add]');
     if (add) {
-      const x = +add.dataset.add;
-      const sets = state.exercises[x].sets;
+      const id = add.dataset.add;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) throw new Error('no exercise for id ' + id);
+      const sets = ex.sets;
       const p = sets[sets.length - 1];
       sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
-      last = `exercises[${x}].sets.push()`;
+      last = `${ex.name}.sets.push()`;
       return draw();
     }
     const sw = e.target.closest('[data-swap]');
     if (sw) {
-      const x = +sw.dataset.swap;
-      const ex = state.exercises[x];
+      const id = sw.dataset.swap;
+      const ex = state.exercises.find(x => x.instanceId === id);
+      if (!ex) throw new Error('no exercise for id ' + id);
       if (!ex.swapped && ex.fallback) {
-        // Keep the original so coming back is one tap, not a reload.
-        ex.original = { name: ex.name, note: ex.note, target: ex.target, sets: ex.sets };
+        ex.original = { name: ex.name, note: ex.note, sets: ex.sets };
         const f = ex.fallback;
         ex.name = f.name;
         ex.note = f.cue || ex.note;
-        ex.target = targetLabel(f.target, f.load);
         ex.sets = Array.from({ length: f.sets || ex.sets.length },
-          () => ({ prev: ex.target, lbs: 0, reps: (f.target && f.target.reps) || 8, done: false }));
+          () => ({ lbs: 0, reps: (f.target && f.target.reps) || 8, done: false, custom: null }));
         ex.swapped = true;
       } else if (ex.original) {
         Object.assign(ex, ex.original);
         ex.swapped = false;
         ex.original = null;
       }
-      last = `exercises[${x}].swapped = ${ex.swapped}`;
+      last = `${ex.name}.swapped = ${ex.swapped}`;
       return draw();
     }
     const kill = e.target.closest('[data-kill]');
     if (kill) {
-      const x = +kill.dataset.kill;
-      last = `exercises.splice(${x}, 1)`;
-      state.exercises.splice(x, 1);
+      const id = kill.dataset.kill;
+      const idx = state.exercises.findIndex(x => x.instanceId === id);
+      if (idx < 0) throw new Error('no exercise for id ' + id);
+      last = `exercises.splice(${idx}, 1)`;
+      state.exercises.splice(idx, 1);
       return draw();
     }
     if (e.target.id === 'addEx') {
-      const lastEx = state.exercises[state.exercises.length - 1];
       state.exercises.push({
-        exId: uid(), blockId: lastEx ? lastEx.blockId : null,
-        timed: false, name: "", note: "", target: "\u2014",
-        fallback: null, swapped: false, original: null,
+        instanceId: uid(),
+        exId: '',
+        timed: false,
+        name: '',
+        custom_name: null,
+        note: '',
+        fallback: null,
+        swapped: false,
+        original: null,
         sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
@@ -556,11 +477,12 @@
       const saved = JSON.parse(raw);
       if (!saved.state || !Array.isArray(saved.state.exercises)) return;
       state.exercises = saved.state.exercises;
-      state.blocks = saved.state.blocks || [];
-      state.sessionId = saved.state.sessionId || null;
-      state.sessionName = saved.state.sessionName || '';
-      if (state.sessionName) document.getElementById('sessName').value = state.sessionName;
+      state.workoutId = saved.state.workoutId || null;
+      state.workoutName = saved.state.workoutName || '';
+      if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
+        if (!ex.instanceId) ex.instanceId = uid();
+        if (!ex.exId && ex.name) ex.exId = deriveExId(ex.name);
         if (ex.timed === undefined) ex.timed = false;
         if (ex.swapped === undefined) ex.swapped = false;
       });
@@ -575,40 +497,36 @@
   function download() {
     const stamp = new Date();
     const pad = n => String(n).padStart(2, '0');
-    const slug = `${state.sessionName || ''}-${state.sessionId || 'workout'}`.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const slug = `${state.workoutName || ''}-${state.workoutId || 'workout'}`.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
                  `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
 
-    const blocks = state.blocks.map(b => ({
-      id: b.id,
-      name: b.name,
-      notes: b.notes || '',
-      exercises: state.exercises
-        .filter(ex => ex.blockId === b.id)
-        .map(ex => ({
-          id: ex.exId,
-          name: ex.name,
-          cue: ex.note || '',
-          custom_name: ex.custom_name || null,
-          timed: ex.timed,
-          swapped: ex.swapped,
-          sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
-        }))
-    }));
-
     const payload = {
-      program: { id: state.sessionId, name: state.sessionName },
+      id: state.workoutId,
+      name: state.workoutName,
       finishedAt: stamp.toISOString(),
-      sessions: [{
-        id: state.sessionId,
-        name: state.sessionName,
-        blocks
-      }]
+      exercises: state.exercises.map(ex => ({
+        instanceId: ex.instanceId,
+        exId: ex.exId,
+        name: ex.name,
+        cue: ex.note || '',
+        custom_name: ex.custom_name || null,
+        timed: ex.timed,
+        swapped: ex.swapped,
+        fallback: ex.fallback || null,
+        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+      }))
     };
 
     if (window.__db && window.__doc && window.__setDoc) {
-      const docId = `${state.sessionId}-${stamp.getTime()}`;
-      window.__setDoc(window.__doc(window.__db, 'sessions', docId), payload)
+      const day = pad(stamp.getDate());
+      const month = stamp.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+      const hour = pad(stamp.getHours());
+      const minute = pad(stamp.getMinutes());
+      const nameSlug = (state.workoutName || 'workout').slice(0, 5).toLowerCase().replace(/\s+/g, '-');
+      const rand = Math.random().toString(36).slice(2, 6);
+      const docId = `${day}-${month}-${hour}:${minute}-${nameSlug}-${rand}`;
+      window.__setDoc(window.__doc(window.__db, 'completed', docId), payload)
         .catch(err => note('Firestore save failed: ' + err.message));
     }
 
@@ -632,51 +550,70 @@
   });
 
   // ---- program loading ----------------------------------------------
+  async function fetchLatestAssigned() {
+    const snap = await window.__getDocs(window.__query(
+      window.__collection(window.__db, 'assigned'),
+      window.__orderBy('assignedFor', 'desc'),
+      window.__limit(1)
+    ));
+    if (snap.empty) return null;
+    return { data: snap.docs[0].data(), id: snap.docs[0].id };
+  }
+
   document.getElementById('sessName').addEventListener('input', e => {
-    state.sessionName = e.target.value;
+    state.workoutName = e.target.value;
   });
 
   document.getElementById('loadBtn').addEventListener('click', async () => {
     try {
-      note('Loading latest program…');
-      const q = window.__query(
-        window.__collection(window.__db, 'programs'),
-        window.__orderBy('finishedAt', 'desc'),
-        window.__limit(1)
-      );
-      const snap = await window.__getDocs(q);
-      if (snap.empty) { note('No programs found'); return; }
-      const doc = snap.docs[0].data();
-      loadProgram(doc);
-      last = 'loaded ' + (state.sessionId || snap.docs[0].id);
+      note('Loading latest workout…');
+      const latest = await fetchLatestAssigned();
+      if (!latest) { note('No workouts found'); return; }
+      loadWorkout(latest.data);
+      last = 'loaded ' + (state.workoutId || latest.id);
       draw();
-      note('Loaded ' + (state.sessionName || snap.docs[0].id));
+      note('Loaded ' + (state.workoutName || latest.id));
     } catch (err) {
-      note("Couldn't load program: " + (err && err.message ? err.message : err));
+      note("Couldn't load workout: " + (err && err.message ? err.message : err));
     }
   });
 
   // ---- reset ---------------------------------------------------------
   // Without this the only way to clear a stale draft is the Files app.
-  // Resets to whatever program is currently loaded, so if you loaded a
-  // file this session you get that back, not the built-in seed.
+  // Resets to the workout currently loaded from Firestore.
   document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!loadedWorkout) { note('No workout loaded'); return; }
     const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
     const msg = logged
       ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
-      : 'Reset to the program?';
+      : 'Reset to the assigned workout?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadProgram(loadedProgram);
-    last = 'reset to ' + (state.sessionId || 'program');
+    loadWorkout(loadedWorkout);
+    last = 'reset to ' + (state.workoutId || 'workout');
     draw();
-    note('Reset to ' + (state.sessionName || 'program'));
+    note('Reset to ' + (state.workoutName || 'assigned'));
   });
 
-  // Boot from the embedded seed, then let any saved draft override it.
-  loadProgram(SEED);
+  // Boot: restore any saved draft, then try loading latest from Firestore
   restore();
   draw();
+
+  // Load latest assigned workout from Firestore on boot
+  if (window.__db && window.__collection && window.__getDocs && window.__query && window.__orderBy && window.__limit) {
+    (async () => {
+      try {
+        const latest = await fetchLatestAssigned();
+        if (latest) {
+          loadWorkout(latest.data);
+          draw();
+          note('Loaded ' + (state.workoutName || latest.id));
+        }
+      } catch (err) {
+        note('Could not load workout from Firestore');
+      }
+    })();
+  }
 </script>
 
 </body>
