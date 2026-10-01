@@ -1,32 +1,21 @@
 <!DOCTYPE html>
 <!--
-  WILO tracker - v3  (2026-09-08)
-  squat-logger v2 + program loading.
+  WILO workout tracker — single-user, flat exercise list.
 
-  - Loads a WILO program JSON (Program > Session > Blocks > Exercises)
-  - Seed program embedded below so this works as one offline file;
-    the Load button reads any wilo-program-seed.json from Files
-  - Target column shows the plan; you log actual against it
-  - Time-based exercises (dead hang) log secs instead of reps
-  - Exercises with a fallback (Smith OHP 50% ROM) get a Swap button
-  - Everything from v2 kept: photos, autosave, JSON sheet, Finish export
+  - Boot: loads the latest assigned workout from Firestore `assigned`
+    (ordered by assignedFor desc). Load button re-runs the same query.
+  - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
+    Optional custom_name per exercise adds a 4th column for free-form data.
+  - Swap: exercises with a `fallback` get a button to switch to the easier
+    variant; swap again to restore. Logged values on the original survive
+    a swap round-trip (captured by reference).
+  - Persistence: draft autosaves to localStorage; Finish downloads JSON
+    and writes to Firestore `completed` with a DD-mmm-HH:MM-slug-rand doc id.
 
-  - Tap the photo slot under any exercise note to pick from the camera roll
-  - Images downscaled to 640px and stored as blobs in IndexedDB (not localStorage)
-  - Each exercise carries a stable pid key; renaming/reordering keeps its photo
-  - Object URLs revoked and re-minted per draw, so no leaks
-  - v1 drafts restore cleanly: missing photo keys are backfilled
-
-  Fixes after first device test (the blank slot + "Script error." pair):
-  - Slot is a button that calls input.click(), not a <label> wrapping a
-    hidden input. iOS Safari would not open the picker for display:none.
-  - IndexedDB is feature-detected and falls back to localStorage data URLs.
-    A sandboxed iframe gives an opaque origin and indexedDB.open() throws
-    SecurityError there; the unhandled rejection was the "Script error."
-  - A broken image can no longer collapse the slot to a 1px hairline.
-  - downscale() always resolves and can never hang on a stalled decode.
-  - Failures print to the on-screen status line and hold for 8s instead of
-    being wiped by the next autosave tick.
+  Error surface: thrown errors go to window.onerror -> note() -> the
+  on-screen status line. The line holds errors for 8s so autosave ticks
+  don't overwrite them. (Phone has no devtools, so the status line is
+  the only diagnostic.)
 -->
 
 <html lang="en">
@@ -100,12 +89,6 @@
     background: var(--field); color: var(--text); border: 1px solid var(--line);
     padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
   }
-  .block-head {
-    padding: 16px 16px 6px; border-bottom: 1px solid var(--line);
-    background: var(--panel);
-  }
-  .block-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--dim); }
-  .block-head p { margin: 4px 0 0; font-size: 14px; color: #5c5c62; }
   .swap {
     background: none; border: 1px solid var(--line); border-radius: 999px;
     color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
@@ -335,7 +318,7 @@
   function sync() {
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
-    if (typeof queueSave === 'function') queueSave();
+    queueSave();
   }
 
   list.addEventListener('blur', e => {
@@ -605,8 +588,7 @@
 
   // ---- reset ---------------------------------------------------------
   // Without this the only way to clear a stale draft is the Files app.
-  // Resets to whatever program is currently loaded, so if you loaded a
-  // file this session you get that back, not the built-in seed.
+  // Resets to the workout currently loaded from Firestore.
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (!loadedWorkout) { note('No workout loaded'); return; }
     const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
