@@ -251,19 +251,7 @@
     loadedWorkout = assigned;
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
-    state.exercises = [];
-
-    // Handle both flat and nested (legacy) structures
-    if (assigned.exercises && Array.isArray(assigned.exercises)) {
-      // Flat structure
-      assigned.exercises.forEach(def => state.exercises.push(makeExercise(def)));
-    } else if (assigned.blocks && Array.isArray(assigned.blocks)) {
-      // Legacy nested structure - flatten
-      assigned.blocks.forEach(b => {
-        (b.exercises || []).forEach(def => state.exercises.push(makeExercise(def)));
-      });
-    }
-
+    state.exercises = (assigned.exercises || []).map(makeExercise);
     document.getElementById('sessName').value = assigned.name || 'WILO';
   }
 
