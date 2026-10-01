@@ -550,6 +550,16 @@
   });
 
   // ---- program loading ----------------------------------------------
+  async function fetchLatestAssigned() {
+    const snap = await window.__getDocs(window.__query(
+      window.__collection(window.__db, 'assigned'),
+      window.__orderBy('assignedFor', 'desc'),
+      window.__limit(1)
+    ));
+    if (snap.empty) return null;
+    return { data: snap.docs[0].data(), id: snap.docs[0].id };
+  }
+
   document.getElementById('sessName').addEventListener('input', e => {
     state.workoutName = e.target.value;
   });
@@ -557,18 +567,12 @@
   document.getElementById('loadBtn').addEventListener('click', async () => {
     try {
       note('Loading latest workout…');
-      const q = window.__query(
-        window.__collection(window.__db, 'assigned'),
-        window.__orderBy('assignedFor', 'desc'),
-        window.__limit(1)
-      );
-      const snap = await window.__getDocs(q);
-      if (snap.empty) { note('No workouts found'); return; }
-      const doc = snap.docs[0].data();
-      loadWorkout(doc);
-      last = 'loaded ' + (state.workoutId || snap.docs[0].id);
+      const latest = await fetchLatestAssigned();
+      if (!latest) { note('No workouts found'); return; }
+      loadWorkout(latest.data);
+      last = 'loaded ' + (state.workoutId || latest.id);
       draw();
-      note('Loaded ' + (state.workoutName || snap.docs[0].id));
+      note('Loaded ' + (state.workoutName || latest.id));
     } catch (err) {
       note("Couldn't load workout: " + (err && err.message ? err.message : err));
     }
@@ -599,17 +603,11 @@
   if (window.__db && window.__collection && window.__getDocs && window.__query && window.__orderBy && window.__limit) {
     (async () => {
       try {
-        const q = window.__query(
-          window.__collection(window.__db, 'assigned'),
-          window.__orderBy('assignedFor', 'desc'),
-          window.__limit(1)
-        );
-        const snap = await window.__getDocs(q);
-        if (!snap.empty) {
-          const doc = snap.docs[0].data();
-          loadWorkout(doc);
+        const latest = await fetchLatestAssigned();
+        if (latest) {
+          loadWorkout(latest.data);
           draw();
-          note('Loaded ' + (state.workoutName || snap.docs[0].id));
+          note('Loaded ' + (state.workoutName || latest.id));
         }
       } catch (err) {
         note('Could not load workout from Firestore');
