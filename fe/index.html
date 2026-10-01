@@ -231,20 +231,12 @@
 <script>
   let nextId = 1;
   const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
+  const deriveExId = name => (name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
   // Assigned workout loaded from Firestore assigned collection
   let loadedWorkout = null;
 
   // ---- program -> logging state -------------------------------------
-  function targetLabel(t, load) {
-    if (!t) return load || '\u2014';
-    if (t.duration_sec) return t.duration_sec[0] + '\u2013' + t.duration_sec[1] + ' sec';
-    let s = t.reps + (t.unit === 'round' ? ' round' : ' reps');
-    if (t.per_side) s += '/side';
-    if (load) s += ' \u00b7 ' + load;
-    return s;
-  }
-
   function makeExercise(def) {
     const timed = !!(def.target && def.target.duration_sec);
     const defaultLbs = def.start_weight_lbs || 0;
@@ -255,10 +247,7 @@
       ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
       : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
 
-    // Standard exId derivation: lowercase → replace whitespace with dash → remove non-alphanumeric+dash
-    // Used in makeExercise, restore(), and migration script for consistency
-    const deriveExId = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const exId = def.exId || deriveExId(def.name || '');
+    const exId = def.exId || deriveExId(def.name);
 
     return {
       instanceId: def.instanceId || def.id || uid(),
@@ -303,7 +292,7 @@
 
   function draw() {
     list.innerHTML = '';
-    state.exercises.forEach((ex, e) => {
+    state.exercises.forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
       el.className = 'exercise';
@@ -330,7 +319,7 @@
         </table>
         <button class="add" data-add="${ex.instanceId}">+ Add Set</button>
         ${ex.fallback || ex.swapped
-          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${e}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
+          ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${ex.instanceId}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
           : ''}`;
       list.appendChild(el);
     });
@@ -367,6 +356,7 @@
       sync();
     } else {
       ex[k] = el.value;
+      if (k === 'name') ex.exId = deriveExId(el.value);
       last = `${ex.name}.${k}`;
       sync();
     }
@@ -377,7 +367,7 @@
     if (chk) {
       const id = chk.dataset.id, i = +chk.dataset.i;
       const ex = state.exercises.find(x => x.instanceId === id);
-      if (!ex) return;
+      if (!ex) throw new Error('no exercise for id ' + id);
       const s = ex.sets[i];
       s.done = !s.done;
       chk.closest('tr').classList.toggle('done', s.done);
@@ -388,7 +378,7 @@
     if (add) {
       const id = add.dataset.add;
       const ex = state.exercises.find(x => x.instanceId === id);
-      if (!ex) return;
+      if (!ex) throw new Error('no exercise for id ' + id);
       const sets = ex.sets;
       const p = sets[sets.length - 1];
       sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
@@ -399,7 +389,7 @@
     if (sw) {
       const id = sw.dataset.swap;
       const ex = state.exercises.find(x => x.instanceId === id);
-      if (!ex) return;
+      if (!ex) throw new Error('no exercise for id ' + id);
       if (!ex.swapped && ex.fallback) {
         ex.original = { name: ex.name, note: ex.note, sets: ex.sets };
         const f = ex.fallback;
@@ -420,11 +410,10 @@
     if (kill) {
       const id = kill.dataset.kill;
       const idx = state.exercises.findIndex(x => x.instanceId === id);
-      if (idx >= 0) {
-        last = `exercises.splice(${idx}, 1)`;
-        state.exercises.splice(idx, 1);
-        return draw();
-      }
+      if (idx < 0) throw new Error('no exercise for id ' + id);
+      last = `exercises.splice(${idx}, 1)`;
+      state.exercises.splice(idx, 1);
+      return draw();
     }
     if (e.target.id === 'addEx') {
       state.exercises.push({
@@ -522,7 +511,7 @@
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
         if (!ex.instanceId) ex.instanceId = uid();
-        if (!ex.exId && ex.name) ex.exId = ex.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        if (!ex.exId && ex.name) ex.exId = deriveExId(ex.name);
         if (ex.timed === undefined) ex.timed = false;
         if (ex.swapped === undefined) ex.swapped = false;
       });
