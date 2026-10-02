@@ -5,5 +5,10 @@ service cloud.firestore {
       allow write: if true;
       allow read: if false;
     }
+
+    // Per-user data: each signed-in user can only touch their own subtree.
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
