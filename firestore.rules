@@ -1,9 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Legacy top-level collections: open until the tracker, builder and
+    // coach skill move to users/{uid}/..., then these get removed.
     match /sessions/{id} {
       allow write: if true;
-      allow read: if false;
+      allow read: if true;
+    }
+    match /programs/{id} {
+      allow write: if true;
+      allow read: if true;
+    }
+    match /completed/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /assigned/{id} {
+      allow read: if true;
+      allow write: if true;
     }
 
     // Per-user data: each signed-in user can only touch their own subtree.
