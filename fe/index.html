@@ -40,6 +40,9 @@
   window.__query = query;
   window.__orderBy = orderBy;
   window.__limit = limit;
+  // auth.js calls getApp() at load, so import it after initializeApp.
+  import("./auth.js").then(a => a.onUser(user =>
+    window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))));
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,6 +88,7 @@
   }
 
   .hbtns { display: flex; align-items: center; gap: 8px; }
+  .who { background: none; border: 0; padding: 4px 0 0; color: var(--accent); font-family: inherit; font-size: 12px; }
   .ghost {
     background: var(--field); color: var(--text); border: 1px solid var(--line);
     padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
@@ -188,9 +192,10 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-09-30-refactor</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-03-auth</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
+    <button class="who" id="authBtn" hidden>Sign in</button>
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
@@ -528,6 +533,10 @@
       const docId = `${day}-${month}-${hour}:${minute}-${nameSlug}-${rand}`;
       window.__setDoc(window.__doc(window.__db, 'completed', docId), payload)
         .catch(err => note('Firestore save failed: ' + err.message));
+      if (window.__auth && window.__auth.currentUser()) {
+        window.__setDoc(window.__auth.userDoc('completed', docId), payload)
+          .catch(err => note('Firestore user save failed: ' + err.message));
+      }
     }
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -550,14 +559,30 @@
   });
 
   // ---- program loading ----------------------------------------------
+  // Signed in: newest of users/{uid}/assigned and top-level assigned (the
+  // coach skill still writes top-level until it moves to per-user paths).
   async function fetchLatestAssigned() {
-    const snap = await window.__getDocs(window.__query(
-      window.__collection(window.__db, 'assigned'),
-      window.__orderBy('assignedFor', 'desc'),
-      window.__limit(1)
-    ));
-    if (snap.empty) return null;
-    return { data: snap.docs[0].data(), id: snap.docs[0].id };
+    const cols = [window.__collection(window.__db, 'assigned')];
+    if (window.__auth && window.__auth.currentUser()) cols.unshift(window.__auth.userCol('assigned'));
+    const at = v => (v && v.toMillis ? v.toMillis() : v);
+    let best = null;
+    for (const col of cols) {
+      let snap;
+      try {
+        snap = await window.__getDocs(window.__query(
+          col, window.__orderBy('assignedFor', 'desc'), window.__limit(1)
+        ));
+      } catch (err) {
+        // A failing per-user read must not block the top-level fallback.
+        if (col.path === 'assigned') throw err;
+        note('User workouts unavailable: ' + err.message);
+        continue;
+      }
+      if (snap.empty) continue;
+      const hit = { data: snap.docs[0].data(), id: snap.docs[0].id };
+      if (!best || at(hit.data.assignedFor) > at(best.data.assignedFor)) best = hit;
+    }
+    return best;
   }
 
   document.getElementById('sessName').addEventListener('input', e => {
@@ -575,6 +600,33 @@
       note('Loaded ' + (state.workoutName || latest.id));
     } catch (err) {
       note("Couldn't load workout: " + (err && err.message ? err.message : err));
+    }
+  });
+
+  // ---- sign-in -------------------------------------------------------
+  // Optional for now: signed out, everything uses the top-level collections
+  // exactly as before. Signed in, saves are mirrored under users/{uid}.
+  const authBtn = document.getElementById('authBtn');
+  let authSeen = false;
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    authBtn.hidden = false;
+    authBtn.textContent = user ? user.email + ' \u00b7 Sign out' : 'Sign in';
+    // First event is just the restored session; don't clobber the status line.
+    if (authSeen) note(user ? 'Signed in as ' + user.email : 'Signed out');
+    authSeen = true;
+  });
+  authBtn.addEventListener('click', async () => {
+    const a = window.__auth;
+    if (!a) return;
+    try {
+      if (a.currentUser()) {
+        if (confirm('Sign out of ' + a.currentUser().email + '?')) await a.signOut();
+      } else {
+        await a.signIn();
+      }
+    } catch (err) {
+      note('Sign-in failed: ' + (err.code || err.message));
     }
   });
 

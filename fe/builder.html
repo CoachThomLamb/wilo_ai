@@ -46,6 +46,9 @@
   window.__db = db;
   window.__setDoc = setDoc;
   window.__doc = doc;
+  // auth.js calls getApp() at load, so import it after initializeApp.
+  import("./auth.js").then(a => a.onUser(user =>
+    window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))));
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -91,6 +94,7 @@
   }
 
   .hbtns { display: flex; align-items: center; gap: 8px; }
+  .who { background: none; border: 0; padding: 4px 0 0; color: var(--accent); font-family: inherit; font-size: 12px; }
   .ghost {
     background: var(--field); color: var(--text); border: 1px solid var(--line);
     padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
@@ -207,9 +211,10 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">builder v2026-09-23-001</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">builder v2026-10-03-auth</div>
     <input id="sessName" class="sess-name-input" placeholder="Untitled program">
     <p class="saved" id="saved">Not saved yet</p>
+    <button class="who" id="authBtn" hidden>Sign in</button>
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
@@ -528,6 +533,10 @@
       const docId = `${state.sessionId || 'prog'}-${stamp.getTime()}`;
       window.__setDoc(window.__doc(window.__db, 'programs', docId), payload)
         .catch(err => note('Firestore save failed: ' + err.message));
+      if (window.__auth && window.__auth.currentUser()) {
+        window.__setDoc(window.__auth.userDoc('programs', docId), payload)
+          .catch(err => note('Firestore user save failed: ' + err.message));
+      }
     }
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -552,6 +561,33 @@
   // ---- program loading ----------------------------------------------
   document.getElementById('sessName').addEventListener('input', e => {
     state.sessionName = e.target.value;
+  });
+
+  // ---- sign-in -------------------------------------------------------
+  // Optional for now: signed out, everything uses the top-level collections
+  // exactly as before. Signed in, saves are mirrored under users/{uid}.
+  const authBtn = document.getElementById('authBtn');
+  let authSeen = false;
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    authBtn.hidden = false;
+    authBtn.textContent = user ? user.email + ' \u00b7 Sign out' : 'Sign in';
+    // First event is just the restored session; don't clobber the status line.
+    if (authSeen) note(user ? 'Signed in as ' + user.email : 'Signed out');
+    authSeen = true;
+  });
+  authBtn.addEventListener('click', async () => {
+    const a = window.__auth;
+    if (!a) return;
+    try {
+      if (a.currentUser()) {
+        if (confirm('Sign out of ' + a.currentUser().email + '?')) await a.signOut();
+      } else {
+        await a.signIn();
+      }
+    } catch (err) {
+      note('Sign-in failed: ' + (err.code || err.message));
+    }
   });
 
   // ---- reset ---------------------------------------------------------
