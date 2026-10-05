@@ -4,7 +4,9 @@ You are pairing with Thom as a principal engineer. Be direct, be honest, push ba
 
 ## The MVP
 
-One question to answer: does an AI-generated workout delivered to a phone make the workout better?
+One question to answer: does an AI *plan*, delivered to Thom's phone day by day, make his training better?
+
+The loop: conversation → plan → calendar → workout → review → adjust (#25). Workouts sit on days of the week. One workout at a time with no plan is not enough. (Changed 2026-10-05; it used to be "does an AI-generated workout make the workout better?")
 
 Everything that doesn't help answer that question is out of scope. Do not build it.
 
@@ -26,8 +28,9 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now:** per-user data, #15 steps 2–4: copy data into `users/{uid}`, move the coach skill off admin credentials, and lock down the open rules.
-- **Next:** the Claude connector, #14. The design is parked until #15 is done.
+- **Now:** the coaching loop design, #25 (plan, calendar, review as data). Then #19: `wilo_data.py` + schema built against it, targeting `users/{uid}`.
+- **Alongside:** #15 step 2 (copy data into `users/{uid}`). Steps 3–4 (sign-in required, lock rules) are security, so they don't block the loop.
+- **Parked:** the Claude connector, #14.
 
 ## What's parked (do not touch)
 
