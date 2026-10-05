@@ -21,7 +21,7 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 - **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts, `programs` = builder saves.
 - **Tracker:** `fe/index.html` (plain HTML, not a PWA) reads the latest `assigned` workout, logs sets, and writes to `completed` on Finish.
 - **Builder:** `fe/builder.html` saves programs.
-- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`. `scripts/fetch_session.py` and `coach_ai/skills/workout_reader.md` are outdated: they still use the old `sessions` / `programs` collections and nested `blocks` shape.
+- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`.
 - **Auth:** optional Google sign-in (`fe/auth.js`). When signed in, saves also go to `users/{uid}/...`.
 
 ## What we're working on

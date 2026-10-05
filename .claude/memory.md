@@ -15,6 +15,6 @@ Does an AI-generated workout improve the gym session? Nothing else matters yet.
 
 ## Structure
 - `fe/index.html`: tracker. `fe/builder.html`: program builder. `fe/auth.js`: Google sign-in.
-- Coach: the `wilo-workout-coach` skill lives on claude.ai, not in this repo. `scripts/fetch_session.py` and `coach_ai/skills/workout_reader.md` are outdated (old `sessions` / `programs` shape).
+- Coach: the `wilo-workout-coach` skill lives on claude.ai, not in this repo.
 - `firestore.rules`: security rules for the `wilo` database.
 - `docs/`: specs, planning docs, dev-ops notes, and `docs/sessions/` session logs.
