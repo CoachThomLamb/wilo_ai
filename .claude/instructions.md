@@ -13,8 +13,8 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 **How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
 
 **Two agendas, A first:**
-- **A. Works for Thom:** the loop (#25), schema (#28), `wilo_data.py` (#19), tracker (#29), history (#27).
-- **B. Deliverable to others:** per-user data + security (#15), Claude connector (#14). Only once A is proven.
+- **A. Works for Thom:** `wilo_data.py` + workout schema (#19), tracker (#29), history (#27). The coaching loop (#25) comes after.
+- **B. Deliverable to others:** per-user data + security (#15), Claude connector (#14, build plan #31). Only once A is proven.
 - #19 serves both: build its commands tool-shaped so #14 can wrap them later.
 
 ## Your job
@@ -36,9 +36,10 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now (agenda A):** review the schema draft (#28). Then migrate history (#27), build `wilo_data.py` (#19), and make the tracker changes (#29).
+- **Now (agenda A):** merge `wilo_data.py` (#19, PR #32). The tracker reads `timed` (#29), then post a real workout with the script. Then #27.
+- **Next:** use the script from Claude anywhere (#31; interim: a cloud session with the key as a secret).
 - **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
-- **Later (agenda B):** the Claude connector, #14.
+- **Parked:** coaching loop (#25), full data schema (#28).
 - **On hold:** the Postgres migration. Stay on Firestore for now.
 
 ## What's parked (do not touch)
