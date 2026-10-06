@@ -1,50 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workout.schema.json",
   "title": "WILO workout",
-  "description": "Shape of a workout in users/{uid}/assigned and users/{uid}/completed, taken from the existing docs (2026-10-06). Required = present in every doc; optional = present in some. Extra fields are allowed. Add fields here only once real data uses them.",
-  "$ref": "#/$defs/workout",
-
-  "$defs": {
-    "workout": {
-      "type": "object",
-      "required": ["id", "name", "exercises"],
-      "properties": {
-        "id": { "type": "string", "description": "Shared by an assigned workout and its completed copy." },
-        "name": { "type": "string" },
-        "assignedFor": { "type": "string", "format": "date-time", "description": "assigned: when the coach posted it (not the workout date)." },
-        "finishedAt": { "type": "string", "format": "date-time", "description": "completed: set by Finish." },
-        "exercises": { "type": "array", "items": { "$ref": "#/$defs/exercise" } }
-      }
-    },
-
-    "exercise": {
-      "type": "object",
-      "required": ["instanceId", "exId", "name", "timed", "cue", "custom_name", "fallback", "swapped", "sets"],
-      "properties": {
-        "instanceId": { "type": "string" },
-        "exId": { "type": "string", "description": "Stable key across workouts; links an exercise's history." },
-        "name": { "type": "string" },
-        "timed": { "type": "boolean", "description": "true: reps holds seconds." },
-        "cue": { "type": "string" },
-        "note": { "type": "string" },
-        "custom_name": { "type": ["string", "null"], "description": "Header for one free-text column per set (e.g. Risers, Side)." },
-        "fallback": { "type": ["object", "null"] },
-        "swapped": { "type": "boolean" },
-        "original": { "type": ["object", "null"] },
-        "target": { "type": "object", "description": "Tracker infers timed from target.duration_sec." },
-        "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
-      }
-    },
-
-    "set": {
-      "type": "object",
-      "required": ["lbs", "reps", "done", "custom"],
-      "properties": {
-        "lbs": { "type": ["number", "string"], "pattern": "^$", "minimum": 0, "description": "Number, or \"\" when not set." },
-        "reps": { "type": ["number", "string"], "pattern": "^$", "minimum": 0, "description": "Number (seconds when timed), or \"\" when not set." },
-        "done": { "type": "boolean" },
-        "custom": { "type": ["string", "null"] }
+  "description": "A doc in users/{uid}/assigned or users/{uid}/completed. Lists only the fields every existing doc has; extra fields are allowed.",
+  "type": "object",
+  "required": ["id", "name", "exercises"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "exercises": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["instanceId", "exId", "name", "timed", "cue", "custom_name", "fallback", "swapped", "sets"],
+        "properties": {
+          "instanceId": { "type": "string" },
+          "exId": { "type": "string" },
+          "name": { "type": "string" },
+          "timed": { "type": "boolean" },
+          "cue": { "type": "string" },
+          "custom_name": { "type": ["string", "null"] },
+          "fallback": { "type": ["object", "null"] },
+          "swapped": { "type": "boolean" },
+          "sets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["lbs", "reps", "done", "custom"],
+              "properties": {
+                "lbs": { "type": ["number", "string"], "pattern": "^$", "minimum": 0 },
+                "reps": { "type": ["number", "string"], "pattern": "^$", "minimum": 0 },
+                "done": { "type": "boolean" },
+                "custom": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
       }
     }
   }
