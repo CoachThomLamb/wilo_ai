@@ -1,11 +1,11 @@
 # WILO Memory
 
 ## MVP Goal
-Does an AI-generated workout improve the gym session? Nothing else matters yet.
+Does an AI *plan*, delivered to the phone day by day, make training better? The loop: conversation → plan → calendar → workout → review → adjust (#25). Changed 2026-10-05: one workout at a time with no plan wasn't enough.
 
-## Status (2026-10-03)
+## Status (2026-10-05)
 - Workouts flow through Firestore: coach agent → `assigned` → `fe/index.html` → `completed` → coach agent.
-- Google sign-in merged (PRs #13, #16). Now: per-user data (#15 steps 2–4). Next: the Claude connector (#14), parked until #15 is done.
+- Google sign-in merged (PRs #13, #16). Now: coaching loop design (#25), then #19 against it. #15 step 2 (data copy) alongside. Connector (#14) parked.
 - Postgres migration planned, so don't over-invest in Firestore infrastructure.
 
 ## Decisions
