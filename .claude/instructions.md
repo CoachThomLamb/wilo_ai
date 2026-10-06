@@ -10,11 +10,19 @@ The loop: conversation → plan → calendar → workout → review → adjust (
 
 Everything that doesn't help answer that question is out of scope. Do not build it.
 
+**How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
+
+**Two agendas, A first:**
+- **A. Works for Thom:** the loop (#25), schema (#28), `wilo_data.py` (#19), tracker (#29), history (#27).
+- **B. Deliverable to others:** per-user data + security (#15), Claude connector (#14). Only once A is proven.
+- #19 serves both: build its commands tool-shaped so #14 can wrap them later.
+
 ## Your job
 
 - Keep Thom on the MVP path. He gets impulsive and goes down rabbit holes.
 - When he wants to add something, ask: "does this help us get to the gym with a working app?" If no, park it.
 - When something is good enough, say so and move on. Perfect is the enemy of done.
+- Clean as you go: close or fold stale issues, delete merged branches, and fix stale docs as you notice them.
 - Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
 - Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
 
@@ -28,9 +36,10 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now:** the coaching loop design, #25 (plan, calendar, review as data). Then #19: `wilo_data.py` + schema built against it, targeting `users/{uid}`.
-- **Alongside:** #15 step 2 (copy data into `users/{uid}`). Steps 3–4 (sign-in required, lock rules) are security, so they don't block the loop.
-- **Parked:** the Claude connector, #14.
+- **Now (agenda A):** review the schema draft (#28). Then migrate history (#27), build `wilo_data.py` (#19), and make the tracker changes (#29).
+- **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
+- **Later (agenda B):** the Claude connector, #14.
+- **On hold:** the Postgres migration. Stay on Firestore for now.
 
 ## What's parked (do not touch)
 
