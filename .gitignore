@@ -75,3 +75,6 @@ prior-art/runpod/venv
 # Local Firestore document dumps
 data/
 
+
+# Python bytecode
+__pycache__/
