@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wilo.schema.json",
+  "title": "WILO data",
+  "description": "Single source for WILO's data shapes. Everything lives under users/{uid}/. Paths: profile/current, plans/{planId}, assigned/{docId}, completed/{docId}, reviews/{reviewId}. wilo_data.py validates against this file, and the coach reads it.",
+
+  "$defs": {
+
+    "profile": {
+      "description": "users/{uid}/profile/current. Who the athlete is. Outlasts plans; the coach reads it at the start of every conversation.",
+      "type": "object",
+      "required": ["updatedAt", "facts", "preferences", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "facts": { "type": "array", "items": { "type": "string" }, "description": "Lasting facts: injuries, weak sides, constraints." },
+        "preferences": { "type": "array", "items": { "type": "string" }, "description": "How the athlete likes workouts built." },
+        "rules": { "type": "array", "items": { "type": "string" }, "description": "Standing coaching rules, in plain language. The coach applies them when planning and reviewing." },
+        "schedule": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "daysPerWeek": { "type": "integer", "minimum": 1, "maximum": 7 },
+            "minutesPerSession": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "examples": [{
+        "updatedAt": "2026-10-06T15:00:00Z",
+        "facts": ["Right leg is the weak side: no basic crane on the right; single-leg curl R 9,6 vs L 10,10 (2026-10-06)"],
+        "preferences": ["No cues on exercises", "Warm-up first, stretches right after"],
+        "rules": ["If the right-side crane fails, regress to basic cranes and skip step-ups"]
+      }]
+    },
+
+    "plan": {
+      "description": "users/{uid}/plans/{planId}. What the athlete is working on now. Open-ended: it lasts until it's changed in conversation. At most one plan is active.",
+      "type": "object",
+      "required": ["id", "status", "createdAt", "goal", "week"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "enum": ["active", "ended"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": ["string", "null"], "format": "date-time" },
+        "goal": { "type": "string" },
+        "reasoning": { "type": "string", "description": "Why the plan is built this way." },
+        "week": {
+          "type": "array",
+          "description": "Default weekly layout. The coach turns it into dated workouts one week at a time.",
+          "items": {
+            "type": "object",
+            "required": ["day", "focus"],
+            "additionalProperties": false,
+            "properties": {
+              "day": { "enum": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] },
+              "focus": { "type": "string" }
+            }
+          }
+        },
+        "progression": { "type": "array", "items": { "type": "string" }, "description": "Plain-language progression rules for this plan." }
+      },
+      "examples": [{
+        "id": "plan-2026-10-06-right-leg",
+        "status": "active",
+        "createdAt": "2026-10-06T15:00:00Z",
+        "goal": "Bring the right leg up to the left",
+        "week": [{ "day": "Mon", "focus": "legs" }, { "day": "Wed", "focus": "pull + press" }, { "day": "Fri", "focus": "shoulders" }],
+        "progression": ["Progress only what was fully completed; repeat what wasn't"]
+      }]
+    },
+
+    "workout": {
+      "description": "users/{uid}/assigned/{docId} (planned) and users/{uid}/completed/{docId} (done). Same shape; completed adds finishedAt and the logged sets. id is shared between an assigned workout and its completed copy.",
+      "type": "object",
+      "required": ["id", "name", "exercises"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "planId": { "type": ["string", "null"], "description": "Plan this workout belongs to; null for a one-off." },
+        "scheduledFor": { "type": "string", "format": "date", "description": "Local date the workout is for (YYYY-MM-DD). The tracker uses it to pick today's workout." },
+        "assignedFor": { "type": "string", "format": "date-time", "description": "When the coach posted it (not the workout date). The name is kept for tracker compatibility." },
+        "finishedAt": { "type": "string", "format": "date-time", "description": "completed only. Set by Finish." },
+        "exercises": { "type": "array", "items": { "$ref": "#/$defs/exercise" } }
+      }
+    },
+
+    "exercise": {
+      "type": "object",
+      "required": ["instanceId", "exId", "name", "timed", "sets"],
+      "additionalProperties": false,
+      "properties": {
+        "instanceId": { "type": "string", "description": "Unique within the workout." },
+        "exId": { "type": "string", "description": "Stable key across workouts (step-up, dead-hang). Links an exercise's history." },
+        "name": { "type": "string" },
+        "timed": { "type": "boolean", "description": "true: reps holds seconds." },
+        "cue": { "type": "string", "description": "Coach instruction. Empty by default (athlete preference)." },
+        "note": { "type": "string", "description": "Athlete's note from the gym." },
+        "custom_name": { "type": ["string", "null"], "description": "Header for one free-text column per set. Conventions: Risers (step-up height), Side (R/L), Direction (Drag/Pull). Two values: use R@3, or split the exercise." },
+        "fallback": {
+          "type": ["object", "null"],
+          "description": "Easier variant the athlete can swap to.",
+          "properties": {
+            "name": { "type": "string" },
+            "cue": { "type": "string" },
+            "sets": { "type": "integer" },
+            "target": { "type": "object", "properties": { "reps": { "type": "integer" } } }
+          },
+          "required": ["name"]
+        },
+        "swapped": { "type": "boolean" },
+        "original": { "type": ["object", "null"], "description": "Set by the tracker while swapped: the original name, note and sets." },
+        "target": {
+          "type": "object",
+          "description": "Legacy: the tracker infers timed from target.duration_sec. Drop it once the tracker reads timed directly (#29).",
+          "properties": { "duration_sec": { "type": "array", "items": { "type": "integer" } } }
+        },
+        "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
+      }
+    },
+
+    "set": {
+      "type": "object",
+      "required": ["lbs", "reps", "done", "custom"],
+      "additionalProperties": false,
+      "properties": {
+        "lbs": { "type": ["number", "string"], "pattern": "^$", "minimum": 0, "description": "Weight. \"\" or 0 = bodyweight / not set. Allowed on timed sets (weighted holds)." },
+        "reps": { "type": ["number", "string"], "pattern": "^$", "minimum": 0, "description": "Reps, or seconds when the exercise is timed. \"\" = not set." },
+        "done": { "type": "boolean" },
+        "custom": { "type": ["string", "null"], "description": "Value for the exercise's custom_name column, e.g. \"3\", \"R\"." }
+      }
+    },
+
+    "review": {
+      "description": "users/{uid}/reviews/{reviewId}. Written by the coach after each workout (kind: workout) and once a week (kind: week).",
+      "type": "object",
+      "required": ["id", "kind", "createdAt", "summary", "findings", "changes"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["workout", "week"] },
+        "completedId": { "type": "string", "description": "kind: workout. The completed doc reviewed." },
+        "weekOf": { "type": "string", "format": "date", "description": "kind: week. The Monday of the week reviewed." },
+        "completion": {
+          "type": "object",
+          "description": "MVP metric (#25): workouts done / scheduled, sets logged / planned.",
+          "additionalProperties": false,
+          "properties": {
+            "workoutsDone": { "type": "integer" },
+            "workoutsScheduled": { "type": "integer" },
+            "setsDone": { "type": "integer" },
+            "setsPlanned": { "type": "integer" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "summary": { "type": "string" },
+        "findings": { "type": "array", "items": { "type": "string" } },
+        "changes": { "type": "array", "items": { "type": "string" }, "description": "What changed in the profile, plan or next week, and why." }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "workout" } } }, "then": { "required": ["completedId"] } },
+        { "if": { "properties": { "kind": { "const": "week" } } }, "then": { "required": ["weekOf", "completion"] } }
+      ],
+      "examples": [{
+        "id": "review-06-oct-09:16-legs--9z50",
+        "kind": "workout",
+        "completedId": "06-oct-09:16-legs--9z50",
+        "createdAt": "2026-10-06T15:30:00Z",
+        "completion": { "setsDone": 34, "setsPlanned": 42 },
+        "summary": "Lunge stretch done 4/4 at #2. Step-ups skipped by the crane rule.",
+        "findings": ["Right leg weaker: no right-side crane; curls R 9,6 vs L 10,10"],
+        "changes": ["Profile: add right-leg fact and crane rule", "Next legs: 2 x 45s @ 115 leg extension"]
+      }]
+    }
+  }
+}
