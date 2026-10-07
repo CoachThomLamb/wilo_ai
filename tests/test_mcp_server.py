@@ -1,21 +1,16 @@
-"""Tests for mcp/server.py: the tools as Claude calls them, through the MCP layer. No Firestore: a fake db.
+"""Tests for wilo/mcp_server.py: the tools as Claude calls them, through the MCP layer. No Firestore: a fake db.
 
     .venv/bin/python -m unittest discover tests
 """
 
 import asyncio
-import importlib.util
 import json
 import unittest
-from pathlib import Path
 
 from mcp.server.mcpserver.exceptions import ToolError
 from test_wilo_data import FakeDB, MINIMAL, done
 
-ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location('wilo_mcp_server', ROOT / 'mcp' / 'server.py')
-srv = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(srv)
+from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
 TOOLS = {'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
