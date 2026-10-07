@@ -3,8 +3,9 @@
 **Restart note.** If a session restarts (or picks up via `/rc` on the phone), start here. Yesterday's context: `2026-10-06-workout-schema-and-script.md`.
 
 ## Where it stopped
-- **Two PRs to merge, in order:** **#35** (local WILO MCP server), then **#36** (tools act on a given uid; stacked on #35, so GitHub retargets it to `main`).
-- **Step C (remote connector) is researched and not started.** Findings and recommendation are on #31 ([comment](https://github.com/CoachThomLamb/wilo_ai/issues/31#issuecomment-6040939548)). Next would be a **spike of option A** (Google as the OAuth server). Thom has to: enable the Blaze plan if needed, and create a Google OAuth client.
+- **PRs to merge, in order:** **#35** (local WILO MCP server) → **#36** (tools act on a given uid) → **#37** (MCP tool tests + local HTTP transport). They're stacked, so each retargets to `main` when the one below merges. **#38** (principles doc + sign-in design) is independent.
+- **Step C (remote connector) is designed, not built:** `docs/connector-sign-in.md` (#38). **Option B is the plan:** the MCP SDK v2 provides the OAuth endpoints, we write a provider, and the login step reuses the tracker's **Firebase Google sign-in** (same uid; probably **no separate Google OAuth client** needed). Next: build the provider and test locally with Claude Code over HTTP (no Blaze needed). Hosting needs Blaze, which Thom will set up later. Research is on #31.
+- **Local HTTP works (#37):** `mcp/server.py --http` serves `http://127.0.0.1:8000/mcp` (localhost only on purpose, no sign-in yet). Claude Code connected to it as a remote server. Tests: 28, including 9 for the MCP tools.
 - **Tomorrow (Thu Oct 8, lunch):** `chest-biceps-oct-8` is posted and Load shows it. After he trains: review it together, then plan the next one.
 - **Optional:** the `"Calf raise. "` → `"Seated calf raise"` rename in `05-oct-09:22-shoul-75m0` (dry run done). `--write` is Thom's call.
 
@@ -61,7 +62,8 @@ From the repo root, on `main` once #34 is merged:
 Mon Oct 5 shoulders (14/16), Tue Oct 6 legs (34/42), Thu Oct 8 chest + biceps (planned). **Pull hasn't been done this week.**
 
 ## Open PRs and issues
-- PR #35: local WILO MCP server. PR #36: tools act on a given uid (stacked on #35).
+- PR #35: local WILO MCP server. PR #36: tools act on a given uid. PR #37: MCP tool tests + HTTP transport (stacked: #35 → #36 → #37).
+- PR #38: `docs/principles.md` + `docs/connector-sign-in.md`.
 - #31: connector build plan. Steps A and B are done (PRs above); step C research is recorded.
 - Merged today: #32, #33, #34 (closed #19).
 - #29: tracker changes (Saved ✓, read `timed`, Load by `assignedFor` date). Saved ✓ is the real fix for duplicates.
