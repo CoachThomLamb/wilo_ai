@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  WILO connector sign-in (#31 step C). Served by wilo/mcp_server.py at /login?request=… during OAuth.
+  Same Firebase Google sign-in as the tracker (fe/auth.js), so the token is for the same uid.
+  The server fills in {{REDIRECT_HOST}} and {{REQUEST}}.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in to WILO</title>
+<style>
+  :root { --bg: #000; --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff; --panel: #1c1c1e; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text);
+         font: 16px/1.5 -apple-system, system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
+  main { max-width: 360px; width: 100%; background: var(--panel); border-radius: 14px; padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: var(--dim); margin: 0 0 16px; }
+  b { color: var(--text); }
+  button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--accent); color: #fff;
+           font-size: 16px; font-weight: 600; }
+  button:disabled { opacity: .5; }
+  #msg { margin-top: 12px; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sign in to WILO</h1>
+  <p>After you sign in, you'll be sent back to <b>{{REDIRECT_HOST}}</b>, which can then read and write your workouts.</p>
+  <button id="go">Sign in with Google</button>
+  <p id="msg"></p>
+</main>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  const auth = getAuth(app);
+  const go = document.getElementById('go'), msg = document.getElementById('msg');
+
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    msg.textContent = 'Signing in…';
+    try {
+      const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
+      const res = await fetch('/login/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request: "{{REQUEST}}", idToken: await user.getIdToken() })
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || res.statusText);
+      msg.textContent = 'Signed in. Returning…';
+      window.location = out.redirect;
+    } catch (err) {
+      msg.textContent = 'Sign-in failed: ' + err.message;
+      go.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
