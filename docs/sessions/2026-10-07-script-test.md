@@ -1,16 +1,27 @@
-# 2026-10-07 (Wed): wilo_data.py proven, history cleaned, local MCP server, connector research
+# 2026-10-07 (Wed): wilo_data.py proven, history cleaned, MCP server, wilo package, connector sign-in
 
 **Restart note.** If a session restarts (or picks up via `/rc` on the phone), start here. Yesterday's context: `2026-10-06-workout-schema-and-script.md`.
 
-## Where it stopped
-- **PRs to merge, in order:** **#35** (local WILO MCP server) → **#36** (tools act on a given uid) → **#37** (MCP tool tests + local HTTP transport). They're stacked, so each retargets to `main` when the one below merges. **#38** (principles doc + sign-in design) is independent.
-- **Step C (remote connector) is designed, not built:** `docs/connector-sign-in.md` (#38). **Option B is the plan:** the MCP SDK v2 provides the OAuth endpoints, we write a provider, and the login step reuses the tracker's **Firebase Google sign-in** (same uid; probably **no separate Google OAuth client** needed). Next: build the provider and test locally with Claude Code over HTTP (no Blaze needed). Hosting needs Blaze, which Thom will set up later. Research is on #31.
-- **Local HTTP works (#37):** `mcp/server.py --http` serves `http://127.0.0.1:8000/mcp` (localhost only on purpose, no sign-in yet). Claude Code connected to it as a remote server. Tests: 28, including 9 for the MCP tools.
-- **Tomorrow (Thu Oct 8, lunch):** `chest-biceps-oct-8` is posted and Load shows it. After he trains: review it together, then plan the next one.
-- **Optional:** the `"Calf raise. "` → `"Seated calf raise"` rename in `05-oct-09:22-shoul-75m0` (dry run done). `--write` is Thom's call.
+## Where it stopped (end of day)
+- **Next: Thom reviews #36**, then #37, then #39. They're stacked. #35 is merged with a merge commit, so #36 needed no rebase and is retargeted to `main`. When one merges: retarget the next PR to `main` **before** deleting the merged branch, then delete it.
+- **#38** (principles + sign-in design) is independent and open.
+- **Repo is on `main`.** Claude Code's `wilo` MCP entry runs `python -m wilo.mcp_server` from the **editable install**, so it runs whatever is checked out. `main` has `wilo/`, so it works (✔ Connected).
+- **Step C sign-in is built (#39), not tried for real.** The end-to-end test needs Thom at the laptop: `python -m wilo.mcp_server --http --auth`, then `claude mcp add --transport http wilo-auth http://localhost:8000/mcp`, a browser opens, Google sign-in, call a tool. This **writes the first real `oauth_*` docs to Firestore**, which needs Thom's OK first. Hosting needs Blaze (later).
+- **Tomorrow (Thu Oct 8, lunch):** `chest-biceps-oct-8` is posted and Load shows it. After he trains: review it, then plan the next one.
+- **Optional:** the `"Calf raise. "` → `"Seated calf raise"` rename in `05-oct-09:22-shoul-75m0` (dry run done).
+
+## Done today (evening)
+- **Thom's review of #35 led to two changes:**
+  1. **"Instructions" is its own layer** (text written for the LLM: server `instructions=`, the tool docstrings, the coach skill). Added to `docs/principles.md` (#38), now **config / code / data / instructions / LLM**. Extraction tracked in **#40** (refinement, not urgent).
+  2. **The path hacks were confusing**, so **WILO is now a Python package**: `wilo/data.py` (was `scripts/wilo_data.py`), `wilo/mcp_server.py` (was `mcp/server.py`), `wilo/auth.py`, `wilo/login.html`, plus `pyproject.toml` (`pip install -e .`), replacing `scripts/requirements.txt`. No `sys.path` anywhere, and no folder named `mcp` shadowing the SDK. CLI: `python -m wilo.data …`. #36, #37 and #39 were rebased onto it.
+- **The rebase caught a real bug in #39:** with startup code inside `main()`, `AUTH` and `server` needed `global`, or sign-in mode would silently fall back to the config uid. Fixed, with a regression test (verified it fails without the fix).
+- **#37:** 9 MCP tool tests, plus `--http` (Streamable HTTP, 127.0.0.1 only). Claude Code connected to it as a remote server.
+- **#39 (step C):** OAuth provider (`wilo/auth.py`: hashed, expiring codes and tokens; rotating refresh tokens; only Claude and loopback redirects), Firebase login page, `--auth`. **54 tests** in total, including 11 in-process HTTP tests of the full flow. Live probe: `401` + discovery docs as Claude requires.
+- **Docs (#38):** `docs/principles.md`; `docs/connector-sign-in.md`. The MCP SDK v2 provides the OAuth endpoints, and login reuses Firebase sign-in, so **no separate Google OAuth client** is needed.
+- **Workflow rules from today:** we don't merge code that isn't right; fix it at the bottom of the stack and rebase up. Force-push rebased branches with `--force-with-lease`. Some git pushes from inside the session failed with GitHub 500s (after `/rc`); if that happens, commit and give Thom the push command.
 
 ## Done today (afternoon)
-- **#19 closed** (#32 + #34 merged): `wilo_data.py` has `completed`, `assigned`, `get`, `assign`, `history`, `names` and `update`.
+- **#19 closed** (#32 + #34 merged): `wilo_data.py` (now `wilo/data.py`) has `completed`, `assigned`, `get`, `assign`, `history`, `names` and `update`.
 - **Local MCP server (PR #35):** `mcp/server.py` exposes the same functions as 8 tools (`workout_schema`, `recent_completed`, `recent_assigned`, `get_workout`, `exercise_history`, `exercise_names`, `assign_workout`, `update_workout`). Writes are dry runs unless `write=True`. Uses **MCP Python SDK v2** (`MCPServer`, not `fastmcp`). First real use: "what did I bench last time?" was answered through `exercise_history`.
 - **The broken `wilo` MCP entry is fixed.** `~/.claude.json` pointed at the system `python3` and a non-existent `mcp/server.py`, so it failed every session. Re-registered with `claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python /home/thom/wilo/mcp/server.py` → ✔ Connected. In a running session, use `/mcp` to reconnect after server changes.
 - **Per-user (PR #36, #31 step B):** every `wilo_data` function takes `uid`, and only the CLI reads it from config. The MCP server uses one `current_uid()` (config locally, the signed-in user's token later). **The uid is never a tool argument.** 19 tests, including two-user isolation.
@@ -32,15 +43,15 @@
 - **Product idea (parked):** a progress doc for each user. First entry: **Mon Oct 5, shoulder press machine at full range of motion with both shoulders, pain-free.** Still weak, clearly improving.
 
 ## How to run things
-From the repo root, on `main` once #34 is merged:
+From the repo root, after `.venv/bin/pip install -e .` (once):
 ```bash
-.venv/bin/python scripts/wilo_data.py completed --limit 4
-.venv/bin/python scripts/wilo_data.py assigned --limit 2
-.venv/bin/python scripts/wilo_data.py get completed <docId>
-.venv/bin/python scripts/wilo_data.py history "bench" [--limit N]
-.venv/bin/python scripts/wilo_data.py names
-.venv/bin/python scripts/wilo_data.py assign workout.json [--write]
-.venv/bin/python scripts/wilo_data.py update completed <docId> edited.json [--write]
+.venv/bin/python -m wilo.data completed --limit 4
+.venv/bin/python -m wilo.data assigned --limit 2
+.venv/bin/python -m wilo.data get completed <docId>
+.venv/bin/python -m wilo.data history "bench" [--limit N]
+.venv/bin/python -m wilo.data names
+.venv/bin/python -m wilo.data assign workout.json [--write]
+.venv/bin/python -m wilo.data update completed <docId> edited.json [--write]
 .venv/bin/python -m unittest discover tests -v
 ```
 - `config/wilo.json` points to the key at `~/wilo-claude/service-account.json` (laptop only).
@@ -62,10 +73,8 @@ From the repo root, on `main` once #34 is merged:
 Mon Oct 5 shoulders (14/16), Tue Oct 6 legs (34/42), Thu Oct 8 chest + biceps (planned). **Pull hasn't been done this week.**
 
 ## Open PRs and issues
-- PR #35: local WILO MCP server. PR #36: tools act on a given uid. PR #37: MCP tool tests + HTTP transport (stacked: #35 → #36 → #37).
-- PR #38: `docs/principles.md` + `docs/connector-sign-in.md`.
-- #31: connector build plan. Steps A and B are done (PRs above); step C research is recorded.
-- Merged today: #32, #33, #34 (closed #19).
-- #29: tracker changes (Saved ✓, read `timed`, Load by `assignedFor` date). Saved ✓ is the real fix for duplicates.
-- #31: use the script from Claude anywhere (connector). #30: remove the unused swap feature.
+- **Stack to review, in order:** #36 (tools act on a given uid) → #37 (MCP tool tests + HTTP) → #39 (connector sign-in). Merged today: #32, #33, #34, #35.
+- #38: `docs/principles.md` + `docs/connector-sign-in.md` (independent).
+- #40: move LLM-facing instructions out of code (refinement).
+- #31: connector build plan (A, B and C built in the stack; hosting needs Blaze). #29: tracker changes (Saved ✓, read `timed`). #30: remove the swap feature.
 - Parked: #25 coaching loop, #28 full schema. Later: #14, #15.
