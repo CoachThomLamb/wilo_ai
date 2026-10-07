@@ -23,41 +23,51 @@ TRACKER = {'id': 'prog_1', 'name': 'legs-oct-6', 'finishedAt': '2026-10-06T13:16
      'sets': [{'lbs': '', 'reps': 8, 'done': True, 'custom': '3'}, {'lbs': 30, 'reps': 6, 'done': False, 'custom': '4'}]}]}
 
 
-class FakeRef:
-    def __init__(self, store, key):
-        self.store, self.key = store, key
+class Snap:
+    def __init__(self, key, data):
+        self.id, self.exists, self._data = key.rsplit('/', 1)[-1], data is not None, data
+
+    def to_dict(self):
+        return self._data
+
+
+class Ref:
+    """A path in the fake store: works as a collection or a document, like the Firestore calls we use."""
+
+    def __init__(self, store, path):
+        self.store, self.path = store, path
+
+    def collection(self, name):
+        return Ref(self.store, f'{self.path}/{name}')
+
+    def document(self, name):
+        return Ref(self.store, f'{self.path}/{name}')
 
     def get(self):
-        data = self.store.get(self.key)
-        return type('Snap', (), {'exists': data is not None, 'to_dict': lambda _: data})()
+        return Snap(self.path, self.store.get(self.path))
 
     def set(self, doc):
-        self.store[self.key] = doc
+        self.store[self.path] = doc
+
+    def stream(self):
+        return [Snap(k, v) for k, v in self.store.items() if k.rsplit('/', 1)[0] == self.path]
 
 
 class FakeDB:
-    """Just enough of firestore.Client for assign()."""
+    """Just enough of firestore.Client for assign, update, history and names. Docs live in a dict by path."""
 
-    def __init__(self):
-        self.store = {}
+    def __init__(self, docs=None):
+        self.store = dict(docs or {})
 
     def collection(self, name):
-        db, path = self, [name]
+        return Ref(self.store, name)
 
-        class Node:
-            def document(self, d):
-                path.append(d)
-                return self
 
-            def collection(self, c):
-                path.append(c)
-                return self
+COMPLETED = f"users/{wilo_data.CONFIG['uid']}/completed"
 
-            def __getattr__(self, attr):
-                ref = FakeRef(db.store, '/'.join(path))
-                return getattr(ref, attr)
 
-        return Node()
+def done(name, sets, finished):
+    return {'id': finished, 'name': 'w', 'finishedAt': finished, 'exercises': [{'name': name, 'sets': sets}]}
 
 
 class SchemaTest(unittest.TestCase):
@@ -114,6 +124,74 @@ class AssignTest(unittest.TestCase):
         again = wilo_data.assign(db, MINIMAL, write=True, now=NOW)
         self.assertFalse(again['ok'])
         self.assertIn('already exists', again['errors'][0])
+
+
+class MatchTest(unittest.TestCase):
+    def test_cosmetic_differences_match(self):
+        pairs = [('push up', 'Pushups '), ('push up', 'Push-ups'), ('seated calf raise', 'calf raise seated'),
+                 ('leg raise', 'Leg raises….'), ('crane', 'crane-plane'), ('single leg curl', 'single leg curls seated ')]
+        for q, name in pairs:
+            with self.subTest(q=q, name=name):
+                self.assertTrue(wilo_data.name_matches(q, name))
+
+    def test_different_exercises_dont_match(self):
+        for q, name in [('bench', 'Barbell curl'), ('squat', 'step up'), ('press', 'Pushups ')]:
+            with self.subTest(q=q, name=name):
+                self.assertFalse(wilo_data.name_matches(q, name))
+
+
+class HistoryNamesTest(unittest.TestCase):
+    def setUp(self):
+        self.db = FakeDB({
+            f'{COMPLETED}/a': done('Pushups ', [{'reps': 10, 'done': True}], '2026-10-01T22:36:00Z'),
+            f'{COMPLETED}/b': done('Push-ups', [{'reps': 12, 'done': True}], '2026-10-08T17:00:00Z'),
+            f'{COMPLETED}/c': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-08T17:00:00Z'),
+            'completed/top-level': done('Push-ups', [{'reps': 99, 'done': True}], '2026-10-09T00:00:00Z'),
+        })
+
+    def test_history_newest_first_and_loose(self):
+        h = wilo_data.history(self.db, 'push up', limit=5)
+        self.assertEqual([x['name'] for x in h], ['Push-ups', 'Pushups '])  # top-level doc not included
+        self.assertEqual(h[0]['sets'], [{'reps': 12, 'done': True}])
+
+    def test_history_limit(self):
+        self.assertEqual(len(wilo_data.history(self.db, 'push up', limit=1)), 1)
+
+    def test_names_counts_and_last_done(self):
+        n = {x['name']: x for x in wilo_data.names(self.db)}
+        self.assertEqual(set(n), {'Pushups ', 'Push-ups', 'Bench press'})  # distinct as written; matching is Claude's job
+        self.assertEqual(n['Push-ups']['lastDone'], '2026-10-08T17:00:00Z')
+
+
+class UpdateTest(unittest.TestCase):
+    def setUp(self):
+        self.key = f'{COMPLETED}/oct5'
+        self.old = done('Calf raise. ', [{'reps': 5, 'done': False}], '2026-10-05T13:22:00Z')
+        self.db = FakeDB({self.key: self.old})
+        self.new = {**self.old, 'docId': 'oct5', 'exercises': [{**self.old['exercises'][0], 'name': 'Seated calf raise'}]}
+
+    def test_dry_run_shows_change_and_writes_nothing(self):
+        out = wilo_data.update(self.db, 'completed', 'oct5', self.new, write=False)
+        self.assertTrue(out['ok'] and out['dryRun'])
+        self.assertEqual(out['changes'], ['exercises/0/name: "Calf raise. " -> "Seated calf raise"'])
+        self.assertEqual(self.db.store[self.key], self.old)
+
+    def test_write_saves_without_doc_id(self):
+        out = wilo_data.update(self.db, 'completed', 'oct5', self.new, write=True)
+        self.assertTrue(out['ok'])
+        self.assertEqual(self.db.store[self.key]['exercises'][0]['name'], 'Seated calf raise')
+        self.assertNotIn('docId', self.db.store[self.key])
+
+    def test_refuses_missing_doc_changed_id_and_invalid(self):
+        cases = {
+            'missing doc': ('nope', self.new),
+            'changed id': ('oct5', {**self.new, 'id': 'other'}),
+            'invalid': ('oct5', {**self.new, 'exercises': [{'sets': []}]}),
+        }
+        for label, (doc_id, doc) in cases.items():
+            with self.subTest(label):
+                self.assertFalse(wilo_data.update(self.db, 'completed', doc_id, doc, write=True)['ok'])
+                self.assertEqual(self.db.store[self.key], self.old)
 
 
 if __name__ == '__main__':

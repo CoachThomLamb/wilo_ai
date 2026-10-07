@@ -9,8 +9,11 @@ schema/workout.schema.json. Output is JSON on stdout.
     .venv/bin/python scripts/wilo_data.py assigned [--limit N]
     .venv/bin/python scripts/wilo_data.py get <assigned|completed> <docId>
     .venv/bin/python scripts/wilo_data.py assign <file.json|-> [--write]
+    .venv/bin/python scripts/wilo_data.py history <exercise name> [--limit N]
+    .venv/bin/python scripts/wilo_data.py names
+    .venv/bin/python scripts/wilo_data.py update <assigned|completed> <docId> <file.json|-> [--write]
 
-assign is a dry run unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
+assign and update are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
 if set, overrides the key path in the config.
 """
 
@@ -70,6 +73,77 @@ def recent(db, name, limit):
     return [{'docId': d.id, **d.to_dict()} for d in q.stream()]
 
 
+def _plain(word):
+    return word[:-1] if len(word) > 3 and word.endswith('s') and not word.endswith('ss') else word
+
+
+def name_matches(query, name):
+    """Loose match for cosmetic differences only: case, spacing, punctuation, plurals, word order.
+    Synonyms ("crane-plane" vs "Basic cranes") are left to the LLM, using `names`."""
+    words = lambda s: {_plain(w) for w in re.findall(r'[a-z0-9]+', s.lower())}
+    squash = lambda s: _plain(re.sub(r'[^a-z0-9]', '', s.lower()))
+    return words(query) <= words(name) or squash(query) in squash(name)
+
+
+def _completed(db):
+    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, 'completed').stream()]
+    return sorted(docs, key=lambda w: w.get('finishedAt', ''), reverse=True)
+
+
+def history(db, query, limit):
+    """Past sets for exercises whose name matches, newest first."""
+    out = []
+    for w in _completed(db):
+        for e in w['exercises']:
+            if name_matches(query, e['name']):
+                out.append({'finishedAt': w.get('finishedAt'), 'workout': w['name'], 'docId': w['docId'],
+                            'name': e['name'], 'custom_name': e.get('custom_name'), 'sets': e['sets']})
+    return out[:limit]
+
+
+def names(db):
+    """Every distinct exercise name in completed workouts, with how often and when it was last done."""
+    seen = {}
+    for w in _completed(db):
+        for e in w['exercises']:
+            n = seen.setdefault(e['name'], {'name': e['name'], 'count': 0, 'lastDone': w.get('finishedAt')})
+            n['count'] += 1
+    return sorted(seen.values(), key=lambda n: n['name'].strip().lower())
+
+
+def diff(old, new, path=''):
+    """Changes between two docs as 'path: old -> new' strings."""
+    if isinstance(old, dict) and isinstance(new, dict):
+        return [c for k in sorted(set(old) | set(new), key=str)
+                for c in diff(old.get(k, '<missing>'), new.get(k, '<missing>'), f'{path}/{k}' if path else str(k))]
+    if isinstance(old, list) and isinstance(new, list):
+        n = max(len(old), len(new))
+        pad = lambda xs: xs + ['<missing>'] * (n - len(xs))
+        return [c for i, (a, b) in enumerate(zip(pad(old), pad(new))) for c in diff(a, b, f'{path}/{i}')]
+    return [] if old == new else [f'{path}: {json.dumps(old, default=str)} -> {json.dumps(new, default=str)}']
+
+
+def update(db, name, doc_id, doc, write):
+    """Replace an existing workout with an edited version. Never creates; keeps the same id."""
+    doc = {k: v for k, v in doc.items() if k != 'docId'}  # `get` adds docId; it isn't part of the doc
+    path = f"users/{CONFIG['uid']}/{name}/{doc_id}"
+    ref = collection(db, name).document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'{path} not found (use assign to create)']}
+    old = snap.to_dict()
+    if doc.get('id') != old.get('id'):
+        return {'ok': False, 'errors': [f"id changed: {old.get('id')!r} -> {doc.get('id')!r}"]}
+    errors = validate(doc)
+    if errors:
+        return {'ok': False, 'errors': errors}
+    changes = diff(old, doc)
+    if not write or not changes:
+        return {'ok': True, 'dryRun': not write, 'path': path, 'changes': changes}
+    ref.set(doc)
+    return {'ok': ref.get().to_dict() == doc, 'path': path, 'changes': changes}
+
+
 def assign(db, doc, write, now):
     doc = with_defaults(doc, now)
     errors = validate(doc)
@@ -96,17 +170,32 @@ def main(argv=None):
     a = sub.add_parser('assign')
     a.add_argument('file', help='workout JSON file, or - for stdin')
     a.add_argument('--write', action='store_true', help='post it (default is a dry run)')
+    h = sub.add_parser('history')
+    h.add_argument('name', help='exercise name; loose match (case, spacing, punctuation, plurals, word order)')
+    h.add_argument('--limit', type=int, default=5)
+    sub.add_parser('names')
+    u = sub.add_parser('update')
+    u.add_argument('collection', choices=['assigned', 'completed'])
+    u.add_argument('doc_id')
+    u.add_argument('file', help='edited workout JSON file, or - for stdin')
+    u.add_argument('--write', action='store_true', help='save it (default is a dry run)')
     args = p.parse_args(argv)
 
     db = connect()
+    read = lambda f: json.loads(sys.stdin.read() if f == '-' else Path(f).read_text())
     if args.cmd in ('completed', 'assigned'):
         out = recent(db, args.cmd, args.limit)
     elif args.cmd == 'get':
         snap = collection(db, args.collection).document(args.doc_id).get()
         out = {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
+    elif args.cmd == 'history':
+        out = history(db, args.name, args.limit)
+    elif args.cmd == 'names':
+        out = names(db)
+    elif args.cmd == 'update':
+        out = update(db, args.collection, args.doc_id, read(args.file), args.write)
     else:
-        raw = sys.stdin.read() if args.file == '-' else Path(args.file).read_text()
-        out = assign(db, json.loads(raw), args.write, datetime.now(timezone.utc))
+        out = assign(db, read(args.file), args.write, datetime.now(timezone.utc))
 
     print(json.dumps(out, indent=2, default=str))
     return 1 if isinstance(out, dict) and out.get('ok') is False else 0
