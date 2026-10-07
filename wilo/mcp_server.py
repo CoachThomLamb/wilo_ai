@@ -5,6 +5,9 @@ read and write Thom's workouts in users/{uid}/assigned and completed.
 Registered in Claude Code as `wilo`:
     claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server
 
+Over HTTP (local test of the remote transport; localhost only, no sign-in yet):
+    .venv/bin/python -m wilo.mcp_server --http [--port 8000]   → http://127.0.0.1:8000/mcp
+
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
 Writes (assign_workout, update_workout) are dry runs unless write=True.
 """
@@ -94,7 +97,16 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
 
 
 def main():
-    server.run()
+    import argparse
+    p = argparse.ArgumentParser(description='WILO MCP server. Default: stdio (Claude Code launches it).')
+    p.add_argument('--http', action='store_true', help='serve Streamable HTTP at http://127.0.0.1:PORT/mcp instead')
+    p.add_argument('--port', type=int, default=8000)
+    args = p.parse_args()
+    if args.http:
+        # Localhost only: there's no sign-in yet (#31 step C), so never bind to a public interface.
+        server.run(transport='streamable-http', host='127.0.0.1', port=args.port)
+    else:
+        server.run()
 
 
 if __name__ == '__main__':
