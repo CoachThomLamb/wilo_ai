@@ -33,7 +33,8 @@ def client(client_id='claude', redirect=CLAUDE):
 class ProviderTest(unittest.TestCase):
     def setUp(self):
         self.db, self.clock = FakeDB(), Clock()
-        self.p = auth.WiloAuthProvider(auth.Store(self.db), 'http://localhost:8000/login', clock=self.clock)
+        self.p = auth.WiloAuthProvider(auth.Store(self.db), 'http://localhost:8000/login',
+                                       resource='http://localhost:8000/mcp', clock=self.clock)
         self.c = client()
         run(self.p.register_client(self.c))
 
@@ -89,6 +90,14 @@ class ProviderTest(unittest.TestCase):
         self.clock.t += auth.PENDING_TTL + 1
         with self.assertRaises(ValueError):
             self.p.complete_login(pending2, 'thom')
+
+    def test_missing_resource_defaults_to_this_server(self):
+        params = AuthorizationParams(state=None, scopes=None, code_challenge='c', redirect_uri=CLAUDE,
+                                     redirect_uri_provided_explicitly=True, resource=None)
+        pending = parse_qs(urlparse(run(self.p.authorize(self.c, params))).query)['request'][0]
+        code = parse_qs(urlparse(self.p.complete_login(pending, 'thom')).query)['code'][0]
+        tok = run(self.p.exchange_authorization_code(self.c, run(self.p.load_authorization_code(self.c, code))))
+        self.assertEqual(run(self.p.load_access_token(tok.access_token)).resource, 'http://localhost:8000/mcp')
 
     def test_code_is_single_use(self):
         code = self.sign_in()

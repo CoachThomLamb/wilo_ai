@@ -109,7 +109,7 @@ def make_server(provider=None, issuer=None):
         from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
         from wilo.auth import SCOPE
         kwargs = {'auth_server_provider': provider, 'auth': AuthSettings(
-            issuer_url=issuer, resource_server_url=f'{issuer}/mcp', required_scopes=[SCOPE],
+            issuer_url=issuer, resource_server_url=f'{issuer}/mcp', validate_token_resource=True, required_scopes=[SCOPE],
             client_registration_options=ClientRegistrationOptions(enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE]),
             revocation_options=RevocationOptions(enabled=True))}
     s = MCPServer('wilo', instructions=INSTRUCTIONS, **kwargs)
@@ -161,7 +161,7 @@ def main():
         from wilo.auth import Store, WiloAuthProvider
         AUTH = True
         issuer = f'http://localhost:{args.port}'  # Firebase Auth allows localhost by default
-        server = make_server(WiloAuthProvider(Store(db()), f'{issuer}/login'), issuer)
+        server = make_server(WiloAuthProvider(Store(db()), f'{issuer}/login', resource=f'{issuer}/mcp'), issuer)
     if args.http:
         # Localhost only until this is hosted behind HTTPS (#31 step C): never bind to a public interface.
         server.run(transport='streamable-http', host='127.0.0.1', port=args.port)

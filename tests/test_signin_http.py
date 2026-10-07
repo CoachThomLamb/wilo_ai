@@ -33,7 +33,7 @@ def pkce():
 class SignInOverHttpTest(unittest.TestCase):
     def setUp(self):
         self.db = FakeDB()
-        self.provider = auth.WiloAuthProvider(auth.Store(self.db), f'{ISSUER}/login')
+        self.provider = auth.WiloAuthProvider(auth.Store(self.db), f'{ISSUER}/login', resource=f'{ISSUER}/mcp')
         self.saved = srv.db, firebase_admin.auth.verify_id_token, srv.AUTH
         srv.db = lambda: self.db
         firebase_admin.auth.verify_id_token = lambda tok: {'uid': {'good-firebase-token': 'thom'}[tok]}
@@ -50,13 +50,14 @@ class SignInOverHttpTest(unittest.TestCase):
                                                  'grant_types': ['authorization_code', 'refresh_token'],
                                                  'response_types': ['code'], 'client_name': 'Claude'})
 
-    def sign_in(self):
+    def sign_in(self, resource=f'{ISSUER}/mcp'):
         """Register → authorize → login page → Firebase callback. Returns (client_id, code, verifier)."""
         client_id = self.register().json()['client_id']
         verifier, challenge = pkce()
         r = self.http.get('/authorize', params={
             'response_type': 'code', 'client_id': client_id, 'redirect_uri': CLAUDE, 'code_challenge': challenge,
-            'code_challenge_method': 'S256', 'state': 'st8', 'scope': 'workouts', 'resource': f'{ISSUER}/mcp'},
+            'code_challenge_method': 'S256', 'state': 'st8', 'scope': 'workouts',
+            **({'resource': resource} if resource else {})},
             follow_redirects=False)
         self.assertIn(r.status_code, (302, 307))
         login = r.headers['location']
@@ -137,6 +138,21 @@ class SignInOverHttpTest(unittest.TestCase):
             return srv.current_uid()
         finally:
             auth_context_var.reset(reset)
+
+    def call_mcp(self, access):
+        return self.http.post('/mcp', headers={'Authorization': f'Bearer {access}', 'Accept': 'application/json, text/event-stream'},
+                              json={'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
+                                  'protocolVersion': '2025-06-18', 'capabilities': {}, 'clientInfo': {'name': 't', 'version': '1'}}})
+
+    def test_token_for_another_resource_is_refused(self):
+        client_id, code, verifier = self.sign_in(resource='https://other.example/mcp')
+        access = self.token(client_id, code, verifier).json()['access_token']
+        self.assertEqual(self.call_mcp(access).status_code, 401)
+
+    def test_client_without_resource_still_works(self):
+        client_id, code, verifier = self.sign_in(resource=None)
+        access = self.token(client_id, code, verifier).json()['access_token']
+        self.assertEqual(self.call_mcp(access).status_code, 200)
 
     def test_without_a_token_current_uid_refuses(self):
         with self.assertRaises(PermissionError):

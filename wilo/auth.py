@@ -61,8 +61,10 @@ class Store:
 
 
 class WiloAuthProvider(OAuthAuthorizationServerProvider):
-    def __init__(self, store, login_url, clock=time.time):
-        self.store, self.login_url, self.clock = store, login_url, clock
+    def __init__(self, store, login_url, resource=None, clock=time.time):
+        # resource: this server's MCP URL. Tokens record it, and the server refuses tokens for any other resource
+        # (AuthSettings.validate_token_resource). Used when a client doesn't send `resource`.
+        self.store, self.login_url, self.resource, self.clock = store, login_url, resource, clock
 
     # Clients (dynamic client registration)
     async def get_client(self, client_id):
@@ -82,7 +84,7 @@ class WiloAuthProvider(OAuthAuthorizationServerProvider):
             'client_id': client.client_id, 'redirect_uri': str(params.redirect_uri),
             'redirect_uri_provided_explicitly': params.redirect_uri_provided_explicitly,
             'code_challenge': params.code_challenge, 'scopes': params.scopes or [SCOPE],
-            'state': params.state, 'resource': params.resource, 'expires_at': self.clock() + PENDING_TTL,
+            'state': params.state, 'resource': params.resource or self.resource, 'expires_at': self.clock() + PENDING_TTL,
         })
         return f'{self.login_url}?request={pending}'
 
