@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WILO workout",
+  "description": "A workout in users/{uid}/assigned or users/{uid}/completed: what a workout, exercise and set need to mean something to a human. Extra fields are allowed.",
+  "$ref": "#/$defs/workout",
+
+  "$defs": {
+    "workout": {
+      "type": "object",
+      "required": ["id", "name", "exercises"],
+      "properties": {
+        "id": { "type": "string", "description": "Shared by an assigned workout and its completed copy." },
+        "name": { "type": "string" },
+        "assignedFor": { "type": "string", "description": "The date this workout is for. Lets the coach lay out several workouts on specific dates." },
+        "finishedAt": { "type": "string", "format": "date-time", "description": "completed: set by Finish." },
+        "exercises": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "In the order they're done." }
+      }
+    },
+
+    "exercise": {
+      "type": "object",
+      "required": ["name", "sets"],
+      "properties": {
+        "name": { "type": "string", "description": "Whatever the user calls it. No catalog, no linking." },
+        "timed": { "type": "boolean", "default": false, "description": "true: reps are seconds." },
+        "cue": { "type": "string", "description": "Advice from the coach." },
+        "note": { "type": "string", "description": "Feedback from the client." },
+        "custom_name": { "type": ["string", "null"], "description": "Header for one free-text column per set (e.g. Risers, Side)." },
+        "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
+      }
+    },
+
+    "set": {
+      "type": "object",
+      "required": ["reps", "done"],
+      "properties": {
+        "lbs": { "anyOf": [{ "type": "number", "minimum": 0 }, { "const": "" }], "description": "Weight, or \"\" when not set yet. Blank doesn't necessarily mean bodyweight." },
+        "reps": { "anyOf": [{ "type": "number", "minimum": 0 }, { "const": "" }], "description": "Number (seconds when timed), or \"\" when not set yet." },
+        "done": { "type": "boolean" },
+        "custom": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
