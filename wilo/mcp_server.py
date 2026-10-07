@@ -1,23 +1,20 @@
-#!/usr/bin/env python3
 """
-WILO MCP server (local, stdio). Exposes scripts/wilo_data.py as tools so Claude can
+WILO MCP server (local, stdio). Exposes wilo.data as tools so Claude can
 read and write Thom's workouts in users/{uid}/assigned and completed.
 
 Registered in Claude Code as `wilo`:
-    claude mcp add wilo -- /home/thom/wilo/.venv/bin/python /home/thom/wilo/mcp/server.py
+    claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
 Writes (assign_workout, update_workout) are dry runs unless write=True.
 """
 
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Literal
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
-import wilo_data  # noqa: E402
-from mcp.server.mcpserver import MCPServer  # noqa: E402
+from mcp.server.mcpserver import MCPServer
+
+from wilo import data as wilo_data
 
 server = MCPServer(
     'wilo',
@@ -90,5 +87,9 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
     return wilo_data.update(db(), collection, doc_id, workout, write)
 
 
-if __name__ == '__main__':
+def main():
     server.run()
+
+
+if __name__ == '__main__':
+    main()

@@ -13,7 +13,7 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 **How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
 
 **Two agendas, A first:**
-- **A. Works for Thom:** `wilo_data.py` + workout schema (#19), tracker (#29), history (#27). The coaching loop (#25) comes after.
+- **A. Works for Thom:** `wilo/data.py` + workout schema (#19), tracker (#29), history (#27). The coaching loop (#25) comes after.
 - **B. Deliverable to others:** per-user data + security (#15), Claude connector (#14, build plan #31). Only once A is proven.
 - #19 serves both: build its commands tool-shaped so #14 can wrap them later.
 
@@ -29,6 +29,9 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 ## How it works now (2026-10-03)
 
 - **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts, `programs` = builder saves.
+- **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
+  - `wilo/data.py`: read and write workouts (CLI: `.venv/bin/python -m wilo.data history bench`).
+  - `wilo/mcp_server.py`: the same functions as MCP tools. Claude Code runs it as `wilo` (`.venv/bin/python -m wilo.mcp_server`).
 - **Tracker:** `fe/index.html` (plain HTML, not a PWA) reads the latest `assigned` workout, logs sets, and writes to `completed` on Finish.
 - **Builder:** `fe/builder.html` saves programs.
 - **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`.
@@ -36,7 +39,7 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now (agenda A):** merge `wilo_data.py` (#19, PR #32). The tracker reads `timed` (#29), then post a real workout with the script. Then #27.
+- **Now (agenda A):** the tracker reads `timed` (#29). `wilo/data.py` and #27 are done.
 - **Next:** use the script from Claude anywhere (#31; interim: a cloud session with the key as a secret).
 - **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
 - **Parked:** coaching loop (#25), full data schema (#28).
