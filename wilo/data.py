@@ -1,17 +1,16 @@
-#!/usr/bin/env python3
 """
 Read and write workouts in users/{uid}/assigned and users/{uid}/completed (#19).
 
 Settings come from config/wilo.json, and the workout shape from
 schema/workout.schema.json. Output is JSON on stdout.
 
-    .venv/bin/python scripts/wilo_data.py completed [--limit N]
-    .venv/bin/python scripts/wilo_data.py assigned [--limit N]
-    .venv/bin/python scripts/wilo_data.py get <assigned|completed> <docId>
-    .venv/bin/python scripts/wilo_data.py assign <file.json|-> [--write]
-    .venv/bin/python scripts/wilo_data.py history <exercise name> [--limit N]
-    .venv/bin/python scripts/wilo_data.py names
-    .venv/bin/python scripts/wilo_data.py update <assigned|completed> <docId> <file.json|-> [--write]
+    .venv/bin/python -m wilo.data completed [--limit N]
+    .venv/bin/python -m wilo.data assigned [--limit N]
+    .venv/bin/python -m wilo.data get <assigned|completed> <docId>
+    .venv/bin/python -m wilo.data assign <file.json|-> [--write]
+    .venv/bin/python -m wilo.data history <exercise name> [--limit N]
+    .venv/bin/python -m wilo.data names
+    .venv/bin/python -m wilo.data update <assigned|completed> <docId> <file.json|-> [--write]
 
 assign and update are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
 if set, overrides the key path in the config.

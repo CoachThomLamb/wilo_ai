@@ -1,15 +1,12 @@
-"""Tests for scripts/wilo_data.py. No Firestore access: assign() gets a fake db.
+"""Tests for wilo/data.py. No Firestore access: assign() gets a fake db.
 
     .venv/bin/python -m unittest discover tests
 """
 
-import sys
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
-import wilo_data  # noqa: E402
+from wilo import data as wilo_data
 
 NOW = datetime(2026, 10, 6, 11, 11, 56, 820000, tzinfo=timezone.utc)
 
