@@ -60,7 +60,9 @@ class FakeDB:
         return Ref(self.store, name)
 
 
-COMPLETED = f"users/{wilo_data.CONFIG['uid']}/completed"
+UID = 'thom'
+OTHER = 'someone-else'
+COMPLETED = f'users/{UID}/completed'
 
 
 def done(name, sets, finished):
@@ -103,22 +105,22 @@ class AssignTest(unittest.TestCase):
 
     def test_dry_run_writes_nothing(self):
         db = FakeDB()
-        out = wilo_data.assign(db, MINIMAL, write=False, now=NOW)
+        out = wilo_data.assign(db, UID, MINIMAL, write=False, now=NOW)
         self.assertTrue(out['ok'] and out['dryRun'])
         self.assertEqual(db.store, {})
 
     def test_invalid_workout_is_not_written(self):
         db = FakeDB()
-        out = wilo_data.assign(db, {'name': 'x', 'exercises': [{'sets': []}]}, write=True, now=NOW)
+        out = wilo_data.assign(db, UID, {'name': 'x', 'exercises': [{'sets': []}]}, write=True, now=NOW)
         self.assertFalse(out['ok'])
         self.assertEqual(db.store, {})
 
     def test_write_posts_once_and_refuses_overwrite(self):
         db = FakeDB()
-        first = wilo_data.assign(db, MINIMAL, write=True, now=NOW)
+        first = wilo_data.assign(db, UID, MINIMAL, write=True, now=NOW)
         self.assertTrue(first['ok'])
         self.assertEqual(len(db.store), 1)
-        again = wilo_data.assign(db, MINIMAL, write=True, now=NOW)
+        again = wilo_data.assign(db, UID, MINIMAL, write=True, now=NOW)
         self.assertFalse(again['ok'])
         self.assertIn('already exists', again['errors'][0])
 
@@ -147,15 +149,15 @@ class HistoryNamesTest(unittest.TestCase):
         })
 
     def test_history_newest_first_and_loose(self):
-        h = wilo_data.history(self.db, 'push up', limit=5)
+        h = wilo_data.history(self.db, UID, 'push up', limit=5)
         self.assertEqual([x['name'] for x in h], ['Push-ups', 'Pushups '])  # top-level doc not included
         self.assertEqual(h[0]['sets'], [{'reps': 12, 'done': True}])
 
     def test_history_limit(self):
-        self.assertEqual(len(wilo_data.history(self.db, 'push up', limit=1)), 1)
+        self.assertEqual(len(wilo_data.history(self.db, UID, 'push up', limit=1)), 1)
 
     def test_names_counts_and_last_done(self):
-        n = {x['name']: x for x in wilo_data.names(self.db)}
+        n = {x['name']: x for x in wilo_data.names(self.db, UID)}
         self.assertEqual(set(n), {'Pushups ', 'Push-ups', 'Bench press'})  # distinct as written; matching is Claude's job
         self.assertEqual(n['Push-ups']['lastDone'], '2026-10-08T17:00:00Z')
 
@@ -168,13 +170,13 @@ class UpdateTest(unittest.TestCase):
         self.new = {**self.old, 'docId': 'oct5', 'exercises': [{**self.old['exercises'][0], 'name': 'Seated calf raise'}]}
 
     def test_dry_run_shows_change_and_writes_nothing(self):
-        out = wilo_data.update(self.db, 'completed', 'oct5', self.new, write=False)
+        out = wilo_data.update(self.db, UID, 'completed', 'oct5', self.new, write=False)
         self.assertTrue(out['ok'] and out['dryRun'])
         self.assertEqual(out['changes'], ['exercises/0/name: "Calf raise. " -> "Seated calf raise"'])
         self.assertEqual(self.db.store[self.key], self.old)
 
     def test_write_saves_without_doc_id(self):
-        out = wilo_data.update(self.db, 'completed', 'oct5', self.new, write=True)
+        out = wilo_data.update(self.db, UID, 'completed', 'oct5', self.new, write=True)
         self.assertTrue(out['ok'])
         self.assertEqual(self.db.store[self.key]['exercises'][0]['name'], 'Seated calf raise')
         self.assertNotIn('docId', self.db.store[self.key])
@@ -187,8 +189,33 @@ class UpdateTest(unittest.TestCase):
         }
         for label, (doc_id, doc) in cases.items():
             with self.subTest(label):
-                self.assertFalse(wilo_data.update(self.db, 'completed', doc_id, doc, write=True)['ok'])
+                self.assertFalse(wilo_data.update(self.db, UID, 'completed', doc_id, doc, write=True)['ok'])
                 self.assertEqual(self.db.store[self.key], self.old)
+
+
+class IsolationTest(unittest.TestCase):
+    """Each user only sees and writes their own data (the uid comes from the caller, never from the doc)."""
+
+    def setUp(self):
+        self.db = FakeDB({
+            f'users/{UID}/completed/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
+            f'users/{OTHER}/completed/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
+        })
+
+    def test_reads_only_own_data(self):
+        self.assertEqual([h['sets'][0]['lbs'] for h in wilo_data.history(self.db, UID, 'bench', 5)], [135])
+        self.assertEqual([h['sets'][0]['lbs'] for h in wilo_data.history(self.db, OTHER, 'bench', 5)], [225])
+        self.assertEqual(len(wilo_data.names(self.db, OTHER)), 1)
+
+    def test_writes_only_under_own_uid(self):
+        wilo_data.assign(self.db, OTHER, MINIMAL, write=True, now=NOW)
+        new = [k for k in self.db.store if '/assigned/' in k]
+        self.assertEqual(len(new), 1)
+        self.assertTrue(new[0].startswith(f'users/{OTHER}/assigned/'))
+
+    def test_cannot_update_another_users_doc(self):
+        out = wilo_data.update(self.db, OTHER, 'completed', 'a', done('x', [], '2026-10-01T00:00:00Z'), write=True)
+        self.assertFalse(out['ok'])  # doc 'a' only exists under UID
 
 
 if __name__ == '__main__':

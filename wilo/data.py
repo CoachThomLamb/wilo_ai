@@ -62,13 +62,13 @@ def connect():
     return firestore.client(database_id=CONFIG['database'])
 
 
-def collection(db, name):
-    return db.collection('users').document(CONFIG['uid']).collection(name)
+def collection(db, uid, name):
+    return db.collection('users').document(uid).collection(name)
 
 
-def recent(db, name, limit):
+def recent(db, uid, name, limit):
     from firebase_admin import firestore
-    q = collection(db, name).order_by(ORDER_FIELD[name], direction=firestore.Query.DESCENDING).limit(limit)
+    q = collection(db, uid, name).order_by(ORDER_FIELD[name], direction=firestore.Query.DESCENDING).limit(limit)
     return [{'docId': d.id, **d.to_dict()} for d in q.stream()]
 
 
@@ -84,15 +84,15 @@ def name_matches(query, name):
     return words(query) <= words(name) or squash(query) in squash(name)
 
 
-def _completed(db):
-    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, 'completed').stream()]
+def _completed(db, uid):
+    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, uid, 'completed').stream()]
     return sorted(docs, key=lambda w: w.get('finishedAt', ''), reverse=True)
 
 
-def history(db, query, limit):
+def history(db, uid, query, limit):
     """Past sets for exercises whose name matches, newest first."""
     out = []
-    for w in _completed(db):
+    for w in _completed(db, uid):
         for e in w['exercises']:
             if name_matches(query, e['name']):
                 out.append({'finishedAt': w.get('finishedAt'), 'workout': w['name'], 'docId': w['docId'],
@@ -100,10 +100,10 @@ def history(db, query, limit):
     return out[:limit]
 
 
-def names(db):
+def names(db, uid):
     """Every distinct exercise name in completed workouts, with how often and when it was last done."""
     seen = {}
-    for w in _completed(db):
+    for w in _completed(db, uid):
         for e in w['exercises']:
             n = seen.setdefault(e['name'], {'name': e['name'], 'count': 0, 'lastDone': w.get('finishedAt')})
             n['count'] += 1
@@ -122,11 +122,11 @@ def diff(old, new, path=''):
     return [] if old == new else [f'{path}: {json.dumps(old, default=str)} -> {json.dumps(new, default=str)}']
 
 
-def update(db, name, doc_id, doc, write):
+def update(db, uid, name, doc_id, doc, write):
     """Replace an existing workout with an edited version. Never creates; keeps the same id."""
     doc = {k: v for k, v in doc.items() if k != 'docId'}  # `get` adds docId; it isn't part of the doc
-    path = f"users/{CONFIG['uid']}/{name}/{doc_id}"
-    ref = collection(db, name).document(doc_id)
+    path = f"users/{uid}/{name}/{doc_id}"
+    ref = collection(db, uid, name).document(doc_id)
     snap = ref.get()
     if not snap.exists:
         return {'ok': False, 'errors': [f'{path} not found (use assign to create)']}
@@ -143,15 +143,15 @@ def update(db, name, doc_id, doc, write):
     return {'ok': ref.get().to_dict() == doc, 'path': path, 'changes': changes}
 
 
-def assign(db, doc, write, now):
+def assign(db, uid, doc, write, now):
     doc = with_defaults(doc, now)
     errors = validate(doc)
-    path = f"users/{CONFIG['uid']}/assigned/{doc_id(doc, now)}"
+    path = f"users/{uid}/assigned/{doc_id(doc, now)}"
     if errors:
         return {'ok': False, 'errors': errors}
     if not write:
         return {'ok': True, 'dryRun': True, 'path': path, 'doc': doc}
-    ref = collection(db, 'assigned').document(path.rsplit('/', 1)[1])
+    ref = collection(db, uid, 'assigned').document(path.rsplit('/', 1)[1])
     if ref.get().exists:
         return {'ok': False, 'errors': [f'{path} already exists']}
     ref.set(doc)
@@ -180,21 +180,21 @@ def main(argv=None):
     u.add_argument('--write', action='store_true', help='save it (default is a dry run)')
     args = p.parse_args(argv)
 
-    db = connect()
+    db, uid = connect(), CONFIG['uid']  # the command line always acts as the user in config
     read = lambda f: json.loads(sys.stdin.read() if f == '-' else Path(f).read_text())
     if args.cmd in ('completed', 'assigned'):
-        out = recent(db, args.cmd, args.limit)
+        out = recent(db, uid, args.cmd, args.limit)
     elif args.cmd == 'get':
-        snap = collection(db, args.collection).document(args.doc_id).get()
+        snap = collection(db, uid, args.collection).document(args.doc_id).get()
         out = {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
     elif args.cmd == 'history':
-        out = history(db, args.name, args.limit)
+        out = history(db, uid, args.name, args.limit)
     elif args.cmd == 'names':
-        out = names(db)
+        out = names(db, uid)
     elif args.cmd == 'update':
-        out = update(db, args.collection, args.doc_id, read(args.file), args.write)
+        out = update(db, uid, args.collection, args.doc_id, read(args.file), args.write)
     else:
-        out = assign(db, read(args.file), args.write, datetime.now(timezone.utc))
+        out = assign(db, uid, read(args.file), args.write, datetime.now(timezone.utc))
 
     print(json.dumps(out, indent=2, default=str))
     return 1 if isinstance(out, dict) and out.get('ok') is False else 0
