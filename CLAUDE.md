@@ -9,6 +9,8 @@ needs to know must live in this repo.
 @.claude/instructions.md
 @.claude/memory.md
 
+**Working on `wilo/` (data engine, MCP server, connector sign-in)?** Read `docs/mcp-server-and-connector-guide.md` first.
+
 ## Session notes
 
 - **At the start:** read the newest file in `docs/sessions/` to see where the last session left off.
