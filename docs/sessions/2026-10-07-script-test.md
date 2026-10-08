@@ -2,13 +2,15 @@
 
 **Restart note.** If a session restarts (or picks up via `/rc` on the phone), start here. Yesterday's context: `2026-10-06-workout-schema-and-script.md`.
 
-## Where it stopped (end of day)
-- **Next: Thom reviews #36**, then #37, then #39. They're stacked. #35 is merged with a merge commit, so #36 needed no rebase and is retargeted to `main`. When one merges: retarget the next PR to `main` **before** deleting the merged branch, then delete it.
-- **#38** (principles + sign-in design) is independent and open.
-- **Repo is on `main`.** Claude Code's `wilo` MCP entry runs `python -m wilo.mcp_server` from the **editable install**, so it runs whatever is checked out. `main` has `wilo/`, so it works (✔ Connected).
-- **Step C sign-in is built (#39), not tried for real.** The end-to-end test needs Thom at the laptop: `python -m wilo.mcp_server --http --auth`, then `claude mcp add --transport http wilo-auth http://localhost:8000/mcp`, a browser opens, Google sign-in, call a tool. This **writes the first real `oauth_*` docs to Firestore**, which needs Thom's OK first. Hosting needs Blaze (later).
+## Where it stopped (end of day, updated after merges)
+- **Merged:** #35 (MCP server + `wilo` package), #36 (tools act on a given uid), #37's code via **#42** (MCP tool tests + HTTP), #38 (principles + sign-in design), #41 (this note). `main` has all of it. Tests: 28 on `main`.
+- **Only #39 is open:** connector sign-in (OAuth + Firebase login). It's rebased on `main`, 54 tests pass, and the "How to test" steps are in its description. It also carries this note update.
+- **Sign-in not tried for real yet.** The end-to-end test needs Thom at the laptop: `python -m wilo.mcp_server --http --auth`, then `claude mcp add --transport http wilo-auth http://localhost:8000/mcp -s local`, then `/mcp` → authenticate → Google sign-in → call a tool. It **writes the first real `oauth_*` docs to Firestore**, which needs Thom's OK first. Hosting needs Blaze (later).
+- **Repo is on `main`.** Claude Code's `wilo` MCP entry runs the checked-out code (editable install).
 - **Tomorrow (Thu Oct 8, lunch):** `chest-biceps-oct-8` is posted and Load shows it. After he trains: review it, then plan the next one.
 - **Optional:** the `"Calf raise. "` → `"Seated calf raise"` rename in `05-oct-09:22-shoul-75m0` (dry run done).
+
+**Lesson from the merges:** #37 was merged into #36's branch instead of `main` (its base wasn't retargeted after #36 merged), so `main` missed its code until the re-land PR #42. With stacked PRs, Claude now retargets the next PR to `main` itself right after each merge, and checks that `main` has the code.
 
 ## Done today (evening)
 - **Thom's review of #35 led to two changes:**
@@ -73,8 +75,8 @@ From the repo root, after `.venv/bin/pip install -e .` (once):
 Mon Oct 5 shoulders (14/16), Tue Oct 6 legs (34/42), Thu Oct 8 chest + biceps (planned). **Pull hasn't been done this week.**
 
 ## Open PRs and issues
-- **Stack to review, in order:** #36 (tools act on a given uid) → #37 (MCP tool tests + HTTP) → #39 (connector sign-in). Merged today: #32, #33, #34, #35.
-- #38: `docs/principles.md` + `docs/connector-sign-in.md` (independent).
+- **#39:** connector sign-in (only open PR).
 - #40: move LLM-facing instructions out of code (refinement).
-- #31: connector build plan (A, B and C built in the stack; hosting needs Blaze). #29: tracker changes (Saved ✓, read `timed`). #30: remove the swap feature.
-- Parked: #25 coaching loop, #28 full schema. Later: #14, #15.
+- #31: connector build plan. Steps A, B and C are built (C in #39); hosting needs Blaze. #29: tracker changes (Saved ✓, read `timed`). #30: remove the swap feature.
+- Parked: #25 coaching loop, #28 full schema (`feat/schema-draft`). Later: #14, #15.
+- Merged today: #32, #33, #34, #35, #36, #38, #41, #42 (#37 merged into #36's branch; its code landed via #42).

@@ -46,6 +46,9 @@ class Ref:
     def set(self, doc):
         self.store[self.path] = doc
 
+    def delete(self):
+        self.store.pop(self.path, None)
+
     def stream(self):
         return [Snap(k, v) for k, v in self.store.items() if k.rsplit('/', 1)[0] == self.path]
 
