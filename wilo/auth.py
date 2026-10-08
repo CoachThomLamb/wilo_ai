@@ -26,6 +26,24 @@ CLAUDE_CALLBACK = 'https://claude.ai/api/mcp/auth_callback'
 PENDING_TTL, CODE_TTL, ACCESS_TTL, REFRESH_TTL = 600, 300, 3600, 30 * 24 * 3600
 
 
+def _allow_public_client_revocation():
+    """Work around MCP SDK bug python-sdk #3508: RevocationRequest.client_secret is `str | None` with no default,
+    so a public client (Claude Code: no secret) gets 400 on /revoke and its tokens are never revoked. This is the
+    upstream one-line fix (default None), applied by swapping in a subclass that the SDK's handler looks up by name.
+    Does nothing once the SDK is fixed; then delete this function."""
+    from mcp.server.auth.handlers import revoke
+    if not revoke.RevocationRequest.model_fields['client_secret'].is_required():
+        return
+
+    class RevocationRequest(revoke.RevocationRequest):
+        client_secret: str | None = None
+
+    revoke.RevocationRequest = RevocationRequest
+
+
+_allow_public_client_revocation()
+
+
 def _hash(secret):
     return hashlib.sha256(secret.encode()).hexdigest()
 

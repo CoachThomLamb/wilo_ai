@@ -118,8 +118,8 @@ class SignInOverHttpTest(unittest.TestCase):
     def test_revoke_endpoint_kills_the_whole_pair(self):
         client_id, code, verifier = self.sign_in()
         tok = self.token(client_id, code, verifier).json()
-        # SDK quirk: its RevocationRequest requires a client_secret field even for public clients; send it empty.
-        r = self.http.post('/revoke', data={'token': tok['access_token'], 'client_id': client_id, 'client_secret': ''})
+        # Exactly what Claude Code sends: no client_secret (public client). Needs the #3508 workaround in wilo/auth.py.
+        r = self.http.post('/revoke', data={'token': tok['access_token'], 'client_id': client_id})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(self.call_mcp(tok['access_token']).status_code, 401)
         again = self.http.post('/token', data={'grant_type': 'refresh_token', 'refresh_token': tok['refresh_token'],
