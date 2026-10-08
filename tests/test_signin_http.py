@@ -245,6 +245,12 @@ class PublicUrlTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_main('--http', '--auth', '--public-url', 'http://wilo.example')
 
+    def test_empty_public_url_is_refused(self):
+        # The Dockerfile passes "$PUBLIC_URL"; if it's unset that's an empty string, which must not fall back to
+        # localhost mode.
+        with self.assertRaises(SystemExit):
+            self.run_main('--http', '--auth', '--public-url', '')
+
     def test_public_url_sets_issuer_and_listens_on_all_interfaces(self):
         call, server = self.run_main('--http', '--auth', '--public-url', 'https://wilo.example/', env={'PORT': '9090'})
         self.assertEqual((call.kwargs['host'], call.kwargs['port']), ('0.0.0.0', 9090))

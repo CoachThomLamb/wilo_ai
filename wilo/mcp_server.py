@@ -160,19 +160,19 @@ def main():
     args = p.parse_args()
     if args.auth and not args.http:
         p.error('--auth needs --http')
-    if args.public_url and not args.auth:
+    if args.public_url is not None and not args.auth:
         p.error('--public-url needs --auth: the server is only ever exposed with sign-in on')
-    if args.public_url and not args.public_url.startswith('https://'):
+    if args.public_url is not None and not args.public_url.startswith('https://'):  # also catches an empty $PUBLIC_URL
         p.error('--public-url must be https://')
     if args.auth:
         from wilo.auth import Store, WiloAuthProvider
         AUTH = True
         # Locally: http://localhost (Firebase Auth allows localhost by default). Hosted: the public https:// address.
-        issuer = args.public_url.rstrip('/') if args.public_url else f'http://localhost:{args.port}'
+        issuer = args.public_url.rstrip('/') if args.public_url is not None else f'http://localhost:{args.port}'
         server = make_server(WiloAuthProvider(Store(db()), f'{issuer}/login', resource=f'{issuer}/mcp'), issuer)
     if args.http:
         # Public interfaces only behind sign-in (--public-url implies --auth); otherwise localhost only.
-        host = '0.0.0.0' if args.public_url else '127.0.0.1'
+        host = '0.0.0.0' if args.public_url is not None else '127.0.0.1'
         server.run(transport='streamable-http', host=host, port=args.port)
     else:
         server.run()
