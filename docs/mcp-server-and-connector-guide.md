@@ -79,7 +79,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **`global AUTH, server` in `main()`:** without it, `--auth` creates locals and tools silently use the config uid. Guarded by `test_main_with_auth_turns_sign_in_on`.
 - **`TestClient` must be entered** (`TestClient(app).__enter__()` or `with`), otherwise the MCP session manager isn't started ("Task group is not initialized").
 - **Mocking `MCPServer.run`** needs `autospec=True` to receive `self`.
-- **SDK `/revoke` quirk:** `RevocationRequest.client_secret` is `str | None` with no default, so the field must be present: public clients (Claude, no secret) get `400 client_secret: Field required` unless they send `client_secret=` empty. Revocation logic itself is ours (`revoke_token`: either token of a pair revokes both).
+- **SDK `/revoke` quirk:** `RevocationRequest.client_secret` is `str | None` with no default, so the field must be present: public clients (Claude, no secret) get `400 client_secret: Field required` unless they send `client_secret=` empty. Reported upstream: [python-sdk #3508](https://github.com/modelcontextprotocol/python-sdk/issues/3508) (open as of 2026-10-08); once fixed, drop the empty `client_secret` in `test_revoke_endpoint_kills_the_whole_pair`. Revocation logic itself is ours (`revoke_token`: either token of a pair revokes both).
 - **The editable install runs whatever branch is checked out.** Claude Code's `wilo` breaks on a branch without `wilo/`.
 - **A running Claude Code session only loads MCP servers at startup.** After `claude mcp add`, use a new session (`cd ~/wilo && claude`) to see the new server.
 - **Ports:** an old test server can hold a port (`ss -ltnp | grep :8000`). Use another `--port`; the issuer follows the port.
