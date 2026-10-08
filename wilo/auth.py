@@ -16,7 +16,7 @@ import time
 from urllib.parse import urlparse
 
 from mcp.server.auth.provider import (
-    AccessToken, AuthorizationCode, AuthorizationParams, OAuthAuthorizationServerProvider,
+    AccessToken, AuthorizationCode, AuthorizationParams, AuthorizeError, OAuthAuthorizationServerProvider,
     RefreshToken, RegistrationError, construct_redirect_uri,
 )
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
@@ -28,6 +28,11 @@ PENDING_TTL, CODE_TTL, ACCESS_TTL, REFRESH_TTL = 600, 300, 3600, 30 * 24 * 3600
 
 def _hash(secret):
     return hashlib.sha256(secret.encode()).hexdigest()
+
+
+def _fields(doc):
+    """Stored token doc → model fields (drops our bookkeeping, e.g. `pair`)."""
+    return {k: v for k, v in doc.items() if k != 'pair'}
 
 
 def allowed_redirect(uri):
@@ -79,6 +84,10 @@ class WiloAuthProvider(OAuthAuthorizationServerProvider):
 
     # Authorization: park the request, send the user to the login page
     async def authorize(self, client, params: AuthorizationParams):
+        # The SDK already requires an exact registered match before calling us; check again so the provider is
+        # safe on its own.
+        if str(params.redirect_uri) not in [str(u) for u in client.redirect_uris or []]:
+            raise AuthorizeError(error='invalid_request', error_description='redirect_uri not registered for this client')
         pending = secrets.token_urlsafe(32)
         self.store.put('pending', _hash(pending), {
             'client_id': client.client_id, 'redirect_uri': str(params.redirect_uri),
@@ -125,8 +134,9 @@ class WiloAuthProvider(OAuthAuthorizationServerProvider):
         now = self.clock()
         access, refresh = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
         base = {'client_id': client_id, 'scopes': scopes, 'resource': resource, 'subject': uid}
-        self.store.put('access', _hash(access), {**base, 'expires_at': int(now + ACCESS_TTL)})
-        self.store.put('refresh', _hash(refresh), {**base, 'expires_at': int(now + REFRESH_TTL)})
+        # Each token records its partner (`pair`), so revoking either one revokes both (RFC 7009).
+        self.store.put('access', _hash(access), {**base, 'expires_at': int(now + ACCESS_TTL), 'pair': _hash(refresh)})
+        self.store.put('refresh', _hash(refresh), {**base, 'expires_at': int(now + REFRESH_TTL), 'pair': _hash(access)})
         return OAuthToken(access_token=access, token_type='Bearer', expires_in=ACCESS_TTL,
                           scope=' '.join(scopes), refresh_token=refresh)
 
@@ -134,7 +144,7 @@ class WiloAuthProvider(OAuthAuthorizationServerProvider):
         doc = self.store.get('refresh', _hash(refresh_token), self.clock())
         if not doc or doc['client_id'] != client.client_id:
             return None
-        return RefreshToken(token=refresh_token, **doc)
+        return RefreshToken(token=refresh_token, **_fields(doc))
 
     async def exchange_refresh_token(self, client, refresh_token, scopes):
         self.store.delete('refresh', _hash(refresh_token.token))  # rotate: the old one stops working
@@ -143,8 +153,14 @@ class WiloAuthProvider(OAuthAuthorizationServerProvider):
 
     async def load_access_token(self, token):
         doc = self.store.get('access', _hash(token), self.clock())
-        return AccessToken(token=token, **doc) if doc else None
+        return AccessToken(token=token, **_fields(doc)) if doc else None
 
     async def revoke_token(self, token):
-        self.store.delete('access', _hash(token.token))
-        self.store.delete('refresh', _hash(token.token))
+        """Revoke the token and its partner: an access token takes its refresh token with it, and vice versa."""
+        key = _hash(token.token)
+        for kind, partner in (('access', 'refresh'), ('refresh', 'access')):
+            doc = self.store.get(kind, key, self.clock())
+            if doc:
+                self.store.delete(kind, key)
+                if doc.get('pair'):
+                    self.store.delete(partner, doc['pair'])

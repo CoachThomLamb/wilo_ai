@@ -37,7 +37,7 @@ Schema = what a workout means to a human, not a contract with the tracker's inte
 ## Run it
 ```bash
 .venv/bin/pip install -e .                                   # once; editable install
-.venv/bin/python -m unittest discover tests -v               # 57 tests, no Firestore
+.venv/bin/python -m unittest discover tests -v               # 63 tests, no Firestore
 .venv/bin/python -m wilo.data history bench                  # CLI (real data, read-only)
 claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server   # stdio entry
 .venv/bin/python -m wilo.mcp_server --http [--port N]         # HTTP, no sign-in (localhost)
@@ -53,7 +53,8 @@ Claude ─▶ discovery docs ─▶ POST /register (DCR) ─▶ GET /authorize (
 Claude ─▶ POST /mcp (Bearer) ─▶ tools run with current_uid() = token.subject
 ```
 - **The MCP SDK v2 provides** the metadata, `/register`, `/authorize`, `/token`, PKCE verification, client auth and exact redirect matching. **We provide** `WiloAuthProvider` (storage + the login step) and the two `/login` routes.
-- **Storage:** Firestore `oauth_clients`, `oauth_pending` (10 min), `oauth_codes` (5 min, single use), `oauth_access` (1 h), `oauth_refresh` (30 days, **rotated** on each use). Keys are sha256 hashes. All docs carry `expires_at`. Nothing in the Firestore rules allows `oauth_*`, so browsers can't read them.
+- **Storage:** Firestore `oauth_clients`, `oauth_pending` (10 min), `oauth_codes` (5 min, single use), `oauth_access` (1 h), `oauth_refresh` (30 days, **rotated** on each use). Keys are sha256 hashes. All docs carry `expires_at`. Each access/refresh doc records its partner's hash (`pair`): **revoking either one revokes both** (RFC 7009). Nothing in the Firestore rules allows `oauth_*`, so browsers can't read them.
+- **Redirect checks:** the SDK requires an exact registered match at `/authorize`; `WiloAuthProvider.authorize()` checks again (defense in depth).
 - **Redirects allowed at registration:** `https://claude.ai/api/mcp/auth_callback` (hosted Claude apps) and `http://localhost|127.0.0.1:<any port>` (Claude Code).
 - **Audience check:** `validate_token_resource=True`, so `/mcp` refuses tokens issued for another resource. If a client sends no `resource`, the provider records this server's `/mcp` URL.
 - **Login page safety:** it renders only for a known, unexpired pending ID matching `[A-Za-z0-9_-]{20,}`. Anything else → 400, nothing echoed. It shows the host the user is about to be sent back to.
@@ -68,8 +69,8 @@ Real Claude Code, real browser, real Google sign-in against `--http --auth` on `
 |---|---|
 | `test_wilo_data.py` | Schema (3), assign (5), name matching (2), history/names (3), update (3), two-user isolation (3). Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
 | `test_mcp_server.py` | The 8 tools through the MCP layer (9): no tool takes a uid, dry-run defaults, per-user reads and writes |
-| `test_auth.py` | The provider (15): full flow, single use, expiry, client binding, rotation, revoke, hashing, default resource |
-| `test_signin_http.py` | The OAuth flow over HTTP in-process with `TestClient` (13), plus `main()` really switching sign-in on (1) |
+| `test_auth.py` | The provider (19): full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
+| `test_signin_http.py` | The OAuth flow over HTTP in-process with `TestClient` (15, incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on (1) |
 
 Practice: after adding a guard, **break it on purpose and check a test fails**, then restore it (done for dry-run defaults, `current_uid()`, the `global` in `main()` and `validate_token_resource`).
 
@@ -78,6 +79,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **`global AUTH, server` in `main()`:** without it, `--auth` creates locals and tools silently use the config uid. Guarded by `test_main_with_auth_turns_sign_in_on`.
 - **`TestClient` must be entered** (`TestClient(app).__enter__()` or `with`), otherwise the MCP session manager isn't started ("Task group is not initialized").
 - **Mocking `MCPServer.run`** needs `autospec=True` to receive `self`.
+- **SDK `/revoke` quirk:** `RevocationRequest.client_secret` is `str | None` with no default, so the field must be present: public clients (Claude, no secret) get `400 client_secret: Field required` unless they send `client_secret=` empty. Revocation logic itself is ours (`revoke_token`: either token of a pair revokes both).
 - **The editable install runs whatever branch is checked out.** Claude Code's `wilo` breaks on a branch without `wilo/`.
 - **A running Claude Code session only loads MCP servers at startup.** After `claude mcp add`, use a new session (`cd ~/wilo && claude`) to see the new server.
 - **Ports:** an old test server can hold a port (`ss -ltnp | grep :8000`). Use another `--port`; the issuer follows the port.

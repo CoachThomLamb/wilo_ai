@@ -7,7 +7,7 @@ import asyncio
 import unittest
 from urllib.parse import parse_qs, urlparse
 
-from mcp.server.auth.provider import AuthorizationParams, RegistrationError
+from mcp.server.auth.provider import AuthorizationParams, AuthorizeError, RegistrationError
 from mcp.shared.auth import OAuthClientInformationFull
 from test_wilo_data import FakeDB
 
@@ -143,6 +143,30 @@ class ProviderTest(unittest.TestCase):
         tok = self.tokens()
         run(self.p.revoke_token(run(self.p.load_access_token(tok.access_token))))
         self.assertIsNone(run(self.p.load_access_token(tok.access_token)))
+
+    def test_revoking_access_also_kills_its_refresh_token(self):
+        tok = self.tokens()
+        run(self.p.revoke_token(run(self.p.load_access_token(tok.access_token))))
+        self.assertIsNone(run(self.p.load_refresh_token(self.c, tok.refresh_token)))
+
+    def test_revoking_refresh_also_kills_its_access_token(self):
+        tok = self.tokens()
+        run(self.p.revoke_token(run(self.p.load_refresh_token(self.c, tok.refresh_token))))
+        self.assertIsNone(run(self.p.load_access_token(tok.access_token)))
+        self.assertIsNone(run(self.p.load_refresh_token(self.c, tok.refresh_token)))
+
+    def test_revoke_after_rotation_kills_the_new_pair(self):
+        tok = self.tokens()
+        new = run(self.p.exchange_refresh_token(self.c, run(self.p.load_refresh_token(self.c, tok.refresh_token)), []))
+        run(self.p.revoke_token(run(self.p.load_access_token(new.access_token))))
+        self.assertIsNone(run(self.p.load_refresh_token(self.c, new.refresh_token)))
+
+    def test_authorize_refuses_unregistered_redirect(self):
+        params = AuthorizationParams(state=None, scopes=None, code_challenge='c', redirect_uri='https://evil.example/cb',
+                                     redirect_uri_provided_explicitly=True, resource=None)
+        with self.assertRaises(AuthorizeError):
+            run(self.p.authorize(self.c, params))
+        self.assertFalse([k for k in self.db.store if k.startswith('oauth_pending/')])
 
     def test_secrets_are_stored_hashed(self):
         tok = self.tokens()

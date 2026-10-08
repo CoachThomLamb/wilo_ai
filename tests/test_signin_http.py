@@ -106,6 +106,27 @@ class SignInOverHttpTest(unittest.TestCase):
         self.assertNotIn('<script>alert', r.text)
         self.assertEqual(self.http.get('/login', params={'request': 'A' * 43}).status_code, 400)
 
+    def test_authorize_with_unregistered_redirect_is_refused(self):
+        client_id = self.register().json()['client_id']
+        _, challenge = pkce()
+        r = self.http.get('/authorize', params={'response_type': 'code', 'client_id': client_id,
+                                                'redirect_uri': 'https://evil.example/cb', 'code_challenge': challenge,
+                                                'code_challenge_method': 'S256'}, follow_redirects=False)
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse([k for k in self.db.store if k.startswith('oauth_pending/')])
+
+    def test_revoke_endpoint_kills_the_whole_pair(self):
+        client_id, code, verifier = self.sign_in()
+        tok = self.token(client_id, code, verifier).json()
+        # SDK quirk: its RevocationRequest requires a client_secret field even for public clients; send it empty.
+        r = self.http.post('/revoke', data={'token': tok['access_token'], 'client_id': client_id, 'client_secret': ''})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(self.call_mcp(tok['access_token']).status_code, 401)
+        again = self.http.post('/token', data={'grant_type': 'refresh_token', 'refresh_token': tok['refresh_token'],
+                                               'client_id': client_id})
+        self.assertEqual(again.status_code, 400)
+        self.assertEqual(again.json()['error'], 'invalid_grant')
+
     def test_bad_firebase_token_is_refused(self):
         client_id = self.register().json()['client_id']
         _, challenge = pkce()
