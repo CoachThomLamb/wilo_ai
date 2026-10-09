@@ -3,7 +3,7 @@
 Previous: `2026-10-08-connector-sign-in-verified-and-hosting.md`. Working guide: `docs/mcp-server-and-connector-guide.md`.
 
 ## Where it stopped
-- **The connector is live and connected in claude.ai:** `https://wilo-connector.onrender.com/mcp`. Sign-in worked and all 8 tools are listed. **Not yet tried from the phone app**, so do that first: ask "what did I do in my last workout?" (should be chest-biceps-oct-8).
+- **The connector is live and works from claude.ai on the web and the phone app:** `https://wilo-connector.onrender.com/mcp`. #31 is closed.
 - **Today's workout `pull-triceps-oct-9` is posted.** After Thom finishes, check that it saved (`recent_completed`). The first Finish on Oct 8 silently didn't save.
 - **Optional:** fix `finishedAt` on `09-oct-06:30-chest-7qmb` (it says Oct 9 06:30, the re-Finish time; the workout was Oct 8). Thom hasn't decided.
 
