@@ -221,5 +221,35 @@ class IsolationTest(unittest.TestCase):
         self.assertFalse(out['ok'])  # doc 'a' only exists under UID
 
 
+
+class ConnectTest(unittest.TestCase):
+    """With no key file (Cloud Run), connect() uses the environment's own identity instead of a JSON key."""
+
+    def connect_with(self, key_exists):
+        from unittest import mock
+        import firebase_admin
+        from firebase_admin import credentials
+        with mock.patch.object(firebase_admin, '_apps', {}), \
+             mock.patch.object(firebase_admin, 'initialize_app') as init, \
+             mock.patch('os.path.exists', return_value=key_exists), \
+             mock.patch.object(credentials, 'Certificate') as cert, \
+             mock.patch.object(credentials, 'ApplicationDefault') as adc, \
+             mock.patch('firebase_admin.firestore.client'):
+            wilo_data.connect()
+        return init.call_args, cert, adc
+
+    def test_no_key_file_uses_application_default_credentials(self):
+        init, cert, adc = self.connect_with(key_exists=False)
+        adc.assert_called_once()
+        cert.assert_not_called()
+        self.assertIs(init.args[0], adc.return_value)
+        self.assertEqual(init.args[1], {'projectId': wilo_data.CONFIG['project']})
+
+    def test_key_file_is_used_when_present(self):
+        init, cert, adc = self.connect_with(key_exists=True)
+        cert.assert_called_once()
+        adc.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

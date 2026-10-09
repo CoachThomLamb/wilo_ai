@@ -14,6 +14,7 @@ Writes (assign_workout, update_workout) are dry runs unless write=True.
 """
 
 import html
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -152,19 +153,27 @@ def main():
     import argparse
     p = argparse.ArgumentParser(description='WILO MCP server. Default: stdio (Claude Code launches it).')
     p.add_argument('--http', action='store_true', help='serve Streamable HTTP at http://127.0.0.1:PORT/mcp instead')
-    p.add_argument('--port', type=int, default=8000)
+    p.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8000)), help='default: $PORT (Cloud Run) or 8000')
     p.add_argument('--auth', action='store_true', help='with --http: require OAuth sign-in (Firebase Google login)')
+    p.add_argument('--public-url', help='with --http --auth: public https:// address (e.g. on Cloud Run). '
+                                        'Used as the OAuth issuer, and listens on all interfaces')
     args = p.parse_args()
     if args.auth and not args.http:
         p.error('--auth needs --http')
+    if args.public_url is not None and not args.auth:
+        p.error('--public-url needs --auth: the server is only ever exposed with sign-in on')
+    if args.public_url is not None and not args.public_url.startswith('https://'):  # also catches an empty $PUBLIC_URL
+        p.error('--public-url must be https://')
     if args.auth:
         from wilo.auth import Store, WiloAuthProvider
         AUTH = True
-        issuer = f'http://localhost:{args.port}'  # Firebase Auth allows localhost by default
+        # Locally: http://localhost (Firebase Auth allows localhost by default). Hosted: the public https:// address.
+        issuer = args.public_url.rstrip('/') if args.public_url is not None else f'http://localhost:{args.port}'
         server = make_server(WiloAuthProvider(Store(db()), f'{issuer}/login', resource=f'{issuer}/mcp'), issuer)
     if args.http:
-        # Localhost only until this is hosted behind HTTPS (#31 step C): never bind to a public interface.
-        server.run(transport='streamable-http', host='127.0.0.1', port=args.port)
+        # Public interfaces only behind sign-in (--public-url implies --auth); otherwise localhost only.
+        host = '0.0.0.0' if args.public_url is not None else '127.0.0.1'
+        server.run(transport='streamable-http', host=host, port=args.port)
     else:
         server.run()
 

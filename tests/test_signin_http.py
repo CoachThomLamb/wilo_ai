@@ -221,5 +221,49 @@ class MainSwitchesToSignInTest(unittest.TestCase):
             srv.AUTH, srv.server, srv.db = saved
 
 
+class PublicUrlTest(unittest.TestCase):
+    """--public-url exposes the server on all interfaces, so it must only ever work with sign-in and https."""
+
+    def run_main(self, *argv, env=None):
+        saved = srv.AUTH, srv.server, srv.db
+        fake = FakeDB()
+        try:
+            srv.db = lambda: fake
+            with mock.patch.object(sys, 'argv', ['wilo.mcp_server', *argv]), \
+                 mock.patch.dict('os.environ', env or {}), \
+                 mock.patch.object(MCPServer, 'run', autospec=True) as run:
+                srv.main()
+            return run.call_args, srv.server
+        finally:
+            srv.AUTH, srv.server, srv.db = saved
+
+    def test_public_url_needs_auth(self):
+        with self.assertRaises(SystemExit):
+            self.run_main('--http', '--public-url', 'https://wilo.example')
+
+    def test_public_url_must_be_https(self):
+        with self.assertRaises(SystemExit):
+            self.run_main('--http', '--auth', '--public-url', 'http://wilo.example')
+
+    def test_empty_public_url_is_refused(self):
+        # The Dockerfile passes "$PUBLIC_URL"; if it's unset that's an empty string, which must not fall back to
+        # localhost mode.
+        with self.assertRaises(SystemExit):
+            self.run_main('--http', '--auth', '--public-url', '')
+
+    def test_public_url_sets_issuer_and_listens_on_all_interfaces(self):
+        call, server = self.run_main('--http', '--auth', '--public-url', 'https://wilo.example/', env={'PORT': '9090'})
+        self.assertEqual((call.kwargs['host'], call.kwargs['port']), ('0.0.0.0', 9090))
+        provider = server._auth_server_provider
+        self.assertEqual(provider.login_url, 'https://wilo.example/login')
+        self.assertEqual(provider.resource, 'https://wilo.example/mcp')
+
+    def test_without_public_url_stays_on_localhost(self):
+        for argv in [('--http',), ('--http', '--auth')]:
+            with self.subTest(argv=argv):
+                call, _ = self.run_main(*argv, '--port', '8123')
+                self.assertEqual((call.kwargs['host'], call.kwargs['port']), ('127.0.0.1', 8123))
+
+
 if __name__ == '__main__':
     unittest.main()

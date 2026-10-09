@@ -37,12 +37,15 @@ Schema = what a workout means to a human, not a contract with the tracker's inte
 ## Run it
 ```bash
 .venv/bin/pip install -e .                                   # once; editable install
-.venv/bin/python -m unittest discover tests -v               # 63 tests, no Firestore
+.venv/bin/python -m unittest discover tests -v               # 70 tests, no Firestore
 .venv/bin/python -m wilo.data history bench                  # CLI (real data, read-only)
 claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server   # stdio entry
 .venv/bin/python -m wilo.mcp_server --http [--port N]         # HTTP, no sign-in (localhost)
 .venv/bin/python -m wilo.mcp_server --http --auth [--port N]  # HTTP with sign-in (localhost)
+.venv/bin/python -m wilo.mcp_server --http --auth --public-url https://…   # hosted: public issuer, 0.0.0.0:$PORT
 ```
+- **`--public-url`** is refused without `--auth`, for non-`https://`, and when empty, so the no-sign-in mode can never be exposed. Port defaults to `$PORT`.
+- **Credentials:** a key file if present (`config/wilo.json` path or `GOOGLE_APPLICATION_CREDENTIALS`), otherwise **application default credentials** (Cloud Run's service account).
 
 ## Sign-in (OAuth) in one picture
 ```
@@ -87,8 +90,31 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **Stacked PRs:** retarget the next PR to `main` right after its base merges, or it merges into the old branch (#37 had to be re-landed as #42).
 - **Tracker quirks (#29):** the tracker ignores `timed` (it reads `target.duration_sec`), and Load opens the **newest** `assignedFor`, so post one workout at a time until #29 is done.
 
+## Container and hosting (#43)
+- **Image:** `Dockerfile` + `.dockerignore` (an **allowlist**: only `pyproject.toml`, `wilo/`, `config/`, `schema/`, so keys and data can't be copied in). Runs as non-root `app`. `CMD` = `--http --auth --public-url "$PUBLIC_URL"`, so it fails fast if `PUBLIC_URL` is unset or not https.
+- **Local check (verified 2026-10-08):**
+  ```bash
+  docker build -t wilo-connector .
+  docker run --rm -p 127.0.0.1:8088:8080 -e PORT=8080 -e PUBLIC_URL=https://wilo.example \
+    -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json -v ~/wilo-claude/service-account.json:/secrets/key.json:ro wilo-connector
+  curl -i -X POST http://127.0.0.1:8088/mcp -d '{}'    # 401, resource_metadata on https://wilo.example
+  ```
+  The key mount stands in for Cloud Run's identity locally only. On Cloud Run there's no key.
+- **Deploy (step 3, needs Blaze + `gcloud`; not done yet):**
+  ```bash
+  gcloud auth login && gcloud config set project wilo2-1ee44
+  gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+  gcloud run deploy wilo-connector --source . --region <region> --allow-unauthenticated \
+    --set-env-vars PUBLIC_URL=https://<public host>
+  ```
+  - `--allow-unauthenticated` is needed: Claude's servers call it directly, and our OAuth does the protecting.
+  - **PUBLIC_URL:** with the Firebase Hosting rewrite (step 4) it's `https://wilo2-1ee44.web.app`, known in advance. On the bare `*.run.app` URL, deploy once, then `gcloud run services update wilo-connector --update-env-vars PUBLIC_URL=https://<run.app url>`, and add that domain to Firebase Auth's authorized domains.
+  - **To verify at deploy time:** the region (match Firestore's location), and the runtime service account's Firestore role (`roles/datastore.user`; a dedicated account is better than the default one).
+- **Step 4, Hosting rewrite (idea, to verify):** route `/mcp`, `/.well-known/**`, `/authorize`, `/token`, `/register`, `/revoke`, `/login**` on `wilo2-1ee44.web.app` to the Cloud Run service in `firebase.json`. This touches the tracker's hosting config, so review it carefully.
+- **Step 5:** claude.ai → Customize → Connectors → Add custom connector → `https://<public host>/mcp` → Connect → Google sign-in. Then use it from the phone app.
+
 ## What's next
-- **Hosting (needs Blaze):** Cloud Run in `wilo2-1ee44` with its own service account (no JSON key on the server). Idea: Firebase Hosting rewrites, so it lives on `wilo2-1ee44.web.app` (already a Firebase authorized domain). Then add it in claude.ai → Customize → Connectors with `https://…/mcp`.
+- **Hosting:** steps 3–5 above (Blaze first).
 - **Before anyone else connects:** lock the open top-level Firestore collections (#15 step 4).
 - **Instructions out of code (#40):** move `INSTRUCTIONS` and the tool docstrings (which Claude reads as tool descriptions) into one file.
 - Open questions: scopes (one `workouts` for now), token lifetimes, a "connected to Claude" control in the tracker to revoke access.

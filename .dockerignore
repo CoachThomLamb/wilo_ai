@@ -1,0 +1,8 @@
+# Allowlist: only what the connector server needs goes into the image.
+# Keys, data backups, .venv, the tracker and docs can never be copied in by accident.
+*
+!pyproject.toml
+!wilo/
+!config/
+!schema/
+**/__pycache__

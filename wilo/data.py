@@ -57,8 +57,10 @@ def connect():
     import firebase_admin
     from firebase_admin import credentials, firestore
     key = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS') or os.path.expanduser(CONFIG['credentials'])
+    # No key file (e.g. on Cloud Run): use the environment's own identity, so no JSON key ships in the container.
+    cred = credentials.Certificate(key) if os.path.exists(key) else credentials.ApplicationDefault()
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(credentials.Certificate(key), {'projectId': CONFIG['project']})
+        firebase_admin.initialize_app(cred, {'projectId': CONFIG['project']})
     return firestore.client(database_id=CONFIG['database'])
 
 

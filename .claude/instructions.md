@@ -39,8 +39,8 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now (agenda A):** the tracker reads `timed` (#29). `wilo/data.py` and #27 are done.
-- **Next:** use the script from Claude anywhere (#31; interim: a cloud session with the key as a secret).
+- **Now:** the hosted Claude connector (#31): merge #44, then deploy to Cloud Run (step 3), public address (step 4), add the connector in claude.ai and test from the phone (step 5). Blaze is on. See `docs/mcp-server-and-connector-guide.md`.
+- **Deferred by Thom ("small potatoes"):** the tracker reads `timed` (#29).
 - **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
 - **Parked:** coaching loop (#25), full data schema (#28).
 - **On hold:** the Postgres migration. Stay on Firestore for now.
