@@ -5,7 +5,7 @@ Read this before debugging or extending `wilo/` (the workout data engine, the MC
 ## What it is
 WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `users/{uid}/completed` (done). This package lets Claude read and write them:
 - **Locally:** Claude Code runs the MCP server over stdio (`wilo` in `/mcp`). Works today, including from the phone via `/rc` (Remote Control) while the laptop is on.
-- **Remotely (in progress, #31):** the same server over HTTPS with OAuth sign-in, added in claude.ai as a custom connector, so it's usable from the Claude app without the laptop. Built and verified locally; hosting needs the Firebase Blaze plan.
+- **Remotely (live since 2026-10-09, #31):** the same server over HTTPS with OAuth sign-in at **`https://wilo-connector.onrender.com/mcp`** (Render, free tier), added in claude.ai as a custom connector, so it's usable from the Claude app without the laptop.
 
 ## Files
 | File | Role |
@@ -23,7 +23,7 @@ WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `us
 - **Whose data is decided by code, never by Claude.** Every `data.py` function takes `uid` explicitly. Only two places choose it: the CLI's `main()` (config) and `current_uid()` in the server. **`uid` is never a tool argument.**
 - **`current_uid()`:** with sign-in on (`AUTH = True`), it's the access token's `subject`; no token → `PermissionError`. **Never fall back to the config uid when `AUTH` is on.** With sign-in off (stdio, plain `--http`), it's the config uid.
 - **Writes are dry runs by default.** `assign_workout` and `update_workout` (and the CLI's `assign` / `update`) write only with `write=True` / `--write`. The server instructions tell Claude to show Thom the dry run and write only after he approves.
-- **Bind to `127.0.0.1` only** until the server sits behind HTTPS. There is no option to bind publicly, on purpose.
+- **Bind to `127.0.0.1` only, unless hosted behind HTTPS with sign-in.** The only way to listen publicly (`0.0.0.0`) is `--public-url https://…`, which requires `--auth`.
 - **Secrets are never stored in plain text:** codes, tokens and pending sign-in IDs are stored only as sha256 hashes.
 
 ## Data model (decisions)
@@ -45,7 +45,7 @@ claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_ser
 .venv/bin/python -m wilo.mcp_server --http --auth --public-url https://…   # hosted: public issuer, 0.0.0.0:$PORT
 ```
 - **`--public-url`** is refused without `--auth`, for non-`https://`, and when empty, so the no-sign-in mode can never be exposed. Port defaults to `$PORT`.
-- **Credentials:** a key file if present (`config/wilo.json` path or `GOOGLE_APPLICATION_CREDENTIALS`), otherwise **application default credentials** (Cloud Run's service account).
+- **Credentials:** a key file if present (`config/wilo.json` path or `GOOGLE_APPLICATION_CREDENTIALS`), otherwise **application default credentials** (e.g. Cloud Run's service account). On Render: `GOOGLE_APPLICATION_CREDENTIALS` points at the secret file holding the `wilo-connector` key.
 
 ## Sign-in (OAuth) in one picture
 ```
@@ -66,6 +66,9 @@ Claude ─▶ POST /mcp (Bearer) ─▶ tools run with current_uid() = token.sub
 
 ## Verified end to end (2026-10-08)
 Real Claude Code, real browser, real Google sign-in against `--http --auth` on `localhost:8077`. Log sequence: discovery 200 → `/register` 201 (loopback `localhost:50175`) → `/authorize` 302 (S256, `resource` sent) → `/login` 200 → `/login/callback` 200 (real Firebase token verified) → `/token` 200 → authenticated `/mcp` 200s. Firestore: the access and refresh tokens have `subject` = Thom's uid and `resource` = `http://localhost:8077/mcp`; pending and code docs were consumed.
+
+## Verified live (2026-10-09)
+Render deploy: `POST /mcp` → `401` with `resource_metadata` on `https://wilo-connector.onrender.com`, and the discovery doc lists every endpoint on that host. claude.ai added it as a custom connector, Thom signed in with Google, and the 8 tools showed up.
 
 ## Tests (`tests/`)
 | File | Covers |
@@ -99,25 +102,35 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
     -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json -v ~/wilo-claude/service-account.json:/secrets/key.json:ro wilo-connector
   curl -i -X POST http://127.0.0.1:8088/mcp -d '{}'    # 401, resource_metadata on https://wilo.example
   ```
-  The key mount stands in for Cloud Run's identity locally only. On Cloud Run there's no key.
-- **Deploy (step 3, needs Blaze + `gcloud`; not done yet):**
+  The key mount is for the local check only.
+
+### Where it runs: Render (live 2026-10-09)
+- **Why Render, not Cloud Run:** Google billing (needed for Cloud Run) won't take Thom's prepaid card, and the GDP credit billing account linked to `wilo2-1ee44` is closed (`billingEnabled: false`). Render's free web service builds the `Dockerfile` from GitHub with no card.
+- **Service `wilo-connector`** (Render dashboard): repo `wilo_ai`, branch `main`, runtime Docker, Free (0.1 CPU, 512 MB), region Virginia (Render has no Canada region; Firestore is `northamerica-northeast2`). **Auto-deploy on every commit to `main`**, docs-only commits included. That's harmless, since sign-in state lives in Firestore and survives restarts.
+  - Env: `PUBLIC_URL=https://wilo-connector.onrender.com`, `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/wilo-connector-key.json`. Render sets `$PORT`.
+  - Secret file `wilo-connector-key.json` = the key of service account **`wilo-connector@wilo2-1ee44.iam.gserviceaccount.com`**, whose **only role is `roles/datastore.user`**. **Never** upload the `firebase-adminsdk` key (`~/wilo-claude/service-account.json`): it can manage Auth users and mint tokens. The local copy of the connector key is `~/wilo-claude/wilo-connector-key.json` (laptop only).
+  - A new role grant took about 1 minute to apply (`403` before that).
+- **Firebase Auth → Authorized domains** must include `wilo-connector.onrender.com`, or Google sign-in on `/login` fails. (The `wilo2-1ee44--pr…web.app` entries come from the PR preview action, so they're low risk, just clutter.)
+- **Free tier sleeps after 15 min idle.** The first call after that takes ~1 min, and Claude may time out once, then a retry works. The paid instance ($7/mo) doesn't sleep.
+- **Check it:**
   ```bash
-  gcloud auth login && gcloud config set project wilo2-1ee44
-  gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-  gcloud run deploy wilo-connector --source . --region <region> --allow-unauthenticated \
-    --set-env-vars PUBLIC_URL=https://<public host>
+  curl -i -X POST https://wilo-connector.onrender.com/mcp -d '{}'                     # 401, resource_metadata on the same host
+  curl https://wilo-connector.onrender.com/.well-known/oauth-authorization-server     # every endpoint on the same host
   ```
-  - `--allow-unauthenticated` is needed: Claude's servers call it directly, and our OAuth does the protecting.
-  - **PUBLIC_URL:** with the Firebase Hosting rewrite (step 4) it's `https://wilo2-1ee44.web.app`, known in advance. On the bare `*.run.app` URL, deploy once, then `gcloud run services update wilo-connector --update-env-vars PUBLIC_URL=https://<run.app url>`, and add that domain to Firebase Auth's authorized domains.
-  - **To verify at deploy time:** the region (match Firestore's location), and the runtime service account's Firestore role (`roles/datastore.user`; a dedicated account is better than the default one).
-- **Step 4, Hosting rewrite (idea, to verify):** route `/mcp`, `/.well-known/**`, `/authorize`, `/token`, `/register`, `/revoke`, `/login**` on `wilo2-1ee44.web.app` to the Cloud Run service in `firebase.json`. This touches the tracker's hosting config, so review it carefully.
-- **Step 5:** claude.ai → Customize → Connectors → Add custom connector → `https://<public host>/mcp` → Connect → Google sign-in. Then use it from the phone app.
+- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → 8 tools listed. Suggested permissions: read tools always allowed, `assign_workout` / `update_workout` need approval.
+
+### Alternative: Cloud Run (if billing gets a card that works)
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+gcloud run deploy wilo-connector --source . --region northamerica-northeast2 --allow-unauthenticated \
+  --service-account wilo-connector@wilo2-1ee44.iam.gserviceaccount.com --set-env-vars PUBLIC_URL=https://<public host>
+```
+No key file is needed there (application default credentials), the cost is ~$0, and the cold start is seconds. `--allow-unauthenticated` is required because our OAuth does the protecting. Moving means a new URL, so everyone has to re-add the connector.
 
 ## What's next
-- **Hosting:** steps 3–5 above (Blaze first).
 - **Before anyone else connects:** lock the open top-level Firestore collections (#15 step 4).
 - **Instructions out of code (#40):** move `INSTRUCTIONS` and the tool docstrings (which Claude reads as tool descriptions) into one file.
 - Open questions: scopes (one `workouts` for now), token lifetimes, a "connected to Claude" control in the tracker to revoke access.
 
 ## Where the history is
-#32, #34 data engine (closed #19) · #35 MCP server + `wilo` package · #36 per-user uid · #37 → #42 tool tests + HTTP · #38 principles + sign-in design · #39 sign-in · issues #31 (build plan + Claude connector research), #40, #29, #30, #15, #14.
+#32, #34 data engine (closed #19) · #35 MCP server + `wilo` package · #36 per-user uid · #37 → #42 tool tests + HTTP · #38 principles + sign-in design · #39 sign-in · #44 hostable (`--public-url`, `Dockerfile`) · issues #46 (CI for the Python tests), #31 (build plan + Claude connector research), #40, #29, #30, #15, #14.
