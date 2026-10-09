@@ -1,7 +1,8 @@
-# WILO connector server: wilo.mcp_server behind OAuth sign-in, for Cloud Run (#43, #31).
+# WILO connector server: wilo.mcp_server behind OAuth sign-in (#43, #31). Runs on Render; Cloud Run works too.
 # Build:  docker build -t wilo-connector .
 # Run:    PUBLIC_URL must be the service's public https:// address (it becomes the OAuth issuer).
-#         Cloud Run sets $PORT. Credentials come from the runtime's service account (no key file in the image).
+#         The host sets $PORT. No key file in the image: credentials come from GOOGLE_APPLICATION_CREDENTIALS
+#         (Render: a secret file) or the runtime's service account (Cloud Run).
 FROM python:3.14-slim
 
 WORKDIR /app

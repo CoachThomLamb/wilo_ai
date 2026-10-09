@@ -39,7 +39,10 @@ Everything that doesn't help answer that question is out of scope. Do not build 
 
 ## What we're working on
 
-- **Now:** the hosted Claude connector (#31): merge #44, then deploy to Cloud Run (step 3), public address (step 4), add the connector in claude.ai and test from the phone (step 5). Blaze is on. See `docs/mcp-server-and-connector-guide.md`.
+- **Done 2026-10-09:** the hosted Claude connector (#31) is live on Render at `https://wilo-connector.onrender.com/mcp` and connected in claude.ai. Blaze is **not** on (the prepaid card was rejected). See `docs/mcp-server-and-connector-guide.md`.
+- **Now:** use it. Plan workouts from the phone app and log them in the tracker. Training is the MVP test.
+- **Next (Thom's decision, #45):** Wilo becomes the one place for the day (training + todos + events), with the coach on top. When that work starts, rewrite "The MVP" above.
+- **Small:** CI for the Python tests (#46). The tracker's first Finish silently didn't save on 2026-10-08, so "Saved ✓" (#29) matters more now.
 - **Deferred by Thom ("small potatoes"):** the tracker reads `timed` (#29).
 - **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
 - **Parked:** coaching loop (#25), full data schema (#28).
