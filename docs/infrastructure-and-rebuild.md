@@ -213,6 +213,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 - [ ] Create the project. Add a **web app** and copy its config into the `initializeApp({...})` blocks in `fe/index.html`, `fe/builder.html` and `wilo/login.html`.
 - [ ] Firestore: create the **named database `wilo`** in `northamerica-northeast2`, Native mode. Turn on **delete protection**.
 - [ ] Auth: enable the **Google** provider.
+- [ ] **OAuth redirect URIs** (Google Cloud console → APIs & Services → Credentials → the web client Firebase uses, "Web client (auto created by Google Service)"): add `https://<project>.web.app/__/auth/handler`. The tracker signs in through its own domain (`authDomain` = the page's host, needed for in-app browsers), so **every domain the tracker runs on needs its handler URI here**, PR previews included. A missing one gives `Error 400: redirect_uri_mismatch`.
 - [ ] Update `.firebaserc` and `config/wilo.json` (`project`).
 - [ ] `firebase deploy --only firestore:rules` and `firebase deploy --only hosting`.
 - [ ] `firebase init hosting:github`. It recreates the github-action service account and the `FIREBASE_SERVICE_ACCOUNT_…` secret. Fix the secret name in both workflow files if the project ID changed.
