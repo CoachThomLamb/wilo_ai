@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <!--
-  WILO workout tracker — single-user, flat exercise list.
+  WILO workout tracker — per-user, flat exercise list.
 
-  - Boot: loads the latest assigned workout from Firestore `assigned`
-    (ordered by assignedFor desc). Load button re-runs the same query.
+  - Sign-in required (Google, via auth.js). Signed out, a gate covers the
+    app. All data is users/{uid}/...; no top-level collections (#15).
+  - Boot: restores the draft; once signed in, loads the latest of
+    users/{uid}/assigned (assignedFor desc) unless a draft is in progress.
+    Load button re-runs the same query.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
-  - Persistence: draft autosaves to localStorage; Finish downloads JSON
-    and writes to Firestore `completed` with a DD-mmm-HH:MM-slug-rand doc id.
+  - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
+    writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
+    "Workout complete" screen only after Firestore confirms, else
+    "Save failed — retry".
+    The doc id is kept per workout, so retries overwrite, never duplicate.
 
   Error surface: thrown errors go to window.onerror -> note() -> the
   on-screen status line. The line holds errors for 8s so autosave ticks
@@ -22,27 +28,35 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // authDomain = this page's own host on Firebase Hosting (live and PR
+  // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
+  // Safari's in-app browsers (Camera, Claude app): the handler on another
+  // domain loses its state ("missing initial state"). Each host must be an
+  // Authorized redirect URI (https://<host>/__/auth/handler) on the OAuth
+  // web client in Google Cloud. Elsewhere (localhost) use the default.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
-    authDomain: "wilo2-1ee44.firebaseapp.com",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
     projectId: "wilo2-1ee44",
     storageBucket: "wilo2-1ee44.firebasestorage.app",
     messagingSenderId: "103580826325",
     appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
   });
-  const db = getFirestore(app, "wilo");
-  window.__db = db;
+  getFirestore(app, "wilo");
+  // Only per-user paths: every read and write goes through auth.js's
+  // userCol / userDoc (users/{uid}/...). No top-level collection access.
   window.__setDoc = setDoc;
-  window.__doc = doc;
-  window.__collection = collection;
   window.__getDocs = getDocs;
   window.__query = query;
   window.__orderBy = orderBy;
   window.__limit = limit;
   // auth.js calls getApp() at load, so import it after initializeApp.
-  import("./auth.js").then(a => a.onUser(user =>
-    window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))));
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -99,6 +113,20 @@
     margin-top: 10px;
   }
   .swap.on { color: var(--done-line); border-color: var(--done-line); }
+  /* sign-in gate: covers the app until a user is signed in */
+  .gate {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate[hidden] { display: none; }
+  .gate h1 { margin: 0; font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
+  .saved.err { color: #ff453a; }
+  /* "Workout complete" screen after a confirmed save */
+  .done-screen { background: rgba(0,0,0,.92); }
+  .done-screen .big { font-size: 64px; line-height: 1; }
+  .done-screen .stat { color: var(--text); font-size: 20px; font-weight: 600; }
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -190,9 +218,23 @@
 </head>
 <body>
 
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button class="finish" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<div class="gate done-screen" id="doneScreen" hidden>
+  <div class="big">💪</div>
+  <h1>Workout complete</h1>
+  <p class="stat" id="doneStat"></p>
+  <p>Saved. Your coach will see it next time you talk.</p>
+  <button class="finish" id="doneBtn">I'm awesome</button>
+</div>
+
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-05-cache2</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-10-signin</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -254,13 +296,14 @@
   function loadWorkout(assigned) {
     if (!assigned || !assigned.id) throw new Error('invalid workout');
     loadedWorkout = assigned;
+    state.finishDocId = null;   // a new workout gets a new completed doc
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
     state.exercises = (assigned.exercises || []).map(makeExercise);
     document.getElementById('sessName').value = assigned.name || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', exercises: [] };
+  const state = { workoutId: null, workoutName: '', finishDocId: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -443,9 +486,10 @@
   // Errors hold the line for a few seconds. Without this the autosave tick
   // (400ms) overwrites the message with "Saved 3:57 PM" before it can be read.
   let noteUntil = 0;
-  function note(msg) {
+  function note(msg, kind) {   // kind: 'ok' | 'err' | undefined
     savedEl.textContent = msg;
-    savedEl.classList.remove('ok');
+    savedEl.classList.toggle('ok', kind === 'ok');
+    savedEl.classList.toggle('err', kind === 'err');
     noteUntil = Date.now() + 8000;
   }
   window.addEventListener('error', ev => {
@@ -460,10 +504,11 @@
   function persist() {
     try {
       localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), state }));
-      if (Date.now() < noteUntil) return;   // don't stomp a visible error
+      if (Date.now() < noteUntil) return;   // don't stomp a visible message
+      // "Draft", not "Saved": this is only this phone's browser, not Firestore.
       const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-      savedEl.textContent = 'Saved ' + t;
-      savedEl.classList.add('ok');
+      savedEl.textContent = 'Draft saved ' + t;
+      savedEl.classList.remove('ok', 'err');
     } catch (err) {
       note("Couldn't save to this browser");
     }
@@ -484,6 +529,7 @@
       state.exercises = saved.state.exercises;
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
+      state.finishDocId = saved.state.finishDocId || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
         if (!ex.instanceId) ex.instanceId = uid();
@@ -499,14 +545,10 @@
     } catch (err) { /* corrupt draft: start fresh */ }
   }
 
-  function download() {
-    const stamp = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const slug = `${state.workoutName || ''}-${state.workoutId || 'workout'}`.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
-                 `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
+  const pad = n => String(n).padStart(2, '0');
 
-    const payload = {
+  function buildPayload(stamp) {
+    return {
       id: state.workoutId,
       name: state.workoutName,
       finishedAt: stamp.toISOString(),
@@ -522,67 +564,66 @@
         sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
       }))
     };
-
-    if (window.__db && window.__doc && window.__setDoc) {
-      const day = pad(stamp.getDate());
-      const month = stamp.toLocaleString('en-US', { month: 'short' }).toLowerCase();
-      const hour = pad(stamp.getHours());
-      const minute = pad(stamp.getMinutes());
-      const nameSlug = (state.workoutName || 'workout').slice(0, 5).toLowerCase().replace(/\s+/g, '-');
-      const rand = Math.random().toString(36).slice(2, 6);
-      const docId = `${day}-${month}-${hour}:${minute}-${nameSlug}-${rand}`;
-      window.__setDoc(window.__doc(window.__db, 'completed', docId), payload)
-        .catch(err => note('Firestore save failed: ' + err.message));
-      if (window.__auth && window.__auth.currentUser()) {
-        window.__setDoc(window.__auth.userDoc('completed', docId), payload)
-          .catch(err => note('Firestore user save failed: ' + err.message));
-      }
-    }
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return name;
   }
 
-  document.getElementById('finish').addEventListener('click', () => {
+  // DD-mmm-HH:MM-slug-rand, e.g. 09-oct-06:30-chest-7qmb
+  function makeDocId(stamp) {
+    const month = stamp.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+    const nameSlug = (state.workoutName || 'workout').slice(0, 5).toLowerCase().replace(/\s+/g, '-');
+    const rand = Math.random().toString(36).slice(2, 6);
+    return `${pad(stamp.getDate())}-${month}-${pad(stamp.getHours())}:${pad(stamp.getMinutes())}-${nameSlug}-${rand}`;
+  }
+
+  // Writes users/{uid}/completed/{id} and resolves only once Firestore confirms.
+  // The id is made once per workout and kept in state (and the draft), so a
+  // retry or a second Finish overwrites the same doc instead of duplicating it.
+  async function saveCompleted(payload, stamp) {
+    const a = window.__auth;
+    if (!a || !a.currentUser()) throw new Error('not signed in');
+    if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
+    await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
+    return state.finishDocId;
+  }
+
+  // Celebrates a confirmed save, with sets done vs. planned (the MVP metric).
+  const doneScreen = document.getElementById('doneScreen');
+  function showDone() {
+    const sets = state.exercises.flatMap(x => x.sets);
+    const done = sets.filter(s => s.done).length;
+    document.getElementById('doneStat').textContent =
+      `${done} of ${sets.length} sets · ${state.workoutName || 'workout'}`;
+    doneScreen.hidden = false;
+  }
+  document.getElementById('doneBtn').addEventListener('click', () => { doneScreen.hidden = true; });
+
+  // "Saved ✓" only after Firestore confirms. On failure the draft stays in
+  // this browser, so tapping Finish again retries (same doc id).
+  document.getElementById('finish').addEventListener('click', async () => {
     persist();
-    const name = download();
-    savedEl.textContent = 'Downloaded ' + name;
-    savedEl.classList.add('ok');
+    const stamp = new Date();
+    const payload = buildPayload(stamp);
+    note('Saving…');
+    try {
+      await saveCompleted(payload, stamp);
+      const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      note('Saved ✓ ' + t, 'ok');
+      showDone();
+    } catch (err) {
+      if (err && err.message === 'not signed in') note('Not signed in — sign in, then tap Finish again', 'err');
+      else note('Save failed (' + (err.code || err.message || err) + ') — tap Finish to retry', 'err');
+    }
   });
 
   // ---- program loading ----------------------------------------------
-  // Signed in: newest of users/{uid}/assigned and top-level assigned (the
-  // coach skill still writes top-level until it moves to per-user paths).
+  // Newest of users/{uid}/assigned by assignedFor. Only the signed-in user's
+  // workouts: there is no top-level fallback, so a new user sees nothing.
   async function fetchLatestAssigned() {
-    const cols = [window.__collection(window.__db, 'assigned')];
-    if (window.__auth && window.__auth.currentUser()) cols.unshift(window.__auth.userCol('assigned'));
-    const at = v => (v && v.toMillis ? v.toMillis() : v);
-    let best = null;
-    for (const col of cols) {
-      let snap;
-      try {
-        snap = await window.__getDocs(window.__query(
-          col, window.__orderBy('assignedFor', 'desc'), window.__limit(1)
-        ));
-      } catch (err) {
-        // A failing per-user read must not block the top-level fallback.
-        if (col.path === 'assigned') throw err;
-        note('User workouts unavailable: ' + err.message);
-        continue;
-      }
-      if (snap.empty) continue;
-      const hit = { data: snap.docs[0].data(), id: snap.docs[0].id };
-      if (!best || at(hit.data.assignedFor) > at(best.data.assignedFor)) best = hit;
-    }
-    return best;
+    const a = window.__auth;
+    if (!a || !a.currentUser()) throw new Error('not signed in');
+    const snap = await window.__getDocs(window.__query(
+      a.userCol('assigned'), window.__orderBy('assignedFor', 'desc'), window.__limit(1)
+    ));
+    return snap.empty ? null : { data: snap.docs[0].data(), id: snap.docs[0].id };
   }
 
   document.getElementById('sessName').addEventListener('input', e => {
@@ -593,7 +634,7 @@
     try {
       note('Loading latest workout…');
       const latest = await fetchLatestAssigned();
-      if (!latest) { note('No workouts found'); return; }
+      if (!latest) { note('No workouts yet — ask your coach to plan one'); return; }
       loadWorkout(latest.data);
       last = 'loaded ' + (state.workoutId || latest.id);
       draw();
@@ -604,30 +645,48 @@
   });
 
   // ---- sign-in -------------------------------------------------------
-  // Optional for now: signed out, everything uses the top-level collections
-  // exactly as before. Signed in, saves are mirrored under users/{uid}.
+  // Required. Signed out, the gate covers the app; the draft stays in this
+  // browser and is still there after signing in. All data is users/{uid}.
   const authBtn = document.getElementById('authBtn');
+  const gate = document.getElementById('gate');
+  const gateMsg = document.getElementById('gateMsg');
+  const gateBtn = document.getElementById('gateBtn');
   let authSeen = false;
+
+  async function loadLatestIfNoDraft() {
+    if (state.exercises.length) return;   // never replace sets in progress
+    const latest = await fetchLatestAssigned();
+    if (!latest) { note('No workouts yet \u2014 ask your coach to plan one'); return; }
+    loadWorkout(latest.data);
+    draw();
+    note('Loaded ' + (state.workoutName || latest.id));
+  }
+
   window.addEventListener('wilo-user', ev => {
     const user = ev.detail;
-    authBtn.hidden = false;
-    authBtn.textContent = user ? user.email + ' \u00b7 Sign out' : 'Sign in';
+    gate.hidden = !!user;
+    gateBtn.hidden = !!user;
+    gateMsg.textContent = 'Sign in to see your workouts.';
+    authBtn.hidden = !user;
+    if (user) authBtn.textContent = user.email + ' \u00b7 Sign out';
     // First event is just the restored session; don't clobber the status line.
-    if (authSeen) note(user ? 'Signed in as ' + user.email : 'Signed out');
+    if (authSeen && user) note('Signed in as ' + user.email);
     authSeen = true;
+    if (user) loadLatestIfNoDraft().catch(err =>
+      note("Couldn't load workout: " + (err.code || err.message || err), 'err'));
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    gateMsg.textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+
+  gateBtn.addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { gateMsg.textContent = 'Sign-in failed: ' + (err.code || err.message); }
   });
   authBtn.addEventListener('click', async () => {
     const a = window.__auth;
-    if (!a) return;
-    try {
-      if (a.currentUser()) {
-        if (confirm('Sign out of ' + a.currentUser().email + '?')) await a.signOut();
-      } else {
-        await a.signIn();
-      }
-    } catch (err) {
-      note('Sign-in failed: ' + (err.code || err.message));
-    }
+    if (!a || !a.currentUser()) return;
+    if (confirm('Sign out of ' + a.currentUser().email + '? Your draft stays on this phone.')) await a.signOut();
   });
 
   // ---- reset ---------------------------------------------------------
@@ -647,25 +706,10 @@
     note('Reset to ' + (state.workoutName || 'assigned'));
   });
 
-  // Boot: restore any saved draft, then try loading latest from Firestore
+  // Boot: restore any saved draft. The latest workout loads once sign-in
+  // is known (the 'wilo-user' handler), and only if there's no draft.
   restore();
   draw();
-
-  // Load latest assigned workout from Firestore on boot
-  if (window.__db && window.__collection && window.__getDocs && window.__query && window.__orderBy && window.__limit) {
-    (async () => {
-      try {
-        const latest = await fetchLatestAssigned();
-        if (latest) {
-          loadWorkout(latest.data);
-          draw();
-          note('Loaded ' + (state.workoutName || latest.id));
-        }
-      } catch (err) {
-        note('Could not load workout from Firestore');
-      }
-    })();
-  }
 </script>
 
 </body>
