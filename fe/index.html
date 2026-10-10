@@ -13,8 +13,9 @@
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
   - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
-    downloads JSON and writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand};
-    "Saved ✓" only after Firestore confirms, else "Save failed — retry".
+    writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
+    "Workout complete" screen only after Firestore confirms, else
+    "Save failed — retry".
     The doc id is kept per workout, so retries overwrite, never duplicate.
 
   Error surface: thrown errors go to window.onerror -> note() -> the
@@ -28,9 +29,16 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
   import { getFirestore, setDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // authDomain = this page's own host on Firebase Hosting (live and PR
+  // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
+  // Safari's in-app browsers (Camera, Claude app): the handler on another
+  // domain loses its state ("missing initial state"). Each host must be an
+  // Authorized redirect URI (https://<host>/__/auth/handler) on the OAuth
+  // web client in Google Cloud. Elsewhere (localhost) use the default.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
-    authDomain: "wilo2-1ee44.firebaseapp.com",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
     projectId: "wilo2-1ee44",
     storageBucket: "wilo2-1ee44.firebasestorage.app",
     messagingSenderId: "103580826325",
@@ -115,6 +123,10 @@
   .gate h1 { margin: 0; font-size: 34px; }
   .gate p { margin: 0; color: var(--dim); font-size: 15px; }
   .saved.err { color: #ff453a; }
+  /* "Workout complete" screen after a confirmed save */
+  .done-screen { background: rgba(0,0,0,.92); }
+  .done-screen .big { font-size: 64px; line-height: 1; }
+  .done-screen .stat { color: var(--text); font-size: 20px; font-weight: 600; }
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -210,6 +222,14 @@
   <h1>WILO</h1>
   <p id="gateMsg">Checking sign-in…</p>
   <button class="finish" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<div class="gate done-screen" id="doneScreen" hidden>
+  <div class="big">💪</div>
+  <h1>Workout complete</h1>
+  <p class="stat" id="doneStat"></p>
+  <p>Saved. Your coach will see it next time you talk.</p>
+  <button class="finish" id="doneBtn">I'm awesome</button>
 </div>
 
 <header>
@@ -565,21 +585,16 @@
     return state.finishDocId;
   }
 
-  function download(payload, stamp) {
-    const slug = `${state.workoutName || ''}-${state.workoutId || 'workout'}`.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    const name = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}` +
-                 `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}-${slug}.json`;
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return name;
+  // Celebrates a confirmed save, with sets done vs. planned (the MVP metric).
+  const doneScreen = document.getElementById('doneScreen');
+  function showDone() {
+    const sets = state.exercises.flatMap(x => x.sets);
+    const done = sets.filter(s => s.done).length;
+    document.getElementById('doneStat').textContent =
+      `${done} of ${sets.length} sets · ${state.workoutName || 'workout'}`;
+    doneScreen.hidden = false;
   }
+  document.getElementById('doneBtn').addEventListener('click', () => { doneScreen.hidden = true; });
 
   // "Saved ✓" only after Firestore confirms. On failure the draft stays in
   // this browser, so tapping Finish again retries (same doc id).
@@ -587,12 +602,12 @@
     persist();
     const stamp = new Date();
     const payload = buildPayload(stamp);
-    download(payload, stamp);
     note('Saving…');
     try {
       await saveCompleted(payload, stamp);
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       note('Saved ✓ ' + t, 'ok');
+      showDone();
     } catch (err) {
       if (err && err.message === 'not signed in') note('Not signed in — sign in, then tap Finish again', 'err');
       else note('Save failed (' + (err.code || err.message || err) + ') — tap Finish to retry', 'err');
