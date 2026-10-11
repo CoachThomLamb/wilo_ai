@@ -8,14 +8,13 @@ One question to answer: does an AI *plan*, delivered to Thom's phone day by day,
 
 The loop: conversation → plan → calendar → workout → review → adjust (#25). Workouts sit on days of the week. One workout at a time with no plan is not enough. (Changed 2026-10-05; it used to be "does an AI-generated workout make the workout better?")
 
-Everything that doesn't help answer that question is out of scope. Do not build it.
-
 **How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
 
-**Two agendas, A first:**
-- **A. Works for Thom:** `wilo/data.py` + workout schema (#19), tracker (#29), history (#27). The coaching loop (#25) comes after.
-- **B. Deliverable to others:** per-user data + security (#15), Claude connector (#14, build plan #31). Only once A is proven.
-- #19 serves both: build its commands tool-shaped so #14 can wrap them later.
+**Two tracks, run in parallel (it's a startup):**
+- **A. Works for Thom:** the daily loop gets better from his own use: tracker (#29), history, coach (#25, #48).
+- **B. Works for others:** sign-in and security (#15), the connector (live since 2026-10-09), and anything that lowers friction for a new user.
+- A sets the pace: B work should stay small and shouldn't break or stall Thom's daily use. When B needs a big investment, ask whether a real new user is waiting on it.
+- Out of scope: anything that serves neither track. Park it.
 
 ## Your job
 
