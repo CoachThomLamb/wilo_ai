@@ -27,12 +27,11 @@ The loop: conversation → plan → calendar → workout → review → adjust (
 
 ## How it works now (2026-10-03)
 
-- **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts, `programs` = builder saves.
+- **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts.
 - **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
   - `wilo/data.py`: read and write workouts (CLI: `.venv/bin/python -m wilo.data history bench`).
   - `wilo/mcp_server.py`: the same functions as MCP tools. Claude Code runs it as `wilo` (`.venv/bin/python -m wilo.mcp_server`).
 - **Tracker:** `fe/index.html` (plain HTML, not a PWA) reads the latest `assigned` workout, logs sets, and writes to `completed` on Finish.
-- **Builder:** `fe/builder.html` saves programs.
 - **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`.
 - **Auth:** optional Google sign-in (`fe/auth.js`). When signed in, saves also go to `users/{uid}/...`.
 

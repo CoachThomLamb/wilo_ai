@@ -15,7 +15,7 @@ Does an AI *plan*, delivered to the phone day by day, make training better? The 
 - `prior-art/`: old RunPod/Qwen experiments, kept for reference.
 
 ## Structure
-- `fe/index.html`: tracker. `fe/builder.html`: program builder. `fe/auth.js`: Google sign-in.
+- `fe/index.html`: tracker. `fe/auth.js`: Google sign-in.
 - Coach: the `wilo-workout-coach` skill lives on claude.ai, not in this repo.
 - `firestore.rules`: security rules for the `wilo` database.
 - `docs/`: specs, planning docs, dev-ops notes, and `docs/sessions/` session logs.
