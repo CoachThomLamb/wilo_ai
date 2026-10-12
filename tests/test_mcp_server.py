@@ -14,7 +14,8 @@ from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
 TOOLS = {'coaching_method', 'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
-         'exercise_history', 'exercise_names', 'assign_workout', 'update_workout'}
+         'exercise_history', 'exercise_names', 'assign_workout', 'update_workout',
+         'list_todos', 'add_todo', 'update_todo', 'delete_todo'}
 
 
 def call(tool, **args):
@@ -95,6 +96,17 @@ class ServerTest(unittest.TestCase):
     def test_bad_collection_is_rejected_by_mcp(self):
         with self.assertRaises(ToolError):
             asyncio.run(srv.server.call_tool('get_workout', {'collection': 'programs', 'doc_id': 'a'}))
+
+    def test_todos_round_trip_for_current_user_only(self):
+        tid = call('add_todo', text='stretch', due='2026-10-12 07:00')['docId']
+        self.assertTrue(f'users/{ME}/todos/{tid}' in self.db.store)  # no dry run: saved straight away
+        self.assertEqual([t['text'] for t in call('list_todos')['todos']], ['stretch'])
+        self.assertTrue(call('update_todo', doc_id=tid, done=True)['todo']['done'])
+        self.assertEqual(call('list_todos')['todos'], [])
+        self.uid = OTHER
+        self.assertFalse(call('delete_todo', doc_id=tid)['ok'])
+        self.uid = ME
+        self.assertTrue(call('delete_todo', doc_id=tid)['ok'])
 
 
 if __name__ == '__main__':

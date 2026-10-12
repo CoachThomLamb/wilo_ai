@@ -10,7 +10,7 @@ Over HTTP (local test of the remote transport; localhost only):
     .venv/bin/python -m wilo.mcp_server --http --auth [--port 8000]   → with sign-in (OAuth + Firebase login, wilo/auth.py)
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
-Writes (assign_workout, update_workout) are dry runs unless write=True.
+Workout writes (assign_workout, update_workout) are dry runs unless write=True. Todo writes save immediately.
 """
 
 import html
@@ -106,8 +106,32 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
 
 
+def list_todos(include_done: bool = False) -> dict[str, Any]:
+    """The user's todos, open ones first: dated by due (earliest first), then undated. Each has a docId."""
+    return {'todos': wilo_data.todos(db(), current_uid(), include_done)}
+
+
+def add_todo(text: str, due: str | None = None, notes: str | None = None) -> dict[str, Any]:
+    """Add a todo. due is free text, a date or a date and time (e.g. '2026-10-12' or '2026-10-12 19:00'),
+    so timed todos double as a light agenda. Saves immediately (no dry run)."""
+    return wilo_data.add_todo(db(), current_uid(), text, datetime.now(timezone.utc), due, notes)
+
+
+def update_todo(doc_id: str, text: str | None = None, done: bool | None = None, due: str | None = None,
+                notes: str | None = None) -> dict[str, Any]:
+    """Change a todo: check it off (done=True), reopen it, edit text, due or notes. Leave a field out to keep it;
+    pass '' to clear due or notes. Saves immediately (no dry run)."""
+    changes = {'text': text, 'done': done, 'due': due, 'notes': notes}
+    return wilo_data.update_todo(db(), current_uid(), doc_id, changes, datetime.now(timezone.utc))
+
+
+def delete_todo(doc_id: str) -> dict[str, Any]:
+    """Delete a todo for good. Prefer done=True for finished ones; delete only what the user wants gone."""
+    return wilo_data.delete_todo(db(), current_uid(), doc_id)
+
+
 TOOLS = [coaching_method, workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
-         assign_workout, update_workout]
+         assign_workout, update_workout, list_todos, add_todo, update_todo, delete_todo]
 
 
 def make_server(provider=None, issuer=None):
