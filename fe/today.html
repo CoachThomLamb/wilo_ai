@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<!--
+  WILO Today — open todos and a link to the workout tracker (#65, epic #63).
+
+  - Separate page on purpose: the tracker (index.html) stays as it is.
+  - Sign-in required (Google, via auth.js), same gate as the tracker.
+  - Data: users/{uid}/todos, the same shape the connector's todo tools use
+    (wilo/data.py): {text, done, due?, notes?, createdAt, doneAt?}. Doc ids
+    are todo_<ms>. Open todos are sorted like list_todos: dated by due,
+    then undated by when they were added.
+  - Due is free text. "19:00" on its own becomes today's date + time, so it
+    sorts with the rest.
+  - Every write shows "Saved ✓" only after Firestore confirms, else the error.
+-->
+
+<html lang="en">
+<head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, setDoc, getDocs, query, orderBy, limit, deleteField } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // Same config as index.html; see the authDomain note there.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  getFirestore(app, "wilo");
+  window.__fs = { setDoc, getDocs, query, orderBy, limit, deleteField };
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Today</title>
+<style>
+  :root {
+    --bg: #000;
+    --panel: #0e0e0f;
+    --field: #1c1c1e;
+    --line: #262628;
+    --text: #f2f2f7;
+    --dim: #7c7c82;
+    --accent: #0a84ff;
+    --done: #1f4a2c;
+    --done-line: #34c759;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    font: 400 17px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; }
+  .saved { margin: 4px 0 0; font-size: 12px; color: var(--dim); min-height: 15px; }
+  .saved.ok { color: var(--done-line); }
+  .saved.err { color: #ff453a; }
+  .who { background: none; border: 0; padding: 4px 0 0; color: var(--accent); font-family: inherit; font-size: 12px; }
+
+  .workout {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin: 16px; padding: 14px 16px; background: var(--field); border-radius: 12px;
+    color: var(--text); text-decoration: none;
+  }
+  .workout small { display: block; color: var(--dim); font-size: 13px; margin-bottom: 2px; }
+  .workout b { font-weight: 600; }
+  .workout .go { color: var(--accent); font-size: 15px; white-space: nowrap; }
+
+  h2 { margin: 20px 16px 6px; font-size: 13px; font-weight: 500; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .check {
+    flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--dim);
+    background: none; color: transparent; font-size: 15px; line-height: 1; padding: 0;
+  }
+  li.done .check { background: var(--done); border-color: var(--done-line); color: var(--done-line); }
+  li.done .text { color: var(--dim); text-decoration: line-through; }
+  .body { min-width: 0; flex: 1; }
+  .text { overflow-wrap: anywhere; }
+  .meta { color: var(--dim); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+  .meta.due { color: var(--accent); }
+  .empty { padding: 12px 16px; color: var(--dim); font-size: 15px; }
+
+  form { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; }
+  form input {
+    height: 42px; background: var(--field); border: 0; border-radius: 10px; padding: 0 12px;
+    color: var(--text); font-family: inherit; font-size: 16px; min-width: 0;
+  }
+  form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #newText { flex: 1 1 100%; }
+  #newDue { flex: 1 1 auto; }
+  .add {
+    flex: none; height: 42px; padding: 0 20px; border: 0; border-radius: 999px;
+    background: var(--accent); color: #fff; font-family: inherit; font-size: 16px; font-weight: 500;
+  }
+  .gate {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate[hidden] { display: none; }
+  .gate h1 { font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button class="add" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<header>
+  <h1>Today</h1>
+  <p class="date" id="date"></p>
+  <p class="saved" id="saved"></p>
+  <button class="who" id="authBtn" hidden></button>
+</header>
+
+<a class="workout" href="index.html">
+  <span><small>Workout</small><b id="workoutName">…</b></span>
+  <span class="go">Open tracker →</span>
+</a>
+
+<h2>To do</h2>
+<ul id="open"></ul>
+<form id="addForm" autocomplete="off">
+  <input id="newText" placeholder="Add a todo" enterkeyhint="done">
+  <input id="newDue" placeholder="When? e.g. 19:00 or 2026-10-14">
+  <button class="add" type="submit">Add</button>
+</form>
+
+<h2>Done today</h2>
+<ul id="done"></ul>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let todos = [];
+
+  const pad = n => String(n).padStart(2, '0');
+  const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  function note(msg, kind) {   // kind: 'ok' | 'err' | undefined
+    const el = $('saved');
+    el.textContent = msg;
+    el.className = 'saved' + (kind ? ' ' + kind : '');
+  }
+
+  // Same order as wilo/data.py todos(): dated by due, then undated by createdAt.
+  const byDue = (a, b) =>
+    (!a.due - !b.due) || (a.due || '').localeCompare(b.due || '') || (a.createdAt || '').localeCompare(b.createdAt || '');
+
+  function draw() {
+    const today = localDate(new Date());
+    const open = todos.filter(t => !t.done).sort(byDue);
+    const doneToday = todos.filter(t => t.done && t.doneAt && localDate(new Date(t.doneAt)) === today);
+    $('open').innerHTML = open.length ? '' : '<li class="empty">Nothing to do. Add one below, or ask your coach.</li>';
+    $('done').innerHTML = doneToday.length ? '' : '<li class="empty">Nothing checked off yet.</li>';
+    open.forEach(t => $('open').appendChild(row(t)));
+    doneToday.forEach(t => $('done').appendChild(row(t)));
+  }
+
+  function row(t) {
+    const li = document.createElement('li');
+    if (t.done) li.className = 'done';
+    const btn = document.createElement('button');
+    btn.className = 'check';
+    btn.textContent = '✓';
+    btn.setAttribute('aria-label', t.done ? 'Mark not done' : 'Mark done');
+    btn.addEventListener('click', () => toggle(t));
+    const body = document.createElement('div');
+    body.className = 'body';
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = t.text;
+    body.appendChild(text);
+    if (t.due) body.appendChild(meta(t.due, 'due'));
+    if (t.notes) body.appendChild(meta(t.notes));
+    li.append(btn, body);
+    return li;
+  }
+
+  function meta(s, cls) {
+    const el = document.createElement('div');
+    el.className = 'meta' + (cls ? ' ' + cls : '');
+    el.textContent = s;
+    return el;
+  }
+
+  async function loadTodos() {
+    const snap = await window.__fs.getDocs(window.__auth.userCol('todos'));
+    todos = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    draw();
+  }
+
+  async function loadWorkout() {
+    const { getDocs, query, orderBy, limit } = window.__fs;
+    const snap = await getDocs(query(window.__auth.userCol('assigned'), orderBy('assignedFor', 'desc'), limit(1)));
+    $('workoutName').textContent = snap.empty ? 'None planned yet' : (snap.docs[0].data().name || snap.docs[0].id);
+  }
+
+  // Check off or reopen. Shown right away; rolled back if Firestore refuses.
+  async function toggle(t) {
+    const before = { done: t.done, doneAt: t.doneAt };
+    t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : undefined;
+    draw();
+    try {
+      await window.__fs.setDoc(window.__auth.userDoc('todos', t.docId),
+        { done: t.done, doneAt: t.done ? t.doneAt : window.__fs.deleteField() }, { merge: true });
+      note('Saved ✓', 'ok');
+    } catch (err) {
+      Object.assign(t, before);
+      draw();
+      note('Save failed: ' + (err.code || err.message) + '. Try again.', 'err');
+    }
+  }
+
+  // "19:00" alone means today at 19:00, so it sorts with dated todos.
+  function normalizeDue(s) {
+    s = s.trim();
+    return /^\d{1,2}:\d{2}$/.test(s) ? `${localDate(new Date())} ${s.padStart(5, '0')}` : s;
+  }
+
+  $('addForm').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const text = $('newText').value.trim();
+    if (!text) return;
+    const now = new Date();
+    const todo = { text, done: false, createdAt: now.toISOString() };
+    const due = normalizeDue($('newDue').value);
+    if (due) todo.due = due;
+    const docId = 'todo_' + now.getTime();
+    note('Saving…');
+    try {
+      await window.__fs.setDoc(window.__auth.userDoc('todos', docId), todo);
+      todos.push({ docId, ...todo });
+      $('newText').value = '';
+      $('newDue').value = '';
+      draw();
+      note('Saved ✓', 'ok');
+    } catch (err) {
+      note('Save failed: ' + (err.code || err.message) + '. Your text is still there; try again.', 'err');
+    }
+  });
+
+  // ---- sign-in (same as the tracker) ---------------------------------
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    $('gate').hidden = !!user;
+    $('gateBtn').hidden = !!user;
+    $('gateMsg').textContent = 'Sign in to see your day.';
+    $('authBtn').hidden = !user;
+    if (!user) return;
+    $('authBtn').textContent = user.email + ' · Sign out';
+    loadTodos().catch(err => note("Couldn't load todos: " + (err.code || err.message), 'err'));
+    loadWorkout().catch(() => { $('workoutName').textContent = "Couldn't load"; });
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+  $('gateBtn').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { $('gateMsg').textContent = 'Sign-in failed: ' + (err.code || err.message); }
+  });
+  $('authBtn').addEventListener('click', async () => {
+    const a = window.__auth;
+    if (a && a.currentUser() && confirm('Sign out of ' + a.currentUser().email + '?')) await a.signOut();
+  });
+</script>
+</body>
+</html>
