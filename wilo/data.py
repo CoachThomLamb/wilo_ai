@@ -1,5 +1,6 @@
 """
-Read and write workouts in users/{uid}/assigned and users/{uid}/completed (#19).
+Read and write workouts in users/{uid}/assigned and users/{uid}/completed (#19),
+and todos in users/{uid}/todos (#64; no CLI commands for those yet).
 
 Settings come from config/wilo.json, and the workout shape from
 schema/workout.schema.json. Output is JSON on stdout.
@@ -158,6 +159,69 @@ def assign(db, uid, doc, write, now):
         return {'ok': False, 'errors': [f'{path} already exists']}
     ref.set(doc)
     return {'ok': ref.get().to_dict() == doc, 'path': path, 'doc': doc}
+
+
+TODO_FIELDS = ('text', 'done', 'due', 'notes')  # loose on purpose: free text, due like '2026-10-12' or '2026-10-12 19:00'
+
+
+def _iso(now):
+    return now.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+def todos(db, uid, include_done=False):
+    """Todos, open first: dated ones by due (earliest first), then undated by when they were added."""
+    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, uid, 'todos').stream()]
+    docs = [t for t in docs if include_done or not t.get('done')]
+    return sorted(docs, key=lambda t: (bool(t.get('done')), not t.get('due'), t.get('due') or '', t.get('createdAt', '')))
+
+
+def add_todo(db, uid, text, now, due=None, notes=None):
+    """Add a todo. Saves immediately: todos skip the dry run that workouts have."""
+    if not str(text).strip():
+        return {'ok': False, 'errors': ['text is empty']}
+    todo = {'text': str(text).strip(), 'done': False, 'createdAt': _iso(now)}
+    todo.update({k: v for k, v in (('due', due), ('notes', notes)) if v})
+    ref = collection(db, uid, 'todos').document(f"todo_{int(now.timestamp() * 1000)}")
+    if ref.get().exists:
+        return {'ok': False, 'errors': [f'users/{uid}/todos/{ref.get().id} already exists']}
+    ref.set(todo)
+    return {'ok': True, 'docId': ref.get().id, 'todo': todo}
+
+
+def update_todo(db, uid, doc_id, changes, now):
+    """Change a todo's text, done, due or notes. None leaves a field as is; '' clears due or notes."""
+    ref = collection(db, uid, 'todos').document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'users/{uid}/todos/{doc_id} not found']}
+    old = snap.to_dict()
+    new = dict(old)
+    for k, v in changes.items():
+        if k not in TODO_FIELDS:
+            return {'ok': False, 'errors': [f'unknown field {k!r} (allowed: {", ".join(TODO_FIELDS)})']}
+        if v is None:
+            continue
+        if v == '' and k in ('due', 'notes'):
+            new.pop(k, None)
+        else:
+            new[k] = v
+    if not str(new.get('text', '')).strip():
+        return {'ok': False, 'errors': ['text is empty']}
+    if new.get('done') and not old.get('done'):
+        new['doneAt'] = _iso(now)
+    elif not new.get('done'):
+        new.pop('doneAt', None)
+    ref.set(new)
+    return {'ok': True, 'docId': doc_id, 'todo': new, 'changes': diff(old, new)}
+
+
+def delete_todo(db, uid, doc_id):
+    ref = collection(db, uid, 'todos').document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'users/{uid}/todos/{doc_id} not found']}
+    ref.delete()
+    return {'ok': True, 'deleted': {'docId': doc_id, **snap.to_dict()}}
 
 
 def main(argv=None):

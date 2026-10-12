@@ -10,8 +10,8 @@ WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `us
 ## Files
 | File | Role |
 |---|---|
-| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `history`, `names`, `assign`, `update`, `validate`, `diff`, `name_matches`. Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
-| `wilo/mcp_server.py` | **The adapter.** 9 tools, each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
+| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `history`, `names`, `assign`, `update`, `validate`, `diff`, `name_matches`; todos: `todos`, `add_todo`, `update_todo`, `delete_todo` (#64). Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
+| `wilo/mcp_server.py` | **The adapter.** 13 tools (1 coaching, 8 workout, 4 todo), each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
 | `wilo/coach.md` | **The coaching method** for any user, served by the `coaching_method` tool (#48). claude.ai shows the model only tool descriptions, not server instructions, so the method lives behind a tool. Edit here; it deploys with the connector |
 | `wilo/auth.py` | **Sign-in provider** (`WiloAuthProvider` + `Store`) behind the MCP SDK's OAuth endpoints |
 | `wilo/login.html` | Login page served at `/login`: Firebase Google sign-in (same as the tracker's `fe/auth.js`) |
@@ -75,7 +75,7 @@ Render deploy: `POST /mcp` → `401` with `resource_metadata` on `https://wilo-c
 | File | Covers |
 |---|---|
 | `test_wilo_data.py` | Schema (3), assign (5), name matching (2), history/names (3), update (3), two-user isolation (3). Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
-| `test_mcp_server.py` | The 9 tools through the MCP layer (11): no tool takes a uid, dry-run defaults, per-user reads and writes |
+| `test_mcp_server.py` | The 13 tools through the MCP layer (12): no tool takes a uid, dry-run defaults, per-user reads and writes |
 | `test_auth.py` | The provider (19): full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
 | `test_signin_http.py` | The OAuth flow over HTTP in-process with `TestClient` (15, incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on (1) |
 

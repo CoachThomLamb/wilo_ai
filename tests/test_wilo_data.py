@@ -4,7 +4,7 @@
 """
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from wilo import data as wilo_data
 
@@ -219,6 +219,66 @@ class IsolationTest(unittest.TestCase):
     def test_cannot_update_another_users_doc(self):
         out = wilo_data.update(self.db, OTHER, 'completed', 'a', done('x', [], '2026-10-01T00:00:00Z'), write=True)
         self.assertFalse(out['ok'])  # doc 'a' only exists under UID
+
+
+class TodoTest(unittest.TestCase):
+    def setUp(self):
+        self.db = FakeDB()
+        self.later = NOW.replace(minute=30)
+
+    def add(self, text, uid=UID, now=NOW, **kw):
+        return wilo_data.add_todo(self.db, uid, text, now, **kw)
+
+    def test_add_saves_immediately_under_own_uid(self):
+        out = self.add('  buy milk ', due='2026-10-12 19:00')
+        self.assertTrue(out['ok'])
+        self.assertEqual(self.db.store[f"users/{UID}/todos/{out['docId']}"],
+                         {'text': 'buy milk', 'done': False, 'createdAt': '2026-10-06T11:11:56.820Z', 'due': '2026-10-12 19:00'})
+
+    def test_add_refuses_empty_text_and_duplicate_id(self):
+        self.assertFalse(self.add('  ')['ok'])
+        self.add('a')
+        self.assertFalse(self.add('b')['ok'])  # same millisecond, same id: refuse, don't overwrite
+        self.assertEqual(len(self.db.store), 1)
+
+    def test_list_open_first_dated_before_undated(self):
+        self.add('undated old', now=NOW)
+        self.add('later', now=NOW + timedelta(seconds=1), due='2026-10-13')
+        self.add('sooner', now=NOW + timedelta(seconds=2), due='2026-10-12 19:00')
+        self.add('undated new', now=NOW + timedelta(seconds=3))
+        finished = self.add('finished', now=NOW + timedelta(seconds=4), due='2026-10-01')['docId']
+        wilo_data.update_todo(self.db, UID, finished, {'done': True}, self.later)
+        self.assertEqual([t['text'] for t in wilo_data.todos(self.db, UID)], ['sooner', 'later', 'undated old', 'undated new'])
+        self.assertEqual(wilo_data.todos(self.db, UID, include_done=True)[-1]['text'], 'finished')
+
+    def test_update_checks_off_reopens_and_clears(self):
+        tid = self.add('call mum', due='2026-10-12', notes='about Sunday')['docId']
+        out = wilo_data.update_todo(self.db, UID, tid, {'done': True, 'notes': ''}, self.later)
+        self.assertEqual(out['todo']['doneAt'], '2026-10-06T11:30:56.820Z')
+        self.assertNotIn('notes', out['todo'])
+        self.assertEqual(out['todo']['due'], '2026-10-12')  # None/absent leaves it as is
+        out = wilo_data.update_todo(self.db, UID, tid, {'done': False}, self.later)
+        self.assertNotIn('doneAt', out['todo'])
+
+    def test_update_refuses_missing_unknown_field_and_empty_text(self):
+        tid = self.add('x')['docId']
+        self.assertFalse(wilo_data.update_todo(self.db, UID, 'nope', {'done': True}, NOW)['ok'])
+        self.assertFalse(wilo_data.update_todo(self.db, UID, tid, {'priority': 1}, NOW)['ok'])
+        self.assertFalse(wilo_data.update_todo(self.db, UID, tid, {'text': ' '}, NOW)['ok'])
+        self.assertEqual(self.db.store[f'users/{UID}/todos/{tid}']['text'], 'x')
+
+    def test_delete(self):
+        tid = self.add('x')['docId']
+        self.assertTrue(wilo_data.delete_todo(self.db, UID, tid)['ok'])
+        self.assertEqual(self.db.store, {})
+        self.assertFalse(wilo_data.delete_todo(self.db, UID, tid)['ok'])
+
+    def test_users_only_touch_their_own_todos(self):
+        tid = self.add('mine')['docId']
+        self.assertEqual(wilo_data.todos(self.db, OTHER), [])
+        self.assertFalse(wilo_data.update_todo(self.db, OTHER, tid, {'done': True}, NOW)['ok'])
+        self.assertFalse(wilo_data.delete_todo(self.db, OTHER, tid)['ok'])
+        self.assertFalse(self.db.store[f'users/{UID}/todos/{tid}']['done'])
 
 
 
