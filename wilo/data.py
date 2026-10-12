@@ -1,6 +1,7 @@
 """
 Read and write workouts in users/{uid}/assigned and users/{uid}/completed (#19),
-and todos in users/{uid}/todos (#64; no CLI commands for those yet).
+todos in users/{uid}/todos (#64) and the coaching profile in users/{uid}/coach/profile
+(#48; no CLI commands for those two yet).
 
 Settings come from config/wilo.json, and the workout shape from
 schema/workout.schema.json. Output is JSON on stdout.
@@ -222,6 +223,43 @@ def delete_todo(db, uid, doc_id):
         return {'ok': False, 'errors': [f'users/{uid}/todos/{doc_id} not found']}
     ref.delete()
     return {'ok': True, 'deleted': {'docId': doc_id, **snap.to_dict()}}
+
+
+# The coaching profile (#48): what's personal to this user, as opposed to the generic method in wilo/coach.md.
+# Loose on purpose: free-text sections, formalized only once real use shows what's needed.
+PROFILE_SECTIONS = ('preferences', 'limitations', 'plan', 'notes')
+
+
+def _profile_ref(db, uid):
+    return collection(db, uid, 'coach').document('profile')
+
+
+def profile(db, uid):
+    """The user's coaching profile. A new user has none yet: empty sections, exists=False."""
+    snap = _profile_ref(db, uid).get()
+    doc = snap.to_dict() if snap.exists else {}
+    return {'exists': snap.exists, 'profile': {k: doc.get(k, '') for k in PROFILE_SECTIONS},
+            'updatedAt': doc.get('updatedAt')}
+
+
+def update_profile(db, uid, new, write, now):
+    """Edit the profile: each section passed replaces that section (free text, '' empties it); sections left out
+    stay as they are. Returns the changes; a dry run unless write is True."""
+    unknown = sorted(set(new) - set(PROFILE_SECTIONS))
+    if unknown:
+        return {'ok': False, 'errors': [f'unknown section {k!r} (allowed: {", ".join(PROFILE_SECTIONS)})' for k in unknown]}
+    bad = [k for k, v in new.items() if not isinstance(v, str)]
+    if bad:
+        return {'ok': False, 'errors': [f'{k} must be text' for k in bad]}
+    path = f'users/{uid}/coach/profile'
+    old = profile(db, uid)['profile']
+    doc = {k: new[k].strip() if k in new else old[k] for k in PROFILE_SECTIONS}
+    changes = diff(old, doc)
+    if not write or not changes:
+        return {'ok': True, 'dryRun': not write, 'path': path, 'changes': changes}
+    ref = _profile_ref(db, uid)
+    ref.set({**{k: v for k, v in doc.items() if v}, 'updatedAt': _iso(now)})
+    return {'ok': True, 'path': path, 'changes': changes}
 
 
 def main(argv=None):
