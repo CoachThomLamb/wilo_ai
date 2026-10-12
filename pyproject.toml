@@ -17,4 +17,4 @@ build-backend = "setuptools.build_meta"
 packages = ["wilo"]
 
 [tool.setuptools.package-data]
-wilo = ["login.html"]
+wilo = ["login.html", "coach.md"]

@@ -13,7 +13,7 @@ from test_wilo_data import FakeDB, MINIMAL, done
 from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
-TOOLS = {'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
+TOOLS = {'coaching_method', 'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
          'exercise_history', 'exercise_names', 'assign_workout', 'update_workout'}
 
 
@@ -48,6 +48,15 @@ class ServerTest(unittest.TestCase):
 
     def test_schema_tool_returns_the_schema_file(self):
         self.assertEqual(call('workout_schema')['title'], 'WILO workout')
+
+    def test_coaching_method_returns_the_method_file(self):
+        self.assertEqual(call('coaching_method')['method'], (srv.HERE / 'coach.md').read_text())
+
+    def test_write_tools_point_to_the_method(self):
+        tools = {t.name: t for t in asyncio.run(srv.server.list_tools())}
+        for name in ('assign_workout', 'update_workout'):
+            with self.subTest(name):
+                self.assertIn('coaching_method', tools[name].description)
 
     def test_reads_act_on_current_user_only(self):
         self.assertEqual([h['sets'][0]['lbs'] for h in call('exercise_history', name='bench')['history']], [135])

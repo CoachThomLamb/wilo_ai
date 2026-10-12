@@ -59,7 +59,7 @@ flowchart LR
 | **Firestore** database `wilo` | All workout data + sign-in tokens | GCP `northamerica-northeast2` (Toronto) | `firestore.rules`, `config/wilo.json` | Rules: **manually** with `firebase deploy --only firestore:rules` | $0 (free quota) |
 | **Firebase Auth** | Google sign-in, one uid per person | Firebase project `wilo2-1ee44` | Console only (provider: Google; authorized domains) | Console | $0 |
 | **Data engine** `wilo/data.py` | All Firestore logic + CLI | Repo (runs wherever it's imported) | `config/wilo.json`, `schema/workout.schema.json` | With the connector | — |
-| **Connector** `wilo/mcp_server.py` + `wilo/auth.py` + `wilo/login.html` | MCP server: 8 tools + OAuth sign-in | Render web service `wilo-connector` → `https://wilo-connector.onrender.com/mcp` | `Dockerfile`; env + secret file **in the Render dashboard** | Render auto-deploys every commit to `main` | $0 (sleeps after 15 min) |
+| **Connector** `wilo/mcp_server.py` + `wilo/auth.py` + `wilo/login.html` | MCP server: 9 tools + OAuth sign-in | Render web service `wilo-connector` → `https://wilo-connector.onrender.com/mcp` | `Dockerfile`; env + secret file **in the Render dashboard** | Render auto-deploys every commit to `main` | $0 (sleeps after 15 min) |
 | **Local MCP server** | Same tools over stdio, for Claude Code | Laptop: `.venv`, editable install | `~/.claude.json` (`claude mcp add wilo …`) | Runs the checked-out branch | $0 |
 | **claude.ai connector** | "wilo" custom connector (DCR + sign-in) | Thom's claude.ai account | claude.ai → Settings → Connectors | Manual, once per user | Claude plan |
 | **Coach skill** `wilo-workout-coach` | Coaching instructions for Claude | **claude.ai only (not in the repo), and stale** — see [gaps](#7-gaps-what-we-cant-recover-today) | claude.ai → Skills | Manual upload | — |
@@ -250,7 +250,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
   ```
 
 **7. Claude**
-- [ ] claude.ai → Settings → Connectors → Add custom connector → `https://<name>.onrender.com/mcp` → Sign in now + Register automatically → Connect → Google sign-in → 8 tools.
+- [ ] claude.ai → Settings → Connectors → Add custom connector → `https://<name>.onrender.com/mcp` → Sign in now + Register automatically → Connect → Google sign-in → 9 tools.
 - [ ] Coach skill: **no current copy exists** (gap). Until it's in the repo, the connector's instructions are the coach.
 
 **8. End-to-end check**

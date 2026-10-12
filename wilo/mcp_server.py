@@ -53,6 +53,11 @@ def current_uid():
     return wilo_data.CONFIG['uid']
 
 
+def coaching_method() -> dict[str, Any]:
+    """How to coach with these tools. Call this first, before planning, reviewing or changing workouts."""
+    return {'method': (HERE / 'coach.md').read_text()}
+
+
 def workout_schema() -> dict[str, Any]:
     """The JSON Schema every workout must match (workout → exercises → sets). Read it before writing a workout."""
     return wilo_data.SCHEMA
@@ -88,18 +93,20 @@ def exercise_names() -> dict[str, Any]:
 
 def assign_workout(workout: dict[str, Any], write: bool = False) -> dict[str, Any]:
     """Post a new workout to Thom's assigned list. Fills id and assignedFor if missing (assignedFor = the date
-    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True."""
+    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True.
+    Follow coaching_method when planning."""
     return wilo_data.assign(db(), current_uid(), workout, write, datetime.now(timezone.utc))
 
 
 def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, workout: dict[str, Any],
                    write: bool = False) -> dict[str, Any]:
     """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
-    field changes. Refuses missing docs and id changes. Dry run unless write=True."""
+    field changes. Refuses missing docs and id changes. Dry run unless write=True.
+    Follow coaching_method when planning."""
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
 
 
-TOOLS = [workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
+TOOLS = [coaching_method, workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
          assign_workout, update_workout]
 
 
