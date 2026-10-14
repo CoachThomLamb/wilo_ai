@@ -9,6 +9,7 @@ Finish, as always.
 Spend guard: only uids listed in WILO_VOICE_UIDS (comma-separated) may use voice. Unset means nobody.
 """
 
+import json
 import os
 import re
 
@@ -104,3 +105,46 @@ def guarded(init_firebase, handler):
         response.headers.update(headers)
         return response
     return route
+
+
+# ---- option 2: Claude, one turn at a time -----------------------------------------------------------------
+# The browser turns speech into text (Web Speech API), posts it here with the workout on screen and the
+# recent conversation, and speaks the reply. Claude's tool calls come back as ops for the tracker to run;
+# they aren't run here, so one request is one turn.
+COACH_MODEL = os.environ.get('WILO_COACH_MODEL', 'claude-opus-5-5')
+HISTORY_TURNS = 12
+
+
+def clean_history(history):
+    """Text-only turns, alternating, starting with the user. Anything else from the browser is dropped."""
+    turns = [{'role': t['role'], 'content': t['content']} for t in (history or [])[-HISTORY_TURNS:]
+             if isinstance(t, dict) and t.get('role') in ('user', 'assistant') and isinstance(t.get('content'), str)]
+    out = []
+    for t in turns:
+        if (out and out[-1]['role'] == t['role']) or (not out and t['role'] != 'user'):
+            continue
+        out.append(t)
+    return out[:-1] if out and out[-1]['role'] == 'user' else out
+
+
+async def coach_turn(request, uid):
+    import anthropic  # reads ANTHROPIC_API_KEY
+    body = await request.json()
+    text = str(body.get('text', '')).strip()
+    if not text:
+        return JSONResponse({'error': 'nothing was said'}, status_code=400)
+    prompt = f"<workout>{json.dumps(body.get('workout', {}))}</workout>\n\n{text}"
+    reply = await anthropic.AsyncAnthropic().beta.messages.create(
+        model=COACH_MODEL, max_tokens=4096, system=COACH_PROMPT, tools=claude_tools(),
+        messages=clean_history(body.get('history')) + [{'role': 'user', 'content': prompt}],
+        output_config={'effort': 'low'},  # short spoken turns; latency matters more than depth
+        betas=['server-side-fallback-2026-07-01'], fallbacks='default')
+    if reply.stop_reason == 'refusal':
+        return JSONResponse({'say': "I can't help with that one.", 'ops': []})
+    say = ' '.join(b.text for b in reply.content if b.type == 'text').strip()
+    ops = [{'name': b.name, 'args': b.input} for b in reply.content if b.type == 'tool_use']
+    return JSONResponse({'say': say or ('Done.' if ops else ''), 'ops': ops})
+
+
+def add_routes(s, init_firebase):
+    s.custom_route('/coach/turn', methods=['POST', 'OPTIONS'])(guarded(init_firebase, coach_turn))

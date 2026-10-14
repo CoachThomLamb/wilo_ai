@@ -147,6 +147,8 @@ def make_server(provider=None, issuer=None):
     s = MCPServer('wilo', instructions=INSTRUCTIONS, **kwargs)
     for fn in TOOLS:
         s.add_tool(fn)
+    from wilo import voice
+    voice.add_routes(s, db)  # the tracker's voice coach (#78 spike); signs in with Firebase ID tokens
     if provider:
         add_login_routes(s, provider)
     return s
