@@ -12,6 +12,10 @@
   - Swap: exercises with a `fallback` get a button to switch to the easier
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
+  - Voice (#78 spike): the mic button starts a voice coach (voice.js). It
+    reads and changes the workout through window.wiloTracker: summary() and
+    apply(op, args). Exercise and set numbers start at 1, as on screen.
+    Changed cards flash.
   - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
     writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
     "Workout complete" screen only after Firestore confirms, else
@@ -131,6 +135,19 @@
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
   .exercise { padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+  /* a card the coach just changed */
+  .exercise.flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { from { background: #0a3a6b; } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .exercise.flash { animation: none; outline: 1px solid var(--accent); } }
+  /* voice coach button */
+  .mic {
+    position: fixed; left: 16px; bottom: 20px; z-index: 3;
+    width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--field); color: var(--text); font-size: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+  }
+  .mic.connecting { color: var(--dim); }
+  .mic.live { background: var(--accent); border-color: var(--accent); }
   .exercise, .ex-head { min-width: 0; max-width: 100%; }
   .ex-head { display: flex; align-items: flex-start; gap: 8px; }
   .ex-name {
@@ -235,7 +252,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-10-signin</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-14-voice</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -251,6 +268,7 @@
 <div class="list" id="list"></div>
 
 <button class="json-btn" id="jsonBtn">{ }</button>
+<button class="mic" id="micBtn" aria-label="Talk to coach">&#127897;</button>
 
 <div class="sheet" id="sheet">
   <div class="sheet-head">
@@ -311,12 +329,15 @@
   const sheet = document.getElementById('sheet');
   let last = 'state';
 
+  // instanceIds to flash on the next draw (cards the coach just changed)
+  let flashIds = new Set();
+
   function draw() {
     list.innerHTML = '';
     state.exercises.forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
-      el.className = 'exercise';
+      el.className = 'exercise' + (flashIds.has(ex.instanceId) ? ' flash' : '');
       el.innerHTML = `
         <div class="ex-head">
           <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
@@ -348,6 +369,11 @@
     wrap.className = 'add-ex-wrap';
     wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
     list.appendChild(wrap);
+    if (flashIds.size) {
+      const first = list.querySelector('.exercise.flash');
+      if (first) first.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      flashIds = new Set();
+    }
     sync();
   }
 
@@ -478,6 +504,84 @@
   document.addEventListener('focusin', () => {
     requestAnimationFrame(() => { window.scrollTo(0, 0); lockViewport(); });
   });
+
+  // ---- voice coach: read and change the workout ----------------------
+  // The voice coach's tools land here. Exercise and set numbers start at 1,
+  // as on screen. Each call returns the workout as it is now, so the coach
+  // stays in step with edits made by hand.
+  function summary() {
+    return {
+      name: state.workoutName,
+      exercises: state.exercises.map((ex, i) => ({
+        exercise: i + 1, name: ex.name, cue: ex.note || '', timed: ex.timed,
+        sets: ex.sets.map((s, j) => ({ set: j + 1, lbs: s.lbs, reps: s.reps, done: s.done }))
+      }))
+    };
+  }
+
+  const num = v => (v === undefined || v === null || v === '') ? undefined : Number(v);
+  function pickEx(n) {
+    const ex = state.exercises[num(n) - 1];
+    if (!ex) throw new Error(`no exercise ${n} (there are ${state.exercises.length})`);
+    return ex;
+  }
+  function pickSet(ex, n) {
+    const s = ex.sets[num(n) - 1];
+    if (!s) throw new Error(`${ex.name} has no set ${n} (it has ${ex.sets.length})`);
+    return s;
+  }
+  function setFields(s, a) {
+    if (num(a.lbs) !== undefined) s.lbs = num(a.lbs);
+    if (num(a.reps) !== undefined) s.reps = num(a.reps);
+    if (typeof a.done === 'boolean') s.done = a.done;
+  }
+
+  const OPS = {
+    get_workout() { return null; },
+    update_set(a) { const ex = pickEx(a.exercise); setFields(pickSet(ex, a.set), a); return ex; },
+    add_set(a) {
+      const ex = pickEx(a.exercise), p = ex.sets[ex.sets.length - 1];
+      const s = { lbs: p ? p.lbs : 0, reps: p ? p.reps : 10, done: false, custom: null };
+      setFields(s, a); ex.sets.push(s); return ex;
+    },
+    remove_set(a) {
+      const ex = pickEx(a.exercise); pickSet(ex, a.set);
+      ex.sets.splice(num(a.set) - 1, 1); return ex;
+    },
+    edit_exercise(a) {
+      const ex = pickEx(a.exercise);
+      if (a.name) { ex.name = a.name; ex.exId = deriveExId(a.name); }
+      if (typeof a.cue === 'string') ex.note = a.cue;
+      return ex;
+    },
+    add_exercise(a) {
+      if (!a.name) throw new Error('add_exercise needs a name');
+      const ex = makeExercise({ name: a.name, cue: a.cue || '', sets: num(a.sets) || 3,
+        start_weight_lbs: num(a.lbs) || 0, target: { reps: num(a.reps) || 10 } });
+      const at = num(a.after) !== undefined ? Math.min(Math.max(num(a.after), 0), state.exercises.length) : state.exercises.length;
+      state.exercises.splice(at, 0, ex); return ex;
+    },
+    remove_exercise(a) {
+      const ex = pickEx(a.exercise);
+      state.exercises.splice(state.exercises.indexOf(ex), 1); return null;
+    },
+  };
+
+  function apply(op, args) {
+    try {
+      if (!OPS[op]) throw new Error('unknown tool ' + op);
+      const ex = OPS[op](args || {});
+      if (op !== 'get_workout') {
+        if (ex) flashIds.add(ex.instanceId);
+        last = 'coach: ' + op + ' ' + JSON.stringify(args || {});
+        draw();
+      }
+      return { ok: true, workout: summary() };
+    } catch (err) {
+      return { ok: false, error: err.message, workout: summary() };
+    }
+  }
+  window.wiloTracker = { summary, apply, note };
 
   // ---- persistence -------------------------------------------------
   const KEY = 'workout-log-draft';
@@ -713,6 +817,7 @@
   restore();
   draw();
 </script>
+<script type="module" src="voice.js"></script>
 
 </body>
 </html>
