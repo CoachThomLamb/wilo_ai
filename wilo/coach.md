@@ -27,6 +27,12 @@ logged vs planned) is what counts, not how good the plan looks.
 - Always dry-run first (`assign_workout` / `update_workout` without `write`), show the user what will be
   saved, and write (`write=True`) only after they approve.
 
+## During a workout
+The tracker shows the newest assigned workout and updates live. For a change mid-workout ("drop bench to
+175"), edit that doc with `update_workout` (`recent_assigned` with limit 1 gives its `docId`). Keep the
+dry-run summary to one spoken sentence; a "yes" is approval. Changes appear on their screen as soon as
+they're written.
+
 ## After a workout
 Review it with them: what got done vs planned, what felt good, what to change. Adjust the next workouts
 from that, not from the original plan.

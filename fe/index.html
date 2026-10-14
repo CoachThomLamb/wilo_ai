@@ -12,6 +12,10 @@
   - Swap: exercises with a `fallback` get a button to switch to the easier
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
+  - Live: watches the loaded users/{uid}/assigned doc. When the coach edits
+    it (update_workout from the Claude app), the change merges in at once:
+    exercises the coach didn't touch stay as logged; changed ones take the
+    new plan but keep sets already checked off. Changed cards flash.
   - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
     writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
     "Workout complete" screen only after Firestore confirms, else
@@ -28,7 +32,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // authDomain = this page's own host on Firebase Hosting (live and PR
   // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
   // Safari's in-app browsers (Camera, Claude app): the handler on another
@@ -52,6 +56,7 @@
   window.__query = query;
   window.__orderBy = orderBy;
   window.__limit = limit;
+  window.__onSnapshot = onSnapshot;
   // auth.js calls getApp() at load, so import it after initializeApp.
   import("./auth.js")
     .then(a => a.onUser(user =>
@@ -131,6 +136,10 @@
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
   .exercise { padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+  /* a card the coach just changed */
+  .exercise.flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { from { background: #0a3a6b; } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .exercise.flash { animation: none; outline: 1px solid var(--accent); } }
   .exercise, .ex-head { min-width: 0; max-width: 100%; }
   .ex-head { display: flex; align-items: flex-start; gap: 8px; }
   .ex-name {
@@ -235,7 +244,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-10-signin</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-14-opt3-live</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -295,28 +304,32 @@
     };
   }
 
-  function loadWorkout(assigned) {
+  function loadWorkout(assigned, docId) {
     if (!assigned || !assigned.id) throw new Error('invalid workout');
     loadedWorkout = assigned;
     state.finishDocId = null;   // a new workout gets a new completed doc
+    state.assignedDocId = docId || null;
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
     state.exercises = (assigned.exercises || []).map(makeExercise);
     document.getElementById('sessName').value = assigned.name || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, exercises: [] };
+  const state = { workoutId: null, workoutName: '', assignedDocId: null, finishDocId: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
   let last = 'state';
+
+  // instanceIds to flash on the next draw (cards the coach just changed)
+  let flashIds = new Set();
 
   function draw() {
     list.innerHTML = '';
     state.exercises.forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
-      el.className = 'exercise';
+      el.className = 'exercise' + (flashIds.has(ex.instanceId) ? ' flash' : '');
       el.innerHTML = `
         <div class="ex-head">
           <input class="ex-name" value="${esc(ex.name)}" placeholder="Exercise name"
@@ -348,6 +361,11 @@
     wrap.className = 'add-ex-wrap';
     wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
     list.appendChild(wrap);
+    if (flashIds.size) {
+      const first = list.querySelector('.exercise.flash');
+      if (first) first.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      flashIds = new Set();
+    }
     sync();
   }
 
@@ -531,6 +549,7 @@
       state.exercises = saved.state.exercises;
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
+      state.assignedDocId = saved.state.assignedDocId || null;
       state.finishDocId = saved.state.finishDocId || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
@@ -628,6 +647,62 @@
     return snap.empty ? null : { data: snap.docs[0].data(), id: snap.docs[0].id };
   }
 
+  // ---- live updates from the coach -----------------------------------
+  // Watches the assigned doc this workout came from. The coach edits it with
+  // update_workout; the change lands here within a second or so.
+  let unwatch = null;
+  function watchAssigned() {
+    if (unwatch) { unwatch(); unwatch = null; }
+    const a = window.__auth;
+    if (!state.assignedDocId || !a || !a.currentUser()) return;
+    unwatch = window.__onSnapshot(a.userDoc('assigned', state.assignedDocId), snap => {
+      if (!snap.exists()) return;
+      const plan = snap.data();
+      // A restored draft has no baseline yet: the first snapshot becomes it.
+      if (!loadedWorkout) { loadedWorkout = plan; return; }
+      if (JSON.stringify(plan) === JSON.stringify(loadedWorkout)) return;
+      const changed = mergePlan(plan);
+      if (!changed) return;
+      flashIds = new Set(changed);
+      last = 'coach updated ' + changed.length + ' exercise' + (changed.length === 1 ? '' : 's');
+      draw();
+      note('Coach updated the workout', 'ok');
+    }, err => note('Live updates stopped: ' + (err.code || err.message), 'err'));
+  }
+
+  // Folds a new version of the plan into the workout in progress. Exercises are
+  // matched by exId (from the name). One the coach didn't change stays exactly as
+  // logged. A changed one takes the new plan, keeping sets already checked off.
+  // An old exercise the new plan drops survives only if it has logged sets.
+  // Returns the instanceIds that changed.
+  function mergePlan(plan) {
+    const before = loadedWorkout ? (loadedWorkout.exercises || []) : [];
+    const sameKey = def => def.exId || deriveExId(def.name);
+    const used = new Set(), changed = [];
+    const next = (plan.exercises || []).map(def => {
+      const key = sameKey(def);
+      const prev = state.exercises.find(x => x.exId === key && !used.has(x));
+      const oldDef = before.find(d => sameKey(d) === key);
+      if (prev) used.add(prev);
+      if (prev && oldDef && JSON.stringify(oldDef) === JSON.stringify(def)) return prev;
+      const fresh = makeExercise(def);
+      if (prev) {
+        fresh.instanceId = prev.instanceId;
+        fresh.sets = fresh.sets.map((s, i) => (prev.sets[i] && prev.sets[i].done) ? prev.sets[i] : s);
+        prev.sets.slice(fresh.sets.length).forEach(s => { if (s.done) fresh.sets.push(s); });
+      }
+      changed.push(fresh.instanceId);
+      return fresh;
+    });
+    state.exercises.forEach(x => { if (!used.has(x) && x.sets.some(s => s.done)) next.push(x); });
+    const removed = state.exercises.some(x => !next.includes(x) && !changed.includes(x.instanceId));
+    loadedWorkout = plan;
+    state.workoutName = plan.name || state.workoutName;
+    document.getElementById('sessName').value = state.workoutName || 'WILO';
+    state.exercises = next;
+    return (changed.length || removed) ? changed : null;
+  }
+
   document.getElementById('sessName').addEventListener('input', e => {
     state.workoutName = e.target.value;
   });
@@ -637,7 +712,8 @@
       note('Loading latest workout…');
       const latest = await fetchLatestAssigned();
       if (!latest) { note('No workouts yet — ask your coach to plan one'); return; }
-      loadWorkout(latest.data);
+      loadWorkout(latest.data, latest.id);
+      watchAssigned();
       last = 'loaded ' + (state.workoutId || latest.id);
       draw();
       note('Loaded ' + (state.workoutName || latest.id));
@@ -656,10 +732,11 @@
   let authSeen = false;
 
   async function loadLatestIfNoDraft() {
-    if (state.exercises.length) return;   // never replace sets in progress
+    if (state.exercises.length) { watchAssigned(); return; }   // never replace sets in progress
     const latest = await fetchLatestAssigned();
     if (!latest) { note('No workouts yet \u2014 ask your coach to plan one'); return; }
-    loadWorkout(latest.data);
+    loadWorkout(latest.data, latest.id);
+    watchAssigned();
     draw();
     note('Loaded ' + (state.workoutName || latest.id));
   }
@@ -702,7 +779,7 @@
       : 'Reset to the assigned workout?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadWorkout(loadedWorkout);
+    loadWorkout(loadedWorkout, state.assignedDocId);
     last = 'reset to ' + (state.workoutId || 'workout');
     draw();
     note('Reset to ' + (state.workoutName || 'assigned'));
