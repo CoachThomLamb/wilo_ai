@@ -104,3 +104,28 @@ def guarded(init_firebase, handler):
         response.headers.update(headers)
         return response
     return route
+
+
+# ---- option 1: OpenAI Realtime over WebRTC ----------------------------------------------------------------
+# The browser sends its SDP offer here; we forward it to OpenAI with our key and the session config (coach
+# prompt + tracker tools) and hand back the answer. Audio then flows browser <-> OpenAI directly; tool calls
+# arrive in the browser on the data channel. The browser never holds an OpenAI key.
+REALTIME_MODEL = os.environ.get('WILO_REALTIME_MODEL', 'gpt-realtime-mini')
+
+
+def realtime_session():
+    return {'type': 'realtime', 'model': REALTIME_MODEL, 'instructions': COACH_PROMPT,
+            'audio': {'output': {'voice': 'marin'}}, 'tools': openai_tools()}
+
+
+async def realtime_call(request, uid):
+    from openai import AsyncOpenAI  # reads OPENAI_API_KEY
+    sdp = (await request.body()).decode()
+    if not sdp.startswith('v='):
+        return JSONResponse({'error': 'expected an SDP offer'}, status_code=400)
+    answer = await AsyncOpenAI().realtime.calls.create(sdp=sdp, session=realtime_session())
+    return Response(answer.text, media_type='application/sdp')
+
+
+def add_routes(s, init_firebase):
+    s.custom_route('/voice/call', methods=['POST', 'OPTIONS'])(guarded(init_firebase, realtime_call))
