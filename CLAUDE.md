@@ -7,10 +7,7 @@ needs to know must live in this repo.
 ## Project context
 
 @.claude/instructions.md
-@.claude/memory.md
-
-**Working on `wilo/` (data engine, MCP server, connector sign-in)?** Read `docs/mcp-server-and-connector-guide.md` first.
-**Infrastructure (what runs where, keys, rebuild, gaps):** `docs/infrastructure-and-rebuild.md`.
+@docs/principles.md
 
 ## Session notes
 
