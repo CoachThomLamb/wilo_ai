@@ -282,6 +282,53 @@ class TodoTest(unittest.TestCase):
 
 
 
+class ProfileTest(unittest.TestCase):
+    PATH = f'users/{UID}/coach/profile'
+
+    def setUp(self):
+        self.db = FakeDB()
+
+    def edit(self, write=False, uid=UID, **sections):
+        return wilo_data.update_profile(self.db, uid, sections, write, NOW)
+
+    def test_new_user_has_empty_profile(self):
+        self.assertEqual(wilo_data.profile(self.db, UID),
+                         {'exists': False, 'profile': dict.fromkeys(wilo_data.PROFILE_SECTIONS, ''), 'updatedAt': None})
+
+    def test_dry_run_shows_changes_and_writes_nothing(self):
+        out = self.edit(preferences='- no cues')
+        self.assertEqual(out, {'ok': True, 'dryRun': True, 'path': self.PATH, 'changes': ['preferences: "" -> "- no cues"']})
+        self.assertNotIn(self.PATH, self.db.store)
+
+    def test_write_saves_and_left_out_sections_are_kept(self):
+        self.edit(write=True, preferences='- no cues', limitations='- right shoulder: no bench')
+        out = self.edit(write=True, notes='2026-10-10: loved the pump day')
+        self.assertEqual(out['changes'], ['notes: "" -> "2026-10-10: loved the pump day"'])
+        self.assertEqual(self.db.store[self.PATH], {'preferences': '- no cues', 'limitations': '- right shoulder: no bench',
+                                                    'notes': '2026-10-10: loved the pump day',
+                                                    'updatedAt': '2026-10-06T11:11:56.820Z'})
+        p = wilo_data.profile(self.db, UID)
+        self.assertTrue(p['exists'])
+        self.assertEqual(p['profile']['plan'], '')
+
+    def test_empty_string_clears_a_section(self):
+        self.edit(write=True, preferences='- no cues', plan='PPL')
+        self.edit(write=True, plan='')
+        self.assertEqual(self.db.store[self.PATH]['preferences'], '- no cues')
+        self.assertNotIn('plan', self.db.store[self.PATH])
+
+    def test_refuses_unknown_sections_and_non_text(self):
+        self.assertFalse(wilo_data.update_profile(self.db, UID, {'mood': 'x'}, True, NOW)['ok'])
+        self.assertFalse(wilo_data.update_profile(self.db, UID, {'notes': ['x']}, True, NOW)['ok'])
+        self.assertEqual(self.db.store, {})
+
+    def test_users_only_touch_their_own_profile(self):
+        self.edit(write=True, preferences='mine')
+        self.edit(write=True, uid=OTHER, preferences='theirs')
+        self.assertEqual(wilo_data.profile(self.db, UID)['profile']['preferences'], 'mine')
+        self.assertEqual(wilo_data.profile(self.db, OTHER)['profile']['preferences'], 'theirs')
+
+
 class ConnectTest(unittest.TestCase):
     """With no key file (Cloud Run), connect() uses the environment's own identity instead of a JSON key."""
 

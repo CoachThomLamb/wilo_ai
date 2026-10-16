@@ -10,9 +10,9 @@ WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `us
 ## Files
 | File | Role |
 |---|---|
-| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `history`, `names`, `assign`, `update`, `validate`, `diff`, `name_matches`; todos: `todos`, `add_todo`, `update_todo`, `delete_todo` (#64). Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
-| `wilo/mcp_server.py` | **The adapter.** 13 tools (1 coaching, 8 workout, 4 todo), each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
-| `wilo/coach.md` | **The coaching method** for any user, served by the `coaching_method` tool (#48). claude.ai shows the model only tool descriptions, not server instructions, so the method lives behind a tool. Edit here; it deploys with the connector |
+| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `history`, `names`, `assign`, `update`, `validate`, `diff`, `name_matches`; todos: `todos`, `add_todo`, `update_todo`, `delete_todo` (#64); coaching profile: `profile`, `update_profile` (#48). Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
+| `wilo/mcp_server.py` | **The adapter.** 15 tools (3 coaching: method + profile, 8 workout, 4 todo), each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
+| `wilo/coach.md` | **The coaching method** for any user (principles, precedence, workflows), served by the `coaching_method` tool (#48). What's personal to a user is data: `users/{uid}/coach/profile` (sections `preferences`, `limitations`, `plan`, `notes`; free text), read and edited with `get_profile` / `update_profile` (dry run by default). The profile overrides the method, except on safety. claude.ai shows the model only tool descriptions, not server instructions, so the method lives behind a tool. Edit here; it deploys with the connector |
 | `wilo/auth.py` | **Sign-in provider** (`WiloAuthProvider` + `Store`) behind the MCP SDK's OAuth endpoints |
 | `wilo/login.html` | Login page served at `/login`: Firebase Google sign-in (same as the tracker's `fe/auth.js`) |
 | `schema/workout.schema.json` | The workout shape (JSON Schema 2020-12). Validated on every write |
@@ -74,8 +74,8 @@ Render deploy: `POST /mcp` → `401` with `resource_metadata` on `https://wilo-c
 ## Tests (`tests/`)
 | File | Covers |
 |---|---|
-| `test_wilo_data.py` | Schema (3), assign (5), name matching (2), history/names (3), update (3), two-user isolation (3). Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
-| `test_mcp_server.py` | The 13 tools through the MCP layer (12): no tool takes a uid, dry-run defaults, per-user reads and writes |
+| `test_wilo_data.py` | Schema (3), assign (5), name matching (2), history/names (3), update (3), two-user isolation (3), todos (7), profile (6). Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
+| `test_mcp_server.py` | The 15 tools through the MCP layer (14): no tool takes a uid, dry-run defaults, per-user reads and writes |
 | `test_auth.py` | The provider (19): full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
 | `test_signin_http.py` | The OAuth flow over HTTP in-process with `TestClient` (15, incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on (1) |
 
@@ -118,7 +118,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
   curl -i -X POST https://wilo-connector.onrender.com/mcp -d '{}'                     # 401, resource_metadata on the same host
   curl https://wilo-connector.onrender.com/.well-known/oauth-authorization-server     # every endpoint on the same host
   ```
-- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → 8 tools listed. Suggested permissions: read tools always allowed, `assign_workout` / `update_workout` need approval.
+- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → 8 tools listed. Suggested permissions: read tools always allowed, `assign_workout` / `update_workout` / `update_profile` need approval.
 
 ### Alternative: Cloud Run (if billing gets a card that works)
 ```bash

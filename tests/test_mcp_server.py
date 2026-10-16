@@ -13,7 +13,7 @@ from test_wilo_data import FakeDB, MINIMAL, done
 from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
-TOOLS = {'coaching_method', 'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
+TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
          'exercise_history', 'exercise_names', 'assign_workout', 'update_workout',
          'list_todos', 'add_todo', 'update_todo', 'delete_todo'}
 
@@ -107,6 +107,23 @@ class ServerTest(unittest.TestCase):
         self.assertFalse(call('delete_todo', doc_id=tid)['ok'])
         self.uid = ME
         self.assertTrue(call('delete_todo', doc_id=tid)['ok'])
+
+    def test_profile_is_a_dry_run_by_default_and_per_user(self):
+        path = f'users/{ME}/coach/profile'
+        self.assertFalse(call('get_profile')['exists'])
+        dry = call('update_profile', preferences='- no cues')
+        self.assertTrue(dry['dryRun'])
+        self.assertNotIn(path, self.db.store)
+        call('update_profile', preferences='- no cues', write=True)
+        self.assertEqual(call('get_profile')['profile']['preferences'], '- no cues')
+        self.uid = OTHER
+        self.assertFalse(call('get_profile')['exists'])
+
+    def test_method_covers_profile_and_safety(self):
+        method = call('coaching_method')['method']
+        for needle in ('get_profile', 'update_profile', 'except on safety', 'not to tap Load'):
+            with self.subTest(needle):
+                self.assertIn(needle, method)
 
 
 if __name__ == '__main__':

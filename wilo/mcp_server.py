@@ -10,7 +10,8 @@ Over HTTP (local test of the remote transport; localhost only):
     .venv/bin/python -m wilo.mcp_server --http --auth [--port 8000]   → with sign-in (OAuth + Firebase login, wilo/auth.py)
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
-Workout writes (assign_workout, update_workout) are dry runs unless write=True. Todo writes save immediately.
+Workout and profile writes (assign_workout, update_workout, update_profile) are dry runs unless write=True.
+Todo writes save immediately.
 """
 
 import html
@@ -54,8 +55,27 @@ def current_uid():
 
 
 def coaching_method() -> dict[str, Any]:
-    """How to coach with these tools. Call this first, before planning, reviewing or changing workouts."""
+    """How to coach with these tools: the principles and step-by-step workflows (plan, review, check in,
+    change a workout, update the profile). Call this first, before planning, reviewing or changing workouts."""
     return {'method': (HERE / 'coach.md').read_text()}
+
+
+def get_profile() -> dict[str, Any]:
+    """The user's coaching profile: preferences (what they like and don't), limitations (injuries, pain, what to
+    avoid), plan (their current split, schedule, goals) and coach notes. Read it before planning or reviewing.
+    It overrides the general method, except on safety. A new user has none yet (exists=false): ask them."""
+    return wilo_data.profile(db(), current_uid())
+
+
+def update_profile(preferences: str | None = None, limitations: str | None = None, plan: str | None = None,
+                   notes: str | None = None, write: bool = False) -> dict[str, Any]:
+    """Edit the user's coaching profile. Each section is free text; pass the full new text of the sections you
+    change (read get_profile first and keep what's still true), '' to empty one; sections left out stay as they
+    are. Returns the changes. Dry run unless write=True: show the user the changes and save only once they
+    approve. Use it when they tell you a preference, an injury changes, or a review teaches you something."""
+    sections = {'preferences': preferences, 'limitations': limitations, 'plan': plan, 'notes': notes}
+    edits = {k: v for k, v in sections.items() if v is not None}
+    return wilo_data.update_profile(db(), current_uid(), edits, write, datetime.now(timezone.utc))
 
 
 def workout_schema() -> dict[str, Any]:
@@ -130,7 +150,7 @@ def delete_todo(doc_id: str) -> dict[str, Any]:
     return wilo_data.delete_todo(db(), current_uid(), doc_id)
 
 
-TOOLS = [coaching_method, workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
+TOOLS = [coaching_method, get_profile, update_profile, workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
          assign_workout, update_workout, list_todos, add_todo, update_todo, delete_todo]
 
 
