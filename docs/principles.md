@@ -25,6 +25,9 @@ What follows from it:
 - **Firestore holds the workouts.** No Qdrant, no admin agent.
 - **Postgres migration on hold** (2026-10-06): stay on Firestore, but keep the app design DB-agnostic and don't over-invest in Firestore-only infrastructure.
 
+## Understand the problem first
+- **Before building, know the problem we're actually solving.** Restate the objective in your own words and get Thom's confirmation before writing code or filing work. If the restatement and the ask differ, stop and clear it up. Example: #87 was first written as "revoke prod access"; the real goal was "one path to the data, like a user".
+
 ## Keep it clean
 - **Cruft is the biggest cost.** Leftover code, docs and other LLM output pile up cognitive load for the humans. End every session by cleaning up and cutting complexity.
 
