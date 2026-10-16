@@ -21,6 +21,10 @@ What follows from it:
 - **Judgment stays with the LLM and Thom:** which names mean the same exercise, what to change after a review, how hard to push. Code doesn't guess at these.
 - **Code decides whose data:** the tools act on the signed-in user (`current_uid()`). It's never a tool argument, so the LLM can't choose whose workouts it reads or writes.
 
+## Decisions
+- **Firestore holds the workouts.** No Qdrant, no admin agent.
+- **Postgres migration on hold** (2026-10-06): stay on Firestore, but keep the app design DB-agnostic and don't over-invest in Firestore-only infrastructure.
+
 ## Keep it clean
 - **Cruft is the biggest cost.** Leftover code, docs and other LLM output pile up cognitive load for the humans. End every session by cleaning up and cutting complexity.
 

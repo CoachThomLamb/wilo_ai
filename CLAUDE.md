@@ -7,7 +7,6 @@ needs to know must live in this repo.
 ## Project context
 
 @.claude/instructions.md
-@.claude/memory.md
 
 ## Session notes
 

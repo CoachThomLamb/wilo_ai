@@ -33,9 +33,10 @@ Read `docs/principles.md`. It's the one list; propose changes there.
 
 - **Data:** Firestore `wilo` db, reached only through the wilo connector (#87). Shape: `schema/workout.schema.json`.
 - **Connector / data code:** `wilo/` — `data.py` (Firestore), `mcp_server.py` (tools), `auth.py` + `login.html` (sign-in), `coach.md` (coach instructions). Read `docs/mcp-server-and-connector-guide.md` first.
-- **Tracker:** `fe/` — `index.html` (log a workout), `today.html` (today page), `auth.js` (sign-in). Hosted by Firebase Hosting (`firebase.json`).
+- **Tracker:** `fe/` — `index.html` (log a workout), `today.html` (today page), `auth.js` (sign-in). Plain HTML, not a PWA (no service worker). Hosted by Firebase Hosting (`firebase.json`).
 - **Security rules:** `firestore.rules`.
 - **Tests:** `tests/` (`.venv/bin/python -m pytest`).
 - **What runs where, keys, rebuild:** `docs/infrastructure-and-rebuild.md`.
 - **Session notes:** `docs/sessions/`.
+- **Old experiments:** `prior-art/` (RunPod/Qwen), kept for reference.
 - **Parked list / Now-Next:** GitHub Project #5.
