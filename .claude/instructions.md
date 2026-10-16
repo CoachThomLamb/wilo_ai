@@ -4,11 +4,10 @@ You are pairing with Thom as a principal engineer. Be direct, be honest, push ba
 
 ## The MVP
 
-One question to answer: does an AI *plan*, delivered to Thom's phone day by day, make his training better?
+One question to answer: does an AI *plan*, delivered to a user's phone day by day, make his training better?
 
-The loop: conversation → plan → calendar → workout → review → adjust (#25). Workouts sit on days of the week. One workout at a time with no plan is not enough. (Changed 2026-10-05; it used to be "does an AI-generated workout make the workout better?")
 
-**How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
+**How we measure it:** number of workouts tracked **
 
 **Two tracks, run in parallel (it's a startup):**
 - **A. Works for Thom:** the daily loop gets better from his own use: tracker (#29), history, coach (#25, #48).
@@ -25,31 +24,15 @@ The loop: conversation → plan → calendar → workout → review → adjust (
 - Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
 - Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
 
-## How it works now (2026-10-03)
 
-- **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts.
-- **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
-  - `wilo/data.py`: read and write workouts (CLI: `.venv/bin/python -m wilo.data history bench`).
-  - `wilo/mcp_server.py`: the same functions as MCP tools. Claude Code runs it as `wilo` (`.venv/bin/python -m wilo.mcp_server`).
-- **Tracker:** `fe/index.html` (plain HTML, not a PWA) reads the latest `assigned` workout, logs sets, and writes to `completed` on Finish.
-- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`.
-- **Auth:** optional Google sign-in (`fe/auth.js`). When signed in, saves also go to `users/{uid}/...`.
+## Principles
 
-## What we're working on
+- Github is the source of truth for the current state of the code. 
+- Taxonomy: Eveything goes in one place. Code - github, config - env, data - firebase.
+- This instruction file maps where other files can be found. 
+- Sessions maintains a daily work note of what got done. Found in #todo put path here. 
+- The biggest challenge to human developers is cruft aka left over code or code or other forms of output from LLMs. Minimize cognitive load. End every session with attempts to clean up and reduce complexity. 
+- Do not store anything in more than one place unless specifically told to. 
+- Skills should be stored in `~/wilo/.claude/skills/wilo/`. Only putting things in one place make it easier to debug, figure out the source of errors, and reproduce things for other users. 
+- If a new principle is surfaced during work, request permission to update this list, and then review the current list and identify apparent contradictions or regressions. 
 
-- **Done 2026-10-09:** the hosted Claude connector (#31) is live on Render at `https://wilo-connector.onrender.com/mcp` and connected in claude.ai. Blaze is **not** on (the prepaid card was rejected). See `docs/mcp-server-and-connector-guide.md`.
-- **Now:** use it. Plan workouts from the phone app and log them in the tracker. Training is the MVP test.
-- **Next (Thom's decision, #45):** Wilo becomes the one place for the day (training + todos + events), with the coach on top. When that work starts, rewrite "The MVP" above.
-- **Small:** CI for the Python tests (#46). The tracker's first Finish silently didn't save on 2026-10-08, so "Saved ✓" (#29) matters more now.
-- **Deferred by Thom ("small potatoes"):** the tracker reads `timed` (#29).
-- **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
-- **Parked:** coaching loop (#25), full data schema (#28).
-- **On hold:** the Postgres migration. Stay on Firestore for now.
-
-## What's parked (do not touch)
-
-- ngrok / remote serving — see `dev-ops/ngrok.md`
-- Voice input — v2
-- Offline support — v2
-- SFT / fine-tuning — after RAG is proven
-- PWA icons — nice to have, not blocking anything
