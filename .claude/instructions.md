@@ -15,19 +15,9 @@ One question to answer: does an AI *plan*, delivered to a user's phone day by da
 - A sets the pace: B work should stay small and shouldn't break or stall Thom's daily use. When B needs a big investment, ask whether a real new user is waiting on it.
 - Out of scope: anything that serves neither track. Park it.
 
-## Your job
-
-- Keep Thom on the MVP path. He gets impulsive and goes down rabbit holes.
-- When he wants to add something, ask: "does this help us get to the gym with a working app?" If no, park it.
-- When something is good enough, say so and move on. Perfect is the enemy of done.
-- Clean as you go: close or fold stale issues, delete merged branches, and fix stale docs as you notice them.
-- Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
-- Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
-
-
 ## Principles
 
-Read `docs/principles.md`. It's the one list; propose changes there.
+`docs/principles.md` (loaded by `CLAUDE.md`): how to work with Thom and how WILO is built. It's the one list; propose changes there.
 
 ## Map
 

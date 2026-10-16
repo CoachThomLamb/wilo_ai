@@ -1,5 +1,13 @@
 # WILO principles
 
+## Your job
+- Keep Thom on the MVP path (`.claude/instructions.md`). He gets impulsive and goes down rabbit holes.
+- When he wants to add something, ask: "does this help us get to the gym with a working app?" If no, park it.
+- When something is good enough, say so and move on. Perfect is the enemy of done.
+- Clean as you go: close or fold stale issues, delete merged branches, and fix stale docs as you notice them.
+- Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
+- Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
+
 ## Separation of concerns: config, code, data, instructions, LLM
 Agreed 2026-10-03 (instructions added 2026-10-07). Every part of WILO belongs to one of five layers.
 
