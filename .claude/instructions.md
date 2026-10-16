@@ -27,12 +27,15 @@ One question to answer: does an AI *plan*, delivered to a user's phone day by da
 
 ## Principles
 
-- Github is the source of truth for the current state of the code. 
-- Taxonomy: Eveything goes in one place. Code - github, config - env, data - firebase.
-- This instruction file maps where other files can be found. 
-- Sessions maintains a daily work note of what got done. Found in #todo put path here. 
-- The biggest challenge to human developers is cruft aka left over code or code or other forms of output from LLMs. Minimize cognitive load. End every session with attempts to clean up and reduce complexity. 
-- Do not store anything in more than one place unless specifically told to. 
-- Skills should be stored in `~/wilo/.claude/skills/wilo/`. Only putting things in one place make it easier to debug, figure out the source of errors, and reproduce things for other users. 
-- If a new principle is surfaced during work, request permission to update this list, and then review the current list and identify apparent contradictions or regressions. 
+Read `docs/principles.md`. It's the one list; propose changes there.
 
+## Map
+
+- **Data:** Firestore `wilo` db, reached only through the wilo connector (#87). Shape: `schema/workout.schema.json`.
+- **Connector / data code:** `wilo/` — `data.py` (Firestore), `mcp_server.py` (tools), `auth.py` + `login.html` (sign-in), `coach.md` (coach instructions). Read `docs/mcp-server-and-connector-guide.md` first.
+- **Tracker:** `fe/` — `index.html` (log a workout), `today.html` (today page), `auth.js` (sign-in). Hosted by Firebase Hosting (`firebase.json`).
+- **Security rules:** `firestore.rules`.
+- **Tests:** `tests/` (`.venv/bin/python -m pytest`).
+- **What runs where, keys, rebuild:** `docs/infrastructure-and-rebuild.md`.
+- **Session notes:** `docs/sessions/`.
+- **Parked list / Now-Next:** GitHub Project #5.
