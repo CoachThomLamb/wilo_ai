@@ -89,7 +89,7 @@ def recent_completed(limit: int = 5) -> dict[str, Any]:
 
 
 def recent_assigned(limit: int = 5) -> dict[str, Any]:
-    """Most recently assigned (planned) workouts, newest assignedFor first. The newest is what the app loads."""
+    """Most recently assigned (planned) workouts, newest assignedFor first. The app loads the earliest one not yet completed."""
     return {'workouts': wilo_data.recent(db(), current_uid(), 'assigned', limit)}
 
 
