@@ -4,9 +4,9 @@
 
   - Sign-in required (Google, via auth.js). Signed out, a gate covers the
     app. All data is users/{uid}/...; no top-level collections (#15).
-  - Boot: restores the draft; once signed in, loads the latest of
-    users/{uid}/assigned (assignedFor desc) unless a draft is in progress.
-    Load button re-runs the same query.
+  - Boot: restores the draft; once signed in, loads the next workout:
+    the earliest of users/{uid}/assigned (by assignedFor) with no completed
+    copy, unless a draft is in progress. Load button does the same.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
@@ -28,7 +28,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // authDomain = this page's own host on Firebase Hosting (live and PR
   // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
   // Safari's in-app browsers (Camera, Claude app): the handler on another
@@ -51,7 +51,6 @@
   window.__getDocs = getDocs;
   window.__query = query;
   window.__orderBy = orderBy;
-  window.__limit = limit;
   // auth.js calls getApp() at load, so import it after initializeApp.
   import("./auth.js")
     .then(a => a.onUser(user =>
@@ -617,15 +616,21 @@
   });
 
   // ---- program loading ----------------------------------------------
-  // Newest of users/{uid}/assigned by assignedFor. Only the signed-in user's
-  // workouts: there is no top-level fallback, so a new user sees nothing.
-  async function fetchLatestAssigned() {
+  // Next workout to do (#90): the earliest of users/{uid}/assigned by
+  // assignedFor that has no completed copy. A completed copy shares the
+  // assigned workout's `id` field. Past dates count, so a skipped workout
+  // still shows. Only the signed-in user's workouts: there is no top-level
+  // fallback, so a new user sees nothing.
+  async function fetchNextAssigned() {
     const a = window.__auth;
     if (!a || !a.currentUser()) throw new Error('not signed in');
-    const snap = await window.__getDocs(window.__query(
-      a.userCol('assigned'), window.__orderBy('assignedFor', 'desc'), window.__limit(1)
-    ));
-    return snap.empty ? null : { data: snap.docs[0].data(), id: snap.docs[0].id };
+    const [assigned, completed] = await Promise.all([
+      window.__getDocs(window.__query(a.userCol('assigned'), window.__orderBy('assignedFor', 'asc'))),
+      window.__getDocs(a.userCol('completed')),
+    ]);
+    const done = new Set(completed.docs.map(d => d.data().id).filter(Boolean));
+    const next = assigned.docs.find(d => !done.has(d.data().id));
+    return next ? { data: next.data(), id: next.id } : null;
   }
 
   document.getElementById('sessName').addEventListener('input', e => {
@@ -634,13 +639,13 @@
 
   document.getElementById('loadBtn').addEventListener('click', async () => {
     try {
-      note('Loading latest workout…');
-      const latest = await fetchLatestAssigned();
-      if (!latest) { note('No workouts yet — ask your coach to plan one'); return; }
-      loadWorkout(latest.data);
-      last = 'loaded ' + (state.workoutId || latest.id);
+      note('Loading next workout…');
+      const next = await fetchNextAssigned();
+      if (!next) { note('No workout planned — ask your coach to plan one'); return; }
+      loadWorkout(next.data);
+      last = 'loaded ' + (state.workoutId || next.id);
       draw();
-      note('Loaded ' + (state.workoutName || latest.id));
+      note('Loaded ' + (state.workoutName || next.id));
     } catch (err) {
       note("Couldn't load workout: " + (err && err.message ? err.message : err));
     }
@@ -655,13 +660,13 @@
   const gateBtn = document.getElementById('gateBtn');
   let authSeen = false;
 
-  async function loadLatestIfNoDraft() {
+  async function loadNextIfNoDraft() {
     if (state.exercises.length) return;   // never replace sets in progress
-    const latest = await fetchLatestAssigned();
-    if (!latest) { note('No workouts yet \u2014 ask your coach to plan one'); return; }
-    loadWorkout(latest.data);
+    const next = await fetchNextAssigned();
+    if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
+    loadWorkout(next.data);
     draw();
-    note('Loaded ' + (state.workoutName || latest.id));
+    note('Loaded ' + (state.workoutName || next.id));
   }
 
   window.addEventListener('wilo-user', ev => {
@@ -674,7 +679,7 @@
     // First event is just the restored session; don't clobber the status line.
     if (authSeen && user) note('Signed in as ' + user.email);
     authSeen = true;
-    if (user) loadLatestIfNoDraft().catch(err =>
+    if (user) loadNextIfNoDraft().catch(err =>
       note("Couldn't load workout: " + (err.code || err.message || err), 'err'));
   });
   window.addEventListener('wilo-auth-error', ev => {
@@ -708,7 +713,7 @@
     note('Reset to ' + (state.workoutName || 'assigned'));
   });
 
-  // Boot: restore any saved draft. The latest workout loads once sign-in
+  // Boot: restore any saved draft. The next workout loads once sign-in
   // is known (the 'wilo-user' handler), and only if there's no draft.
   restore();
   draw();
