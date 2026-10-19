@@ -93,7 +93,7 @@ sequenceDiagram
     S->>F: write users/uid/assigned/doc
     Note over T,W: at the gym
     T->>W: Load
-    W->>F: newest assigned (by assignedFor)
+    W->>F: next assigned (earliest by assignedFor, not yet completed)
     T->>W: log sets, Finish
     W->>F: write completed (top-level AND users/uid)
     Note over C,F: next chat: Claude reads completed, reviews, plans again
