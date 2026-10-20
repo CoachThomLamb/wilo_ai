@@ -38,6 +38,7 @@
   .rate button.on { opacity:1; }
   .rate button.on.up { border-color:#16a34a; background:#dcfce7; }
   .rate button.on.down { border-color:#dc2626; background:#fee2e2; }
+  .rate button.on.organic { border-color:#65a30d; background:#ecfccb; }
   .msg + .msg { margin-top:10px; }
   .empty { color:var(--mut); padding:40px; text-align:center; }
   #status.err { color:#b91c1c; }
@@ -81,7 +82,7 @@ function save() {
   status('…');
   timer = setTimeout(async () => {
     for (const [id, n] of Object.entries(notes)) {
-      for (const [k, m] of Object.entries(n.messages || {})) if (!m.rating && !m.note?.trim()) delete n.messages[k];
+      for (const [k, m] of Object.entries(n.messages || {})) if (!m.rating && !m.organic && !m.note?.trim()) delete n.messages[k];
       if (!n.chat?.trim() && !Object.keys(n.messages || {}).length) delete notes[id];
     }
     try {
@@ -127,7 +128,7 @@ function show(i) {
 // Every assistant reply: thumbs up/down + an always-open note.
 const msgNote = (k, m) => `<div class="msgnote"><div class="rate">${
   ['up', 'down'].map(r => `<button data-k="${k}" data-r="${r}" class="${m.rating === r ? 'on ' + r : ''}">${r === 'up' ? '👍' : '👎'}</button>`).join('')
-}</div><textarea data-k="${k}" rows="2" placeholder="Note on reply #${k}">${esc(m.note || '')}</textarea></div>`;
+}<button data-k="${k}" data-o="1" class="${m.organic ? 'on organic' : ''}" title="Organic: real coaching, not a test">🌱</button></div><textarea data-k="${k}" rows="2" placeholder="Note on reply #${k}">${esc(m.note || '')}</textarea></div>`;
 const msgEntry = k => { const n = entry(); n.messages ||= {}; return (n.messages[k] ||= {}); };
 const entry = () => (notes[shown[cur].id] ||= { chat: '', messages: {} });
 
@@ -140,6 +141,14 @@ document.getElementById('view').addEventListener('input', e => {
   save();
 });
 document.getElementById('view').addEventListener('click', e => {
+  const o = e.target.closest('button[data-o]');
+  if (o) {
+    const m = msgEntry(o.dataset.k);
+    m.organic = !m.organic || undefined;   // tap again to clear
+    o.className = m.organic ? 'on organic' : '';
+    save();
+    return;
+  }
   const b = e.target.closest('button[data-r]');
   if (!b) return;
   const m = msgEntry(b.dataset.k);
