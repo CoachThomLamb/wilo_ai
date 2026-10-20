@@ -186,7 +186,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 ### 5.5 Claude side
 - **claude.ai:** custom connector "wilo" → `https://wilo-connector.onrender.com/mcp`, Sign in now + Register automatically (DCR). Read tools always allowed; `assign_workout` / `update_workout` need approval. Works on web and phone.
 - **Claude Code (laptop):** `claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server` (stdio, admin key, Thom's uid from `config/wilo.json`).
-- **Instructions Claude reads:** the server's `INSTRUCTIONS` string and the tool docstrings in `wilo/mcp_server.py` (#40 moves them to one file); `CLAUDE.md`, `.claude/instructions.md`, `.claude/memory.md` for coding sessions.
+- **Instructions Claude reads:** the server's `INSTRUCTIONS` string and the tool docstrings in `wilo/mcp_server.py`, plus `wilo/coach.md` (#40); `CLAUDE.md` and `.claude/instructions.md` for coding sessions.
 - **Coach skill `wilo-workout-coach`:** lives on claude.ai and syncs to `~/.claude/skills/synced/…/wilo-workout-coach/SKILL.md`. **Stale:** it describes the old `sessions`/`programs` collections, an old document shape, and `scripts/wilo_fs.py`, which no longer exists. Today the coaching actually comes from the connector's instructions + the conversation.
 
 ### 5.6 The laptop
