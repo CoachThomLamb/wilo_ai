@@ -58,7 +58,8 @@
   #wo table { border-collapse:collapse; width:100%; margin-top:4px; font-size:12px; }
   #wo td, #wo th { border-top:1px solid var(--line); padding:2px 4px; text-align:left; }
   #wo th { color:var(--mut); font-weight:500; }
-  #wo .done { color:#16a34a; }
+  #wo .done { color:#22c55e; font-weight:700; font-size:14px; }
+  #wo tr.isdone td { background:rgba(34, 197, 94, .14); }
   #wo .wnote { background:var(--note); border-radius:6px; padding:4px 8px; margin:4px 0; font-size:12px; }
   @media (max-width: 1000px) { main { flex-direction:column; } #list { width:auto; max-height:25vh; border-right:0; border-bottom:1px solid var(--line); } #wo { width:auto; max-height:35vh; border-left:0; border-top:1px solid var(--line); } .user { margin-left:16px; } }
 </style>
@@ -197,7 +198,7 @@ function completedFor(c, w) {
 
 const exTable = (exs, showDone) => exs.map(ex => `<div class="ex"><b>${esc(ex.name)}</b>${ex.cue ? `<div class="cue">${esc(ex.cue)}</div>` : ''}${ex.note ? `<div class="cue">note: ${esc(ex.note)}</div>` : ''}
   <table><tr><th>#</th><th>${ex.timed ? 'secs' : 'reps'}</th><th>lbs</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}${showDone ? '<th></th>' : ''}</tr>${
-    (ex.sets || []).map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.reps)}</td><td>${esc(s.lbs)}</td>${ex.custom_name ? `<td>${esc(s.custom ?? '')}</td>` : ''}${showDone ? `<td class="done">${s.done ? '✓' : ''}</td>` : ''}</tr>`).join('')
+    (ex.sets || []).map((s, i) => `<tr class="${showDone && s.done ? 'isdone' : ''}"><td>${i + 1}</td><td>${esc(s.reps)}</td><td>${esc(s.lbs)}</td>${ex.custom_name ? `<td>${esc(s.custom ?? '')}</td>` : ''}${showDone ? `<td class="done">${s.done ? '✓' : ''}</td>` : ''}</tr>`).join('')
   }</table></div>`).join('');
 
 function renderWo() {
