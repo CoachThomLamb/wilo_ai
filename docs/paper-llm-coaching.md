@@ -23,9 +23,21 @@ Outline in bullets. Thom writes the paper.
 - n=1, the builder is the user, 2026-09-23 to 2026-10-18.
 - 28 chat records: 16 claude.ai (exported) + 12 from local Claude Code sessions.
 - Labeled by Claude: 16 coaching, 7 coaching + other, 3 dev, 2 product test. Thom to check.
-- Data stays local, not in this repo (personal): `~/Downloads/coaching_traces_labeled.jsonl`, viewer `~/Downloads/trace-viewer.html`.
+- Data: `coaching-evals/traces.jsonl` (branch `coaching-evals`).
 - Missing: baseline (how often Thom trained before WILO).
 - Missing: is the export complete? Nothing between Sep 24 and Oct 9.
+
+## Assessing the chats (methodology)
+- Step 1, collect: claude.ai export + coaching from local Claude Code transcripts, one format (`traces.jsonl`: id, date, source, messages, tool calls).
+- Step 2, first pass by Claude: read all 28, label each chat (coaching / coaching + other / dev / product test), tags, one-line note. Source of the 7 early findings.
+- Step 3, human pass by Thom: per assistant reply, 👍/👎 + free-text note; one note per chat. Viewer: `coaching-evals/viewer.html` + `serve.py`; saved to `coaching-evals/notes.json`.
+- No rubric yet, on purpose: open notes first so the criteria come from the data, not from a guess.
+- Unit of judgment: one assistant reply, in the context of the chat so far.
+- Joins: notes keyed by chat id + message index; `traces.jsonl` is append-only so the keys stay valid.
+- Step 4, criteria: group Thom's notes into patterns, then a written rubric (e.g. brevity, held the line, used history).
+- Step 5, LLM judge: grade replies against the rubric; check agreement with Thom's thumbs (target ~80%+).
+- Step 6, use: rerun the judge when `coach.md` or the prompt changes; regressions show as numbers.
+- Limits: one rater, who is also the user and the builder; ratings made weeks after the chats.
 
 ## Findings (early, n=1)
 1. Used in the gym: 6 mid-workout edits (audibles, swaps, reorders).
