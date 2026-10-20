@@ -33,7 +33,8 @@
   .chatnote { margin-bottom:16px; }
   .msgnote { margin:0 0 14px; display:flex; gap:8px; align-items:flex-start; }
   .msgnote textarea { flex:1; }
-  .rate { display:flex; flex-direction:column; gap:4px; }
+  .rate { display:flex; gap:4px; align-items:center; flex-wrap:wrap; max-width:170px; }
+  .rate .dim { font-size:11px; color:var(--mut); width:56px; }
   .rate button { font-size:16px; padding:2px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); cursor:pointer; opacity:.45; }
   .rate button.on { opacity:1; }
   .rate button.on.up { border-color:#16a34a; background:#dcfce7; }
@@ -82,7 +83,7 @@ function save() {
   status('…');
   timer = setTimeout(async () => {
     for (const [id, n] of Object.entries(notes)) {
-      for (const [k, m] of Object.entries(n.messages || {})) if (!m.rating && !m.organic && !m.note?.trim()) delete n.messages[k];
+      for (const [k, m] of Object.entries(n.messages || {})) if (!m.coaching && !m.tools && !m.organic && !m.note?.trim()) delete n.messages[k];
       if (!n.chat?.trim() && !Object.keys(n.messages || {}).length) delete notes[id];
     }
     try {
@@ -125,9 +126,10 @@ function show(i) {
   document.querySelector('#list .sel')?.scrollIntoView({ block: 'nearest' });
 }
 
-// Every assistant reply: thumbs up/down + an always-open note.
-const msgNote = (k, m) => `<div class="msgnote"><div class="rate">${
-  ['up', 'down'].map(r => `<button data-k="${k}" data-r="${r}" class="${m.rating === r ? 'on ' + r : ''}">${r === 'up' ? '👍' : '👎'}</button>`).join('')
+// Every assistant reply: two separate thumbs (coaching quality, tools/product), organic flag, note.
+const thumbs = (k, m, dim, label) => `<span class="dim">${label}</span>${
+  ['up', 'down'].map(r => `<button data-k="${k}" data-dim="${dim}" data-r="${r}" class="${m[dim] === r ? 'on ' + r : ''}">${r === 'up' ? '👍' : '👎'}</button>`).join('')}`;
+const msgNote = (k, m) => `<div class="msgnote"><div class="rate">${thumbs(k, m, 'coaching', 'Coaching')}${thumbs(k, m, 'tools', 'Tools')
 }<button data-k="${k}" data-o="1" class="${m.organic ? 'on organic' : ''}" title="Organic: real coaching, not a test">🌱</button></div><textarea data-k="${k}" rows="2" placeholder="Note on reply #${k}">${esc(m.note || '')}</textarea></div>`;
 const msgEntry = k => { const n = entry(); n.messages ||= {}; return (n.messages[k] ||= {}); };
 const entry = () => (notes[shown[cur].id] ||= { chat: '', messages: {} });
@@ -151,9 +153,9 @@ document.getElementById('view').addEventListener('click', e => {
   }
   const b = e.target.closest('button[data-r]');
   if (!b) return;
-  const m = msgEntry(b.dataset.k);
-  m.rating = m.rating === b.dataset.r ? null : b.dataset.r;   // tap again to clear
-  b.parentElement.querySelectorAll('button').forEach(x => x.className = m.rating === x.dataset.r ? 'on ' + x.dataset.r : '');
+  const m = msgEntry(b.dataset.k), dim = b.dataset.dim;
+  m[dim] = m[dim] === b.dataset.r ? undefined : b.dataset.r;   // tap again to clear
+  b.parentElement.querySelectorAll(`button[data-dim="${dim}"]`).forEach(x => x.className = m[dim] === x.dataset.r ? 'on ' + x.dataset.r : '');
   save();
 });
 document.addEventListener('keydown', e => {
