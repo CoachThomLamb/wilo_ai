@@ -1,0 +1,148 @@
+<!doctype html>
+<!-- Coaching evals: read traces.jsonl, write free-text notes per chat and per message.
+     Run serve.py; notes save to notes.json in this folder. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coaching Evals</title>
+<style>
+  :root { --bg:#fafaf9; --panel:#fff; --fg:#1c1917; --mut:#78716c; --line:#e7e5e4; --user:#eef2ff; --tool:#f5f5f4; --wilo:#065f46; --wilobg:#d1fae5; --sel:#e0e7ff; --note:#fefce8; --noteline:#eab308; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0c0a09; --panel:#1c1917; --fg:#e7e5e4; --mut:#a8a29e; --line:#292524; --user:#1e1b4b; --tool:#292524; --wilo:#6ee7b7; --wilobg:#064e3b; --sel:#312e81; --note:#2a2410; --noteline:#a16207; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:12px; align-items:center; padding:8px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header .mut, small { color:var(--mut); font-size:12px; }
+  main { flex:1; display:flex; min-height:0; }
+  #list { width:300px; overflow:auto; border-right:1px solid var(--line); background:var(--panel); }
+  #list div { padding:8px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #list div.sel { background:var(--sel); }
+  #list small { display:block; }
+  #view { flex:1; overflow:auto; padding:16px; }
+  .wrap { max-width:860px; }
+  .meta { font-size:12px; color:var(--mut); margin-bottom:12px; }
+  .msg { margin:0 0 4px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; word-wrap:break-word; background:var(--panel); }
+  .user { background:var(--user); margin-left:60px; }
+  .role { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; }
+  .role button { font-size:11px; }
+  details { background:var(--tool); border-radius:6px; padding:4px 8px; margin:6px 0 0; white-space:normal; }
+  summary { cursor:pointer; font-family:ui-monospace, monospace; font-size:12px; }
+  pre { margin:6px 0 0; font-size:12px; white-space:pre-wrap; }
+  .w { color:var(--wilo); background:var(--wilobg); border-radius:4px; padding:0 4px; font-family:ui-monospace, monospace; }
+  textarea { width:100%; font:inherit; padding:8px; border:1px solid var(--noteline); border-radius:6px; background:var(--note); color:var(--fg); resize:vertical; }
+  .chatnote { margin-bottom:16px; }
+  .msgnote { margin:0 0 12px; }
+  .user + .msgnote { margin-left:60px; }
+  .empty { color:var(--mut); padding:40px; text-align:center; }
+  #status.err { color:#b91c1c; }
+  @media (max-width: 700px) { main { flex-direction:column; } #list { width:auto; max-height:35vh; border-right:0; border-bottom:1px solid var(--line); } .user, .user + .msgnote { margin-left:16px; } }
+</style>
+</head>
+<body>
+<header>
+  <b>Coaching evals</b>
+  <label><input type="checkbox" id="onlyCoaching" checked> coaching only</label>
+  <span id="count" class="mut"></span>
+  <span id="status" class="mut"></span>
+  <span class="mut">Alt+← / Alt+→ step chats</span>
+</header>
+<main>
+  <div id="list"></div>
+  <div id="view"><div class="empty">Loading…</div></div>
+</main>
+<script>
+let chats = [], shown = [], cur = -1, notes = {}, timer = null;
+const isWilo = n => /wilo|coaching_method|assign_workout|update_workout|recent_|exercise_|get_profile|update_profile|workout_schema|get_workout|todo/i.test(n);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tools = c => c.messages.flatMap(m => (m.tool_calls || []).map(t => t.name));
+const noted = c => { const n = notes[c.id]; return n && (n.chat || Object.keys(n.messages || {}).length); };
+const status = (t, err) => { const s = document.getElementById('status'); s.textContent = t; s.className = err ? 'err' : 'mut'; };
+
+async function boot() {
+  try {
+    const [t, n] = await Promise.all([fetch('traces.jsonl').then(r => r.text()), fetch('notes.json').then(r => r.json())]);
+    chats = t.split('\n').filter(l => l.trim()).map(l => JSON.parse(l)).sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+    notes = n || {};
+    render();
+  } catch (e) {
+    document.getElementById('view').innerHTML = `<div class="empty">Couldn't load (${esc(e.message)}). Run <code>python3 coaching-evals/serve.py</code> and open the URL it prints.</div>`;
+  }
+}
+
+// Debounced save of the whole notes object; empty notes are dropped so the file stays clean.
+function save() {
+  clearTimeout(timer);
+  status('…');
+  timer = setTimeout(async () => {
+    for (const [id, n] of Object.entries(notes)) {
+      for (const k of Object.keys(n.messages || {})) if (!n.messages[k].trim()) delete n.messages[k];
+      if (!n.chat?.trim() && !Object.keys(n.messages || {}).length) delete notes[id];
+    }
+    try {
+      const r = await fetch('notes.json', { method: 'PUT', body: JSON.stringify(notes) });
+      if (!r.ok) throw new Error(await r.text());
+      status('saved ' + new Date().toLocaleTimeString());
+      updateList();
+    } catch (e) { status('save failed: ' + e.message, true); }
+  }, 600);
+}
+
+function render() {
+  const only = document.getElementById('onlyCoaching').checked;
+  shown = chats.filter(c => !only || /coaching/.test(c.label || 'coaching'));
+  updateList();
+  show(shown.length ? Math.max(0, Math.min(cur, shown.length - 1)) : -1);
+}
+
+function updateList() {
+  document.getElementById('list').innerHTML = shown.map((c, i) =>
+    `<div data-i="${i}" class="${i === cur ? 'sel' : ''}">${noted(c) ? '✎ ' : ''}${esc(c.title || '(untitled)')}<small>${esc((c.updated_at || '').slice(0, 10))} · ${c.messages.length} msgs · ${esc(c.label || '')} · ${esc(c.source || '')}</small></div>`
+  ).join('') || '<div class="empty">No chats.</div>';
+  document.getElementById('count').textContent = `${shown.filter(noted).length}/${shown.length} with notes`;
+}
+
+function show(i) {
+  cur = i;
+  updateList();
+  const v = document.getElementById('view');
+  if (i < 0) { v.innerHTML = '<div class="empty">Nothing to show.</div>'; return; }
+  const c = shown[i], n = notes[c.id] || { messages: {} };
+  const order = tools(c).map(t => isWilo(t) ? `<span class="w">${esc(t)}</span>` : esc(t)).join(' → ') || 'no tool calls';
+  v.innerHTML = `<div class="wrap"><h3 style="margin:0">${esc(c.title)}</h3>
+    <div class="meta">${esc((c.updated_at || '').replace('T', ' ').slice(0, 16))} · ${esc(c.source || '')}${/^https?:/.test(c.url || '') ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">open in claude.ai</a>` : ''}<br>Tools: ${order}${c.note ? `<br>Claude's label: <b>${esc(c.label)}</b> [${esc((c.tags || []).join(', '))}] ${esc(c.note)}` : ''}</div>
+    <div class="chatnote"><textarea id="chatNote" rows="4" placeholder="Your notes on this chat">${esc(n.chat || '')}</textarea></div>` +
+    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}"><div class="role"><span>${esc(m.role)} #${k}</span><button data-k="${k}">${n.messages?.[k] ? 'note ✎' : '+ note'}</button></div>${esc(m.content)}${
+      (m.tool_calls || []).map(t => `<details><summary>${isWilo(t.name) ? `<span class="w">${esc(t.name)}</span>` : esc(t.name)}</summary><pre>${esc(JSON.stringify(t.args, null, 2))}</pre></details>`).join('')
+    }</div>${n.messages?.[k] ? msgNote(k, n.messages[k]) : ''}`).join('') + '</div>';
+  v.scrollTop = 0;
+  document.querySelector('#list .sel')?.scrollIntoView({ block: 'nearest' });
+}
+
+const msgNote = (k, text) => `<div class="msgnote"><textarea data-k="${k}" rows="2" placeholder="Note on message #${k}">${esc(text)}</textarea></div>`;
+const entry = () => (notes[shown[cur].id] ||= { chat: '', messages: {} });
+
+document.getElementById('onlyCoaching').onchange = render;
+document.getElementById('list').onclick = e => { const d = e.target.closest('div[data-i]'); if (d) show(+d.dataset.i); };
+document.getElementById('view').addEventListener('input', e => {
+  if (e.target.id === 'chatNote') entry().chat = e.target.value;
+  else if (e.target.dataset.k) { const n = entry(); (n.messages ||= {})[e.target.dataset.k] = e.target.value; }
+  else return;
+  save();
+});
+document.getElementById('view').addEventListener('click', e => {
+  const b = e.target.closest('button[data-k]');
+  if (!b) return;
+  const box = b.closest('.msg').nextElementSibling;
+  if (box?.classList.contains('msgnote')) { box.querySelector('textarea').focus(); return; }
+  b.closest('.msg').insertAdjacentHTML('afterend', msgNote(b.dataset.k, ''));
+  b.closest('.msg').nextElementSibling.querySelector('textarea').focus();
+});
+document.addEventListener('keydown', e => {
+  if (!e.altKey || !shown.length) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); show(Math.min(cur + 1, shown.length - 1)); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); show(Math.max(cur - 1, 0)); }
+});
+boot();
+</script>
+</body>
+</html>
