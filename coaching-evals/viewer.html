@@ -43,7 +43,23 @@
   .msg + .msg { margin-top:10px; }
   .empty { color:var(--mut); padding:40px; text-align:center; }
   #status.err { color:#b91c1c; }
-  @media (max-width: 700px) { main { flex-direction:column; } #list { width:auto; max-height:35vh; border-right:0; border-bottom:1px solid var(--line); } .user, .user + .msgnote { margin-left:16px; } }
+  .msg.focus { outline:2px solid var(--noteline); }
+  .msg { cursor:pointer; }
+  #wo { width:380px; overflow:auto; border-left:1px solid var(--line); background:var(--panel); padding:12px; font-size:13px; }
+  #wo .tabs { display:flex; gap:4px; margin-bottom:8px; }
+  #wo .tabs button { flex:1; padding:4px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); cursor:pointer; }
+  #wo .tabs button.on { background:var(--sel); font-weight:600; }
+  #wo select { width:100%; margin-bottom:8px; }
+  #wo h4 { margin:4px 0; }
+  #wo .ex { border:1px solid var(--line); border-radius:8px; padding:6px 8px; margin-bottom:6px; }
+  #wo .ex b { display:block; }
+  #wo .cue { color:var(--mut); font-size:12px; }
+  #wo table { border-collapse:collapse; width:100%; margin-top:4px; font-size:12px; }
+  #wo td, #wo th { border-top:1px solid var(--line); padding:2px 4px; text-align:left; }
+  #wo th { color:var(--mut); font-weight:500; }
+  #wo .done { color:#16a34a; }
+  #wo .wnote { background:var(--note); border-radius:6px; padding:4px 8px; margin:4px 0; font-size:12px; }
+  @media (max-width: 1000px) { main { flex-direction:column; } #list { width:auto; max-height:25vh; border-right:0; border-bottom:1px solid var(--line); } #wo { width:auto; max-height:35vh; border-left:0; border-top:1px solid var(--line); } .user { margin-left:16px; } }
 </style>
 </head>
 <body>
@@ -57,9 +73,11 @@
 <main>
   <div id="list"></div>
   <div id="view"><div class="empty">Loading…</div></div>
+  <aside id="wo"></aside>
 </main>
 <script>
 let chats = [], shown = [], cur = -1, notes = {}, timer = null;
+let completed = [], focus = -1, woMode = 'planned', woPick = null;   // workout panel state
 const isWilo = n => /wilo|coaching_method|assign_workout|update_workout|recent_|exercise_|get_profile|update_profile|workout_schema|get_workout|todo/i.test(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const tools = c => c.messages.flatMap(m => (m.tool_calls || []).map(t => t.name));
@@ -71,6 +89,7 @@ async function boot() {
     const [t, n] = await Promise.all([fetch('traces.jsonl').then(r => r.text()), fetch('notes.json').then(r => r.json())]);
     chats = t.split('\n').filter(l => l.trim()).map(l => JSON.parse(l)).sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
     notes = n || {};
+    completed = await fetch('completed.json').then(r => r.ok ? r.json() : []).catch(() => []);
     render();
   } catch (e) {
     document.getElementById('view').innerHTML = `<div class="empty">Couldn't load (${esc(e.message)}). Run <code>python3 coaching-evals/serve.py</code> and open the URL it prints.</div>`;
@@ -119,11 +138,82 @@ function show(i) {
   v.innerHTML = `<div class="wrap"><h3 style="margin:0">${esc(c.title)}</h3>
     <div class="meta">${esc((c.updated_at || '').replace('T', ' ').slice(0, 16))} · ${esc(c.source || '')}${/^https?:/.test(c.url || '') ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">open in claude.ai</a>` : ''}<br>Tools: ${order}${c.note ? `<br>Claude's label: <b>${esc(c.label)}</b> [${esc((c.tags || []).join(', '))}] ${esc(c.note)}` : ''}</div>
     <div class="chatnote"><textarea id="chatNote" rows="4" placeholder="Your notes on this chat">${esc(n.chat || '')}</textarea></div>` +
-    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}"><div class="role"><span>${esc(m.role)} #${k}</span></div>${esc(m.content)}${
+    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}" data-mk="${k}"><div class="role"><span>${esc(m.role)} #${k}</span></div>${esc(m.content)}${
       (m.tool_calls || []).map(t => `<details><summary>${isWilo(t.name) ? `<span class="w">${esc(t.name)}</span>` : esc(t.name)}</summary><pre>${esc(JSON.stringify(t.args, null, 2))}</pre></details>`).join('')
     }</div>${m.role === 'assistant' ? msgNote(k, n.messages?.[k] || {}) : ''}`).join('') + '</div>';
   v.scrollTop = 0;
   document.querySelector('#list .sel')?.scrollIntoView({ block: 'nearest' });
+  woPick = null;
+  setFocus(c.messages.length - 1);
+}
+
+// ---- workout panel ---------------------------------------------------
+// Planned = the workout as the coach's assign/update calls left it up to the focused
+// message. Full exercises in Claude Code traces; the claude.ai export only kept a
+// one-line-per-exercise summary and notes ("same as draft").
+function planned(c, k) {
+  let w = null;
+  c.messages.slice(0, k + 1).forEach((m, j) => (m.tool_calls || []).forEach(t => {
+    const a = t.args?.workout;
+    if (!/assign_workout|update_workout/.test(t.name) || !a) return;
+    if (a.exercises || a.exercises_summary || !w) {
+      w = { id: a.id ?? w?.id, name: a.name ?? w?.name, assignedFor: a.assignedFor ?? w?.assignedFor,
+            exercises: a.exercises, summary: a.exercises_summary, notes: [] };
+    } else {
+      if (a.assignedFor) w.assignedFor = a.assignedFor;
+      if (a.name) w.name = a.name;
+    }
+    for (const [key, val] of Object.entries(a)) {
+      if (!['id', 'name', 'assignedFor', 'exercises', 'exercises_summary'].includes(key))
+        w.notes.push(`#${j} ${key}: ${typeof val === 'string' ? val : JSON.stringify(val)}`);
+    }
+    Object.assign(w, { at: j, tool: t.name.replace(/^wilo:/, ''), saved: t.args.write === true });
+  }));
+  return w;
+}
+
+// Completed: same workout id (first finish on/after its date); else one finished the same
+// day as the chat, closest in time (mid-workout chats finish after); else the last before.
+function completedFor(c, w) {
+  const same = completed.filter(x => w?.id && x.id === w.id);
+  if (same.length) return same.find(x => x.finishedAt >= (w.assignedFor || '')) || same.at(-1);
+  const at = Date.parse(c.updated_at), day = (c.updated_at || '').slice(0, 10);
+  const sameDay = completed.filter(x => (x.finishedAt || '').startsWith(day))
+    .sort((a, b) => Math.abs(Date.parse(a.finishedAt) - at) - Math.abs(Date.parse(b.finishedAt) - at));
+  return sameDay.at(0) || completed.filter(x => x.finishedAt <= (c.updated_at || '9')).at(-1) || null;
+}
+
+const exTable = (exs, showDone) => exs.map(ex => `<div class="ex"><b>${esc(ex.name)}</b>${ex.cue ? `<div class="cue">${esc(ex.cue)}</div>` : ''}${ex.note ? `<div class="cue">note: ${esc(ex.note)}</div>` : ''}
+  <table><tr><th>#</th><th>${ex.timed ? 'secs' : 'reps'}</th><th>lbs</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}${showDone ? '<th></th>' : ''}</tr>${
+    (ex.sets || []).map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.reps)}</td><td>${esc(s.lbs)}</td>${ex.custom_name ? `<td>${esc(s.custom ?? '')}</td>` : ''}${showDone ? `<td class="done">${s.done ? '✓' : ''}</td>` : ''}</tr>`).join('')
+  }</table></div>`).join('');
+
+function renderWo() {
+  const el = document.getElementById('wo'), c = shown[cur];
+  if (!c) { el.innerHTML = ''; return; }
+  const w = planned(c, focus), auto = completedFor(c, w);
+  const done = completed.find(x => x.docId === (woPick ?? auto?.docId));
+  const tabs = `<div class="tabs"><button data-mode="planned" class="${woMode === 'planned' ? 'on' : ''}">Planned @ #${focus}</button><button data-mode="completed" class="${woMode === 'completed' ? 'on' : ''}">Completed</button></div>`;
+  let body;
+  if (woMode === 'planned') {
+    body = !w ? '<div class="cue">No workout planned in this chat up to this message.</div>'
+      : `<h4>${esc(w.name || w.id || '(unnamed)')}</h4><div class="cue">${esc(w.id || '')} · for ${esc((w.assignedFor || '?').slice(0, 10))} · ${esc(w.tool)} #${w.at} · ${w.saved ? 'saved' : 'draft'}</div>` +
+        w.notes.map(n => `<div class="wnote">${esc(n)}</div>`).join('') +
+        (w.exercises ? exTable(w.exercises, false)
+          : w.summary ? `<ol>${w.summary.map(s => `<li>${esc(s)}</li>`).join('')}</ol><div class="cue">claude.ai export: summary only</div>`
+          : '<div class="cue">No exercise list in this call (see notes).</div>');
+  } else {
+    body = `<select id="woPick">${completed.slice().reverse().map(x => `<option value="${esc(x.docId)}" ${x === done ? 'selected' : ''}>${esc((x.finishedAt || '').slice(0, 16).replace('T', ' '))} · ${esc(x.name || x.id)}</option>`).join('')}</select>` +
+      (!done ? '<div class="cue">No completed workout matched.</div>'
+        : `<h4>${esc(done.name || done.id)}</h4><div class="cue">finished ${esc((done.finishedAt || '').slice(0, 16).replace('T', ' '))}${done === auto && woPick == null ? (w?.id === done.id ? ' · matched by id' : ' · matched by date') : ' · picked'}</div>` + exTable(done.exercises || [], true));
+  }
+  el.innerHTML = tabs + body;
+}
+
+function setFocus(k) {
+  focus = k;
+  document.querySelectorAll('.msg[data-mk]').forEach(d => d.classList.toggle('focus', +d.dataset.mk === k));
+  renderWo();
 }
 
 // Every assistant reply: two separate thumbs (coaching quality, tools/product), organic flag, note.
@@ -157,6 +247,18 @@ document.getElementById('view').addEventListener('click', e => {
   m[dim] = m[dim] === b.dataset.r ? undefined : b.dataset.r;   // tap again to clear
   b.parentElement.querySelectorAll(`button[data-dim="${dim}"]`).forEach(x => x.className = m[dim] === x.dataset.r ? 'on ' + x.dataset.r : '');
   save();
+});
+document.getElementById('view').addEventListener('click', e => {
+  if (e.target.closest('button, textarea, details, a')) return;
+  const m = e.target.closest('.msg[data-mk]');
+  if (m) setFocus(+m.dataset.mk);
+});
+document.getElementById('wo').addEventListener('click', e => {
+  const b = e.target.closest('button[data-mode]');
+  if (b) { woMode = b.dataset.mode; renderWo(); }
+});
+document.getElementById('wo').addEventListener('change', e => {
+  if (e.target.id === 'woPick') { woPick = e.target.value; renderWo(); }
 });
 document.addEventListener('keydown', e => {
   if (!e.altKey || !shown.length) return;
