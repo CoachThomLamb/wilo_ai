@@ -24,7 +24,7 @@
   .msg { margin:0 0 4px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; word-wrap:break-word; background:var(--panel); }
   .user { background:var(--user); margin-left:60px; }
   .role { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; }
-  .role button { font-size:11px; }
+  .role .when { text-transform:none; letter-spacing:0; }
   details { background:var(--tool); border-radius:6px; padding:4px 8px; margin:6px 0 0; white-space:normal; }
   summary { cursor:pointer; font-family:ui-monospace, monospace; font-size:12px; }
   pre { margin:6px 0 0; font-size:12px; white-space:pre-wrap; }
@@ -81,6 +81,8 @@ let completed = [], focus = -1, woMode = 'planned', woPick = null;   // workout 
 const isWilo = n => /wilo|coaching_method|assign_workout|update_workout|recent_|exercise_|get_profile|update_profile|workout_schema|get_workout|todo/i.test(n);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const tools = c => c.messages.flatMap(m => (m.tool_calls || []).map(t => t.name));
+// "Fri, Oct 9, 6:39 AM" in local time. Only Claude Code messages carry created_at; the claude.ai export has no per-message times.
+const when = iso => new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const noted = c => { const n = notes[c.id]; return n && (n.chat || Object.keys(n.messages || {}).length); };
 const status = (t, err) => { const s = document.getElementById('status'); s.textContent = t; s.className = err ? 'err' : 'mut'; };
 
@@ -138,7 +140,7 @@ function show(i) {
   v.innerHTML = `<div class="wrap"><h3 style="margin:0">${esc(c.title)}</h3>
     <div class="meta">${esc((c.updated_at || '').replace('T', ' ').slice(0, 16))} · ${esc(c.source || '')}${/^https?:/.test(c.url || '') ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">open in claude.ai</a>` : ''}<br>Tools: ${order}${c.note ? `<br>Claude's label: <b>${esc(c.label)}</b> [${esc((c.tags || []).join(', '))}] ${esc(c.note)}` : ''}</div>
     <div class="chatnote"><textarea id="chatNote" rows="4" placeholder="Your notes on this chat">${esc(n.chat || '')}</textarea></div>` +
-    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}" data-mk="${k}"><div class="role"><span>${esc(m.role)} #${k}</span></div>${esc(m.content)}${
+    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}" data-mk="${k}"><div class="role"><span>${esc(m.role)} #${k}</span>${m.created_at ? `<span class="when">${esc(when(m.created_at))}</span>` : ''}</div>${esc(m.content)}${
       (m.tool_calls || []).map(t => `<details><summary>${isWilo(t.name) ? `<span class="w">${esc(t.name)}</span>` : esc(t.name)}</summary><pre>${esc(JSON.stringify(t.args, null, 2))}</pre></details>`).join('')
     }</div>${m.role === 'assistant' ? msgNote(k, n.messages?.[k] || {}) : ''}`).join('') + '</div>';
   v.scrollTop = 0;
