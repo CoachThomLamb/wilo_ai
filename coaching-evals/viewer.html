@@ -31,8 +31,14 @@
   .w { color:var(--wilo); background:var(--wilobg); border-radius:4px; padding:0 4px; font-family:ui-monospace, monospace; }
   textarea { width:100%; font:inherit; padding:8px; border:1px solid var(--noteline); border-radius:6px; background:var(--note); color:var(--fg); resize:vertical; }
   .chatnote { margin-bottom:16px; }
-  .msgnote { margin:0 0 12px; }
-  .user + .msgnote { margin-left:60px; }
+  .msgnote { margin:0 0 14px; display:flex; gap:8px; align-items:flex-start; }
+  .msgnote textarea { flex:1; }
+  .rate { display:flex; flex-direction:column; gap:4px; }
+  .rate button { font-size:16px; padding:2px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); cursor:pointer; opacity:.45; }
+  .rate button.on { opacity:1; }
+  .rate button.on.up { border-color:#16a34a; background:#dcfce7; }
+  .rate button.on.down { border-color:#dc2626; background:#fee2e2; }
+  .msg + .msg { margin-top:10px; }
   .empty { color:var(--mut); padding:40px; text-align:center; }
   #status.err { color:#b91c1c; }
   @media (max-width: 700px) { main { flex-direction:column; } #list { width:auto; max-height:35vh; border-right:0; border-bottom:1px solid var(--line); } .user, .user + .msgnote { margin-left:16px; } }
@@ -75,7 +81,7 @@ function save() {
   status('…');
   timer = setTimeout(async () => {
     for (const [id, n] of Object.entries(notes)) {
-      for (const k of Object.keys(n.messages || {})) if (!n.messages[k].trim()) delete n.messages[k];
+      for (const [k, m] of Object.entries(n.messages || {})) if (!m.rating && !m.note?.trim()) delete n.messages[k];
       if (!n.chat?.trim() && !Object.keys(n.messages || {}).length) delete notes[id];
     }
     try {
@@ -111,31 +117,35 @@ function show(i) {
   v.innerHTML = `<div class="wrap"><h3 style="margin:0">${esc(c.title)}</h3>
     <div class="meta">${esc((c.updated_at || '').replace('T', ' ').slice(0, 16))} · ${esc(c.source || '')}${/^https?:/.test(c.url || '') ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">open in claude.ai</a>` : ''}<br>Tools: ${order}${c.note ? `<br>Claude's label: <b>${esc(c.label)}</b> [${esc((c.tags || []).join(', '))}] ${esc(c.note)}` : ''}</div>
     <div class="chatnote"><textarea id="chatNote" rows="4" placeholder="Your notes on this chat">${esc(n.chat || '')}</textarea></div>` +
-    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}"><div class="role"><span>${esc(m.role)} #${k}</span><button data-k="${k}">${n.messages?.[k] ? 'note ✎' : '+ note'}</button></div>${esc(m.content)}${
+    c.messages.map((m, k) => `<div class="msg ${esc(m.role)}"><div class="role"><span>${esc(m.role)} #${k}</span></div>${esc(m.content)}${
       (m.tool_calls || []).map(t => `<details><summary>${isWilo(t.name) ? `<span class="w">${esc(t.name)}</span>` : esc(t.name)}</summary><pre>${esc(JSON.stringify(t.args, null, 2))}</pre></details>`).join('')
-    }</div>${n.messages?.[k] ? msgNote(k, n.messages[k]) : ''}`).join('') + '</div>';
+    }</div>${m.role === 'assistant' ? msgNote(k, n.messages?.[k] || {}) : ''}`).join('') + '</div>';
   v.scrollTop = 0;
   document.querySelector('#list .sel')?.scrollIntoView({ block: 'nearest' });
 }
 
-const msgNote = (k, text) => `<div class="msgnote"><textarea data-k="${k}" rows="2" placeholder="Note on message #${k}">${esc(text)}</textarea></div>`;
+// Every assistant reply: thumbs up/down + an always-open note.
+const msgNote = (k, m) => `<div class="msgnote"><div class="rate">${
+  ['up', 'down'].map(r => `<button data-k="${k}" data-r="${r}" class="${m.rating === r ? 'on ' + r : ''}">${r === 'up' ? '👍' : '👎'}</button>`).join('')
+}</div><textarea data-k="${k}" rows="2" placeholder="Note on reply #${k}">${esc(m.note || '')}</textarea></div>`;
+const msgEntry = k => { const n = entry(); n.messages ||= {}; return (n.messages[k] ||= {}); };
 const entry = () => (notes[shown[cur].id] ||= { chat: '', messages: {} });
 
 document.getElementById('onlyCoaching').onchange = render;
 document.getElementById('list').onclick = e => { const d = e.target.closest('div[data-i]'); if (d) show(+d.dataset.i); };
 document.getElementById('view').addEventListener('input', e => {
   if (e.target.id === 'chatNote') entry().chat = e.target.value;
-  else if (e.target.dataset.k) { const n = entry(); (n.messages ||= {})[e.target.dataset.k] = e.target.value; }
+  else if (e.target.dataset.k) msgEntry(e.target.dataset.k).note = e.target.value;
   else return;
   save();
 });
 document.getElementById('view').addEventListener('click', e => {
-  const b = e.target.closest('button[data-k]');
+  const b = e.target.closest('button[data-r]');
   if (!b) return;
-  const box = b.closest('.msg').nextElementSibling;
-  if (box?.classList.contains('msgnote')) { box.querySelector('textarea').focus(); return; }
-  b.closest('.msg').insertAdjacentHTML('afterend', msgNote(b.dataset.k, ''));
-  b.closest('.msg').nextElementSibling.querySelector('textarea').focus();
+  const m = msgEntry(b.dataset.k);
+  m.rating = m.rating === b.dataset.r ? null : b.dataset.r;   // tap again to clear
+  b.parentElement.querySelectorAll('button').forEach(x => x.className = m.rating === x.dataset.r ? 'on ' + x.dataset.r : '');
+  save();
 });
 document.addEventListener('keydown', e => {
   if (!e.altKey || !shown.length) return;
