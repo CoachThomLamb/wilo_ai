@@ -1,7 +1,26 @@
 {
+  "0d18afcd-0e9c-499a-a725-0270a7e3a911": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "we are rebuilding something that should be more established. Also this method of asking me a lot of questions is really non-conducive for getting someone to go to the fucking gym. It should be more like lets get there and I got it you just worry about showing up. ",
+        "organic": true,
+        "tools": "up"
+      }
+    }
+  },
   "126c5c9a-5847-4156-a6a4-f2e2e811b96b#0": {
     "chat": "test not real coaching",
     "messages": {}
+  },
+  "15e1bf74-b010-420e-ba39-26875e033cff": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "up"
+      }
+    }
   },
   "27adacb4-849a-423f-bd1e-7c347dad6016#0": {
     "chat": "",
@@ -39,6 +58,16 @@
         "coaching": "up",
         "note": "Things you did well - built a great workout, met the client request, used the hevy data (great, but not repeatable) - and I think its great you are explaining to me the details of how things are working behind the scenes, but real users arent going to care - maybe at some point we need to log judgement somewhere as a form of logging. ",
         "organic": true
+      }
+    }
+  },
+  "28d914ce-abd3-473e-94ab-7b9965e76dc4": {
+    "chat": "",
+    "messages": {
+      "3": {
+        "coaching": "down",
+        "note": "too many fucking questions - in execution phase its short - limited options - the coach is driving its not a multiple choice test. people need to be told what to do confidently ",
+        "tools": "up"
       }
     }
   },
@@ -105,6 +134,16 @@
       "9": {
         "organic": true,
         "tools": "down"
+      }
+    }
+  },
+  "d4a19c3e-6af7-45b7-adfb-8f9becd49032": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "again way to much info, there should be .... well in fairness like planning is fine but we want to separate execution from planning, and there shouldn't be that much need for planning by the human once we have a decent baseline. Like you have all my hevy workouts right - and at this point we should talk once in a while about the plan but mostly just get me into the gym and provide me with the happy path to track and the small wins should come organically ",
+        "tools": "up"
       }
     }
   },
