@@ -1,6 +1,6 @@
 # 2026-10-21: mid-workout merge works, docs refreshed, Lijon gate
 
-Follows `2026-10-21-export-merge-key-scare-midworkout-flow.md` (on the `coaching-evals` branch, PR #94).
+Follows `2026-10-21-export-merge-key-scare-midworkout-flow.md`.
 
 ## Decisions and why
 - **Mission-critical before Lijon: only #77** (new-user test end to end: a new Google account can sign in, connect the coach, plan → log → Finish, and sees none of Thom's data). Everything else (de-"Thom" the tool descriptions, setup message, consent, backups) is nice to have. Precondition outside our code: Lijon's Claude plan must allow custom connectors.
@@ -14,15 +14,15 @@ Follows `2026-10-21-export-merge-key-scare-midworkout-flow.md` (on the `coaching
 - Board: #77 and #68 in Now (with #89, #93).
 
 ## Where it stopped
-- **#95 ready to merge** (Thom's call). Merge deploys the tracker and, via Render, the new tool descriptions (`recent_completed` explains `inProgress`; `update_workout` says how to change a workout mid-session). Optional before merge: two doc lines in the connector guide / infra doc about `inProgress` and merge on Load.
-- Open PRs: #94 coaching evals (commit `notes.json` again before merging), #97 docs refresh, #88 instructions.
+- **Merged 2026-10-21:** #95 (live tracker + new tool descriptions on Render), #94 (coaching evals), #97 (docs refresh). Still open: #88 (instructions).
+- Docs don't yet describe `inProgress` / merge on Load (two lines in the connector guide and infra doc).
 - Still pending: stray completed copies of `back-tri-pump-oct-10` (`fqox`, `au2t`, `ae49`) to delete, then re-pull `coaching-evals/completed.json`; Hevy CSV location (paper baseline).
 
 ## Next
-1. Merge #95 (+ docs lines), then #97 and #94.
+1. Add the `inProgress` / merge-on-Load lines to the docs; decide on #88.
 2. **#77 new-user test** with a second Google account. Then onboard Lijon.
 3. Nice to have before Lijon: tool descriptions say "the user", not "Thom" (`wilo/mcp_server.py` INSTRUCTIONS and docstrings).
 
 ## PRs and issues
-- #95: save as you go + merge mid-workout plan changes (closes #68), tested.
-- #97: docs refresh. #96: change log (Backlog). #77: new-user test (Now).
+- #95: save as you go + merge mid-workout plan changes (closes #68), tested, merged.
+- #97: docs refresh, merged. #94: coaching evals, merged. #96: change log (Backlog). #77: new-user test (Now).
