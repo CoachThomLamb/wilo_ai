@@ -1,6 +1,13 @@
 # Connector sign-in design (#31 step C, option B)
 
-**Status:** design, not built. Written 2026-10-07 from Claude's connector docs (research on #31) and the installed MCP Python SDK (v2.3). Items marked **verify** are assumptions to check while building.
+**Status:** **built (#39) and live** at `https://wilo-connector.onrender.com/mcp` since 2026-10-09. This is the original design (2026-10-07), kept for its reasoning. **How sign-in works now:** [`mcp-server-and-connector-guide.md`](mcp-server-and-connector-guide.md#sign-in-oauth-in-one-picture). The **verify** items were checked while building; the answers are in that guide.
+
+**What changed from this design (2026-10-21):**
+- The server is `wilo/mcp_server.py` (+ `wilo/auth.py`, `wilo/login.html`), not `mcp/server.py`.
+- Storage is top-level `oauth_clients`, `oauth_pending`, `oauth_codes`, `oauth_access`, `oauth_refresh`, not `oauth/…`. Access and refresh tokens are revoked as a pair.
+- Hosting is **Render** with a `wilo-connector` service-account key, not Cloud Run: Google billing wouldn't take the card. No Firebase Hosting rewrites; the connector has its own host, added to Firebase Auth's authorized domains.
+- The Firestore rules deny `oauth_*` to browsers (locked 2026-10-12, #69).
+- Revocation needed a workaround for an SDK bug (python-sdk #3508), see the guide.
 
 ## Goal
 Thom (and later others) adds WILO as a custom connector in Claude, clicks **Connect**, signs in with the same Google account as the tracker, and from then on the tools act only on **his** `users/{uid}`: `current_uid()` comes from the signed-in token, not from `config/wilo.json`.

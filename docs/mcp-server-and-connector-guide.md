@@ -4,8 +4,8 @@ Read this before debugging or extending `wilo/` (the workout data engine, the MC
 
 ## What it is
 WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `users/{uid}/completed` (done). This package lets Claude read and write them:
-- **Locally:** Claude Code runs the MCP server over stdio (`wilo` in `/mcp`). Works today, including from the phone via `/rc` (Remote Control) while the laptop is on.
-- **Remotely (live since 2026-10-09, #31):** the same server over HTTPS with OAuth sign-in at **`https://wilo-connector.onrender.com/mcp`** (Render, free tier), added in claude.ai as a custom connector, so it's usable from the Claude app without the laptop.
+- **The connector (live since 2026-10-09, #31):** the server over HTTPS with OAuth sign-in at **`https://wilo-connector.onrender.com/mcp`** (Render, free tier), added in claude.ai as a custom connector. It's the **one path to the data** for every user and for Claude Code sessions too (#87).
+- **Locally (stdio):** the same server over stdio still works and the tests use it. As a Claude Code entry (`wilo` in `/mcp`) it's being removed (#87): it runs the checked-out branch with the admin key, so it can differ from what users get.
 
 ## Files
 | File | Role |
@@ -23,7 +23,7 @@ WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `us
 ## Rules that must hold
 - **Whose data is decided by code, never by Claude.** Every `data.py` function takes `uid` explicitly. Only two places choose it: the CLI's `main()` (config) and `current_uid()` in the server. **`uid` is never a tool argument.**
 - **`current_uid()`:** with sign-in on (`AUTH = True`), it's the access token's `subject`; no token → `PermissionError`. **Never fall back to the config uid when `AUTH` is on.** With sign-in off (stdio, plain `--http`), it's the config uid.
-- **Writes are dry runs by default.** `assign_workout` and `update_workout` (and the CLI's `assign` / `update`) write only with `write=True` / `--write`. The server instructions tell Claude to show Thom the dry run and write only after he approves.
+- **Writes are dry runs by default.** `assign_workout` and `update_workout` (and the CLI's `assign` / `update`) write only with `write=True` / `--write`. The server instructions and tool descriptions tell Claude to show the user the dry run and write only after they approve.
 - **Bind to `127.0.0.1` only, unless hosted behind HTTPS with sign-in.** The only way to listen publicly (`0.0.0.0`) is `--public-url https://…`, which requires `--auth`.
 - **Secrets are never stored in plain text:** codes, tokens and pending sign-in IDs are stored only as sha256 hashes.
 
@@ -38,9 +38,9 @@ Schema = what a workout means to a human, not a contract with the tracker's inte
 ## Run it
 ```bash
 .venv/bin/pip install -e .                                   # once; editable install
-.venv/bin/python -m unittest discover tests -v               # 70 tests, no Firestore
+.venv/bin/python -m unittest discover tests -v               # 88 tests, no Firestore
 .venv/bin/python -m wilo.data history bench                  # CLI (real data, read-only)
-claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server   # stdio entry
+.venv/bin/python -m wilo.mcp_server                           # stdio (tests; no longer a Claude Code entry, #87)
 .venv/bin/python -m wilo.mcp_server --http [--port N]         # HTTP, no sign-in (localhost)
 .venv/bin/python -m wilo.mcp_server --http --auth [--port N]  # HTTP with sign-in (localhost)
 .venv/bin/python -m wilo.mcp_server --http --auth --public-url https://…   # hosted: public issuer, 0.0.0.0:$PORT
@@ -74,10 +74,14 @@ Render deploy: `POST /mcp` → `401` with `resource_metadata` on `https://wilo-c
 ## Tests (`tests/`)
 | File | Covers |
 |---|---|
-| `test_wilo_data.py` | Schema (3), assign (5), name matching (2), history/names (3), update (3), two-user isolation (3), todos (7), profile (6). Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
-| `test_mcp_server.py` | The 15 tools through the MCP layer (14): no tool takes a uid, dry-run defaults, per-user reads and writes |
-| `test_auth.py` | The provider (19): full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
-| `test_signin_http.py` | The OAuth flow over HTTP in-process with `TestClient` (15, incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on (1) |
+88 tests on 2026-10-21:
+
+| File | Tests | Covers |
+|---|---|---|
+| `test_wilo_data.py` | 34 | Schema, assign, name matching, history/names, update, two-user isolation, todos, profile. Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
+| `test_mcp_server.py` | 14 | The 15 tools through the MCP layer: no tool takes a uid, dry-run defaults, per-user reads and writes |
+| `test_auth.py` | 19 | The provider: full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
+| `test_signin_http.py` | 21 | The OAuth flow over HTTP in-process with `TestClient` (incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on |
 
 Practice: after adding a guard, **break it on purpose and check a test fails**, then restore it (done for dry-run defaults, `current_uid()`, the `global` in `main()` and `validate_token_resource`).
 
@@ -92,7 +96,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **Ports:** an old test server can hold a port (`ss -ltnp | grep :8000`). Use another `--port`; the issuer follows the port.
 - **Don't name a folder after a dependency:** the old `mcp/` folder shadowed the `mcp` SDK. That's why everything lives in `wilo/`.
 - **Stacked PRs:** retarget the next PR to `main` right after its base merges, or it merges into the old branch (#37 had to be re-landed as #42).
-- **Tracker quirks (#29):** the tracker ignores `timed` (it reads `target.duration_sec`), and Load opens the **newest** `assignedFor`, so post one workout at a time until #29 is done.
+- **Tracker quirks:** the tracker infers timed exercises from `target.duration_sec` and ignores the schema's `timed` (#85). Load opens the **earliest unfinished** assigned workout (#90), so a stale or skipped plan comes first: delete or finish old plans (#53).
 
 ## Container and hosting (#43)
 - **Image:** `Dockerfile` + `.dockerignore` (an **allowlist**: only `pyproject.toml`, `wilo/`, `config/`, `schema/`, so keys and data can't be copied in). Runs as non-root `app`. `CMD` = `--http --auth --public-url "$PUBLIC_URL"`, so it fails fast if `PUBLIC_URL` is unset or not https.
@@ -118,7 +122,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
   curl -i -X POST https://wilo-connector.onrender.com/mcp -d '{}'                     # 401, resource_metadata on the same host
   curl https://wilo-connector.onrender.com/.well-known/oauth-authorization-server     # every endpoint on the same host
   ```
-- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → 8 tools listed. Suggested permissions: read tools always allowed, `assign_workout` / `update_workout` / `update_profile` need approval.
+- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → the tools listed (8 on 2026-10-09, 15 today). Suggested permissions: read tools always allowed, `assign_workout` / `update_workout` / `update_profile` need approval.
 
 ### Alternative: Cloud Run (if billing gets a card that works)
 ```bash
@@ -129,9 +133,11 @@ gcloud run deploy wilo-connector --source . --region northamerica-northeast2 --a
 No key file is needed there (application default credentials), the cost is ~$0, and the cold start is seconds. `--allow-unauthenticated` is required because our OAuth does the protecting. Moving means a new URL, so everyone has to re-add the connector.
 
 ## What's next
-- **Before anyone else connects:** lock the open top-level Firestore collections (#15 step 4).
-- **Instructions out of code (#40):** move `INSTRUCTIONS` and the tool docstrings (which Claude reads as tool descriptions) into one file.
+- **One path to the data (#87):** remove the local stdio entry from Claude Code; sessions use the connector.
+- **New users:** the tool descriptions and server `INSTRUCTIONS` still say "Thom" in places; make them about "the user" before the second user connects. Run the new-user test (#77).
+- **Change log (#96):** record each tool call and workout change (who, when, field diffs).
+- **CI (#46), infra as code (#50).**
 - Open questions: scopes (one `workouts` for now), token lifetimes, a "connected to Claude" control in the tracker to revoke access.
 
 ## Where the history is
-#32, #34 data engine (closed #19) · #35 MCP server + `wilo` package · #36 per-user uid · #37 → #42 tool tests + HTTP · #38 principles + sign-in design · #39 sign-in · #44 hostable (`--public-url`, `Dockerfile`) · issues #46 (CI for the Python tests), #31 (build plan + Claude connector research), #40, #29, #30, #15, #14.
+#32, #34 data engine (closed #19) · #35 MCP server + `wilo` package · #36 per-user uid · #37 → #42 tool tests + HTTP · #38 principles + sign-in design · #39 sign-in · #44 hostable (`--public-url`, `Dockerfile`) · #69 rules lock · #72, #76 coach tool + profile (#48) · #73 todos · #91 tracker loads the next unfinished workout · issues #46 (CI for the Python tests), #31 (build plan + Claude connector research), #87, #29, #30, #15, #14.
