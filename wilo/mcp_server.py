@@ -84,7 +84,9 @@ def workout_schema() -> dict[str, Any]:
 
 
 def recent_completed(limit: int = 5) -> dict[str, Any]:
-    """Thom's most recent completed workouts, newest first, with every set (lbs, reps, done, custom)."""
+    """The user's most recent completed workouts, newest first, with every set (lbs, reps, done, custom).
+    inProgress: true = still going: the tracker saves as you go, so its done sets are what's
+    logged so far; Finish sets inProgress to false."""
     return {'workouts': wilo_data.recent(db(), current_uid(), 'completed', limit)}
 
 
@@ -122,6 +124,8 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
                    write: bool = False) -> dict[str, Any]:
     """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
     field changes. Refuses missing docs and id changes. Dry run unless write=True.
+    Mid-workout change: update the same assigned workout with the new plan (planned sets, no done
+    flags); when the user taps Load, the tracker keeps their logged sets and takes the rest from it.
     Follow coaching_method when planning."""
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
 
