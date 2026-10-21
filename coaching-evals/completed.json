@@ -1,0 +1,4938 @@
+[
+  {
+    "docId": "24-sep-10:31-legs-",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Direxrion",
+        "sets": [
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull "
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull "
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          }
+        ],
+        "cue": "",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex1-5mbe6",
+        "exId": "dragging",
+        "swapped": false,
+        "note": "",
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 30,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 30,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 70,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 70,
+            "custom": null
+          }
+        ],
+        "cue": "",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex2-nd2rk",
+        "exId": "single-leg-curls-seated-",
+        "swapped": false,
+        "note": "",
+        "name": "single leg curls seated "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 25,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          }
+        ],
+        "cue": "",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex3-x9ki4",
+        "exId": "calf-raise-seated",
+        "swapped": false,
+        "note": "",
+        "name": "calf raise seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Risers",
+        "sets": [
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 0,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 0,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "4"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "4"
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "5"
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 35,
+            "custom": "5"
+          }
+        ],
+        "cue": "Right ham got twinged ",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex4-cx20l",
+        "exId": "step-up",
+        "swapped": false,
+        "note": "",
+        "name": "step up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 3,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 3,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 3,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 3,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex5-ikbp2",
+        "exId": "crane-plane",
+        "swapped": false,
+        "note": "",
+        "name": "crane-plane"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 90,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 90,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 180,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 180,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 180,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 180,
+            "custom": null
+          }
+        ],
+        "cue": "Bailed bc leg was weird ",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex6-8q2g9",
+        "exId": "one-leg-press",
+        "swapped": false,
+        "note": "",
+        "name": "one leg press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Just hold a lunge stretch for time twice on each side",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex7-rks4d",
+        "exId": "lunge-stretch",
+        "swapped": false,
+        "note": "",
+        "name": "lunge stretch"
+      }
+    ],
+    "finishedAt": "2026-09-23T23:00:00.000Z",
+    "name": "legs-sept-23",
+    "id": "prog_1790181708707"
+  },
+  {
+    "docId": "24-sep-21:17-shoul",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Direxrion",
+        "sets": [
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          }
+        ],
+        "cue": "Repeat yesterday's pattern: 4x Pull, 2x Drag @ 135, then 2x 90 (optional).",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex1-pqpdr",
+        "exId": "dragging",
+        "swapped": false,
+        "note": "",
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Done instead of lat pulldown. ~30s each, in the squat rack with feet up on a bench. Helped open up the shoulder before pressing.",
+        "original": null,
+        "timed": true,
+        "instanceId": "ex2-akk6d",
+        "exId": "dead-hang",
+        "swapped": true,
+        "note": "",
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "Protract and push, don't row. | Helped open up the shoulder before pressing.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex3-x0mj9",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "note": "",
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "Shoulders down and back, elbows straight, slow.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex4-cx7oq",
+        "exId": "scapular-pull-up",
+        "swapped": false,
+        "note": "",
+        "name": "Scapular pull-up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 8,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 8,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 8,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "If the top 10% resists, drop to 50% ROM + 1-sec hold. Stop at pain, log it, retry next session. Fallback: Smith OHP — 50% ROM + 1s hold, 3×8. | Skipped: did landmine press instead.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex5-bltg4",
+        "exId": "smith-overhead-press",
+        "swapped": false,
+        "note": "",
+        "name": "Smith overhead press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 45,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 45,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 45,
+            "custom": null
+          }
+        ],
+        "cue": "Standing, one arm at a time, empty bar (45 lb assumed). First pain-free loaded full-range press in years.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex6-3k9ld",
+        "exId": "landmine-press",
+        "swapped": false,
+        "note": "",
+        "name": "Landmine press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 20,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 20,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 20,
+            "custom": null
+          }
+        ],
+        "cue": "10 lb per side, 10-15 reps per set. No pain.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex12-smp01",
+        "exId": "seated-shoulder-press-machine",
+        "swapped": false,
+        "note": "",
+        "name": "Seated shoulder press machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 48,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 55,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 65,
+            "custom": null
+          }
+        ],
+        "cue": "Elbows locked at sides, strict form.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex7-criq5",
+        "exId": "barbell-curl",
+        "swapped": false,
+        "note": "",
+        "name": "Barbell curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 60,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 60,
+            "custom": null
+          }
+        ],
+        "cue": "Pump it out. Light weight, high reps.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex9-3uzv7",
+        "exId": "machine-curl",
+        "swapped": false,
+        "note": "",
+        "name": "Machine curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 68,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 65,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Full extension, elbows locked at sides.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex10-yurkw",
+        "exId": "tricep-rope-pushdown",
+        "swapped": false,
+        "note": "",
+        "name": "Tricep rope pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Controlled, feel the stretch at the bottom.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex11-4pskl",
+        "exId": "overhead-tricep-extension",
+        "swapped": false,
+        "note": "",
+        "name": "Overhead tricep extension"
+      }
+    ],
+    "finishedAt": "2026-09-24T21:17:20.465Z",
+    "name": "Shoulder rotation + lower",
+    "id": "prog_1790282664425"
+  },
+  {
+    "docId": "27-sep-15:26-legs-",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Direxrion",
+        "sets": [
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pul"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 1,
+            "lbs": 90,
+            "custom": null
+          }
+        ],
+        "cue": "Default start: 4x Pull, 2x Drag @ 135, then 2x 90 (optional).",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex1-9o3ie",
+        "exId": "dragging",
+        "swapped": false,
+        "note": "",
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "~30s each. Squat rack, feet up on a bench. Opens the shoulder.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex2-3ss52",
+        "exId": "dead-hang",
+        "swapped": false,
+        "note": "",
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 8,
+            "lbs": 50,
+            "custom": null
+          }
+        ],
+        "cue": "Each side. +20 today. Stop if the right ham pulls.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex3-km2xv",
+        "exId": "single-leg-curls-seated",
+        "swapped": false,
+        "note": "",
+        "name": "single leg curls seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 38,
+            "lbs": 115,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 45,
+            "lbs": 115,
+            "custom": null
+          }
+        ],
+        "cue": "Isometrics. Reps are seconds held. ",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex4-551xs",
+        "exId": "leg-extension",
+        "swapped": false,
+        "note": "",
+        "name": "Leg extension"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Risers",
+        "sets": [
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 0,
+            "custom": "3"
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 45,
+            "custom": "3"
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 45,
+            "custom": "3"
+          },
+          {
+            "done": false,
+            "reps": 6,
+            "lbs": 45,
+            "custom": "3"
+          }
+        ],
+        "cue": "Each side. 45 today. Stop at any twinge.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex5-unimw",
+        "exId": "step-up",
+        "swapped": false,
+        "note": "",
+        "name": "step up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Each side. Start light, add weight if it feels good. Stop if the leg feels weird like last time.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex10-f86ut",
+        "exId": "one-leg-press",
+        "swapped": false,
+        "note": "",
+        "name": "one leg press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 25,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 55,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 55,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 12,
+            "lbs": 55,
+            "custom": null
+          }
+        ],
+        "cue": "Up from 50.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex6-625zv",
+        "exId": "calf-raise-seated",
+        "swapped": false,
+        "note": "",
+        "name": "calf raise seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 4,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 4,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 4,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 4,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "Up from 4x3.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex7-ejbh4",
+        "exId": "crane-plane",
+        "swapped": false,
+        "note": "",
+        "name": "crane-plane"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Hold for time, 2x each side.",
+        "original": null,
+        "timed": false,
+        "instanceId": "ex8-7l4s5",
+        "exId": "lunge-stretch",
+        "swapped": false,
+        "note": "",
+        "name": "lunge stretch"
+      }
+    ],
+    "finishedAt": "2026-09-27T15:26:32.764Z",
+    "name": "legs-sept-26",
+    "id": "prog_1790364973479"
+  },
+  {
+    "docId": "30-sep-18:10-legs--a2aa",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Warm-up and hamstring stretch. Light, controlled swing, squeeze glutes at the top.",
+        "timed": false,
+        "instanceId": "ex9-azlry",
+        "exId": "back-hyper",
+        "swapped": false,
+        "name": "Back hyper "
+      },
+      {
+        "fallback": null,
+        "custom_name": "Height",
+        "sets": [
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 0,
+            "custom": "6"
+          },
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 0,
+            "custom": "6"
+          },
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 0,
+            "custom": "6"
+          },
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 0,
+            "custom": "6"
+          }
+        ],
+        "cue": "Activation. Slow, balance on the standing leg, feel the glute.",
+        "timed": false,
+        "instanceId": "ex3-gsbm6",
+        "exId": "crane-plane",
+        "swapped": false,
+        "name": "crane-plane"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Risers",
+        "sets": [
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 0,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 0,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 22,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 22,
+            "custom": "3"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 22,
+            "custom": "4"
+          },
+          {
+            "done": true,
+            "reps": 6,
+            "lbs": 22,
+            "custom": "4"
+          }
+        ],
+        "cue": "Each side. Drive through the heel, glute does the work. Only add weight if the bodyweight sets feel clean. Stop at any tightness.",
+        "timed": false,
+        "instanceId": "ex4-pb954",
+        "exId": "step-up",
+        "swapped": false,
+        "name": "step up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 30,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 45,
+            "lbs": 115,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 45,
+            "lbs": 115,
+            "custom": null
+          }
+        ],
+        "cue": "Isometric holds. Reps are seconds held. Last time: 115 for 38s and 45s.",
+        "timed": false,
+        "instanceId": "ex5-1yq0r",
+        "exId": "leg-extension",
+        "swapped": false,
+        "name": "Leg extension"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 50,
+            "custom": null
+          }
+        ],
+        "cue": "Each side. Hold at 50 like last time.",
+        "timed": false,
+        "instanceId": "ex6-s5pj9",
+        "exId": "single-leg-curls-seated",
+        "swapped": false,
+        "name": "single leg curls seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 25,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 12,
+            "lbs": 50,
+            "custom": null
+          }
+        ],
+        "cue": "Same as Sept 23.",
+        "timed": false,
+        "instanceId": "ex7-bs2fq",
+        "exId": "calf-raise-seated",
+        "swapped": false,
+        "name": "calf raise seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": "",
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "Hold for time, 2x each side.",
+        "timed": false,
+        "instanceId": "ex8-6ehd7",
+        "exId": "lunge-stretch",
+        "swapped": false,
+        "name": "lunge stretch"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Direxrion",
+        "sets": [
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Pull"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 135,
+            "custom": "Drag"
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 90,
+            "custom": "Pull "
+          },
+          {
+            "done": true,
+            "reps": 1,
+            "lbs": 90,
+            "custom": "Pull"
+          }
+        ],
+        "cue": "Finisher today. 4x Pull, 2x Drag @ 135, then 2x 90 (optional). Back off if the hernia complains.",
+        "timed": false,
+        "instanceId": "ex1-zgj32",
+        "exId": "dragging",
+        "swapped": false,
+        "name": "Dragging"
+      }
+    ],
+    "finishedAt": "2026-09-30T22:10:00.718Z",
+    "name": "legs-sept-30",
+    "id": "prog_1790792738869"
+  },
+  {
+    "docId": "01-oct-18:36-shoul-a0g2",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 45,
+            "lbs": "",
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 45,
+            "lbs": "",
+            "custom": null
+          }
+        ],
+        "cue": "~45s each. Squat rack, feet up on a bench. Opens the shoulder.",
+        "timed": false,
+        "instanceId": "ex1-vjkrx",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "In the squat rack. Protract and push, don't row.",
+        "timed": false,
+        "instanceId": "ex2-dvms7",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 5,
+            "lbs": 110,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 5,
+            "lbs": 110,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 5,
+            "lbs": 110,
+            "custom": null
+          }
+        ],
+        "cue": "Hi note. Fix this fucking text block. ",
+        "timed": false,
+        "instanceId": "ex3-7997w",
+        "exId": "2-stage-pull-down-",
+        "swapped": false,
+        "name": "2 stage pull down. "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 15,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 15,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 15,
+            "custom": null
+          }
+        ],
+        "cue": "Strict, full stretch at the bottom.",
+        "timed": false,
+        "instanceId": "ex4-e16mn",
+        "exId": "decline-curl",
+        "swapped": false,
+        "name": "Decline curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 135,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 14,
+            "lbs": 135,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 155,
+            "custom": null
+          }
+        ],
+        "cue": "Full range only if pain-free. Don't strain against the hernia.",
+        "timed": false,
+        "instanceId": "ex5-cabry",
+        "exId": "bench-press",
+        "swapped": false,
+        "name": "Bench press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "Each side. Up from 20 (you did 15 and 21 reps). Elbow under the line of push.",
+        "timed": false,
+        "instanceId": "ex7-6p2fl",
+        "exId": "pushups-",
+        "swapped": false,
+        "name": "Pushups "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 10,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 10,
+            "custom": null
+          },
+          {
+            "done": true,
+            "reps": 4,
+            "lbs": 10,
+            "custom": null
+          }
+        ],
+        "cue": "Ouch. But like good ouch. ",
+        "timed": false,
+        "instanceId": "ex8-84tub",
+        "exId": "one-armover-head-dbell-press-",
+        "swapped": false,
+        "name": "One armOver head dbell press "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          },
+          {
+            "done": false,
+            "reps": 10,
+            "lbs": 0,
+            "custom": null
+          }
+        ],
+        "cue": "Slow, no swinging. Stop if the hernia bulges or aches; switch to lying bent-knee raises if hanging is too much.",
+        "timed": false,
+        "instanceId": "ex11-1j4zg",
+        "exId": "leg-raise",
+        "swapped": false,
+        "name": "Leg raise"
+      }
+    ],
+    "finishedAt": "2026-10-01T22:36:28.989Z",
+    "name": "shoulders-oct-1",
+    "id": "prog_1790884875582"
+  },
+  {
+    "docId": "05-oct-09:22-shoul-75m0",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "~45s each. Squat rack, feet up on a bench. Opens the shoulder.",
+        "timed": false,
+        "instanceId": "ex1-vjkrx",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "In the squat rack. Protract and push, don't row.",
+        "timed": false,
+        "instanceId": "ex2-dvms7",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "In the squat rack. Shoulders down and back, elbows straight, slow.",
+        "timed": false,
+        "instanceId": "ex3-7997w",
+        "exId": "scapular-pull-up",
+        "swapped": false,
+        "name": "Scapular pull-up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          }
+        ],
+        "cue": "Each side. Up from 20 (you did 15 and 21 reps). Elbow under the line of push.",
+        "timed": false,
+        "instanceId": "ex7-6p2fl",
+        "exId": "hammer-seated-shoulder-press",
+        "swapped": false,
+        "name": "Hammer seated shoulder press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          }
+        ],
+        "cue": "Each side. Hip to overhead on the diagonal, thumb leading. Light.",
+        "timed": false,
+        "instanceId": "ex8-84tub",
+        "exId": "sword-raise",
+        "swapped": false,
+        "name": "Sword raise"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 45,
+            "done": false
+          }
+        ],
+        "cue": "First morning workout. Shoulder still very weak but moving better. ",
+        "timed": false,
+        "instanceId": "ex1-oakq9",
+        "exId": "calf-raise-",
+        "swapped": false,
+        "name": "Calf raise. "
+      }
+    ],
+    "finishedAt": "2026-10-05T13:22:01.959Z",
+    "name": "shoulders-oct-1",
+    "id": "prog_1790884875582"
+  },
+  {
+    "docId": "06-oct-09:16-legs--9z50",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Direction ",
+        "sets": [
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Pull thru",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-f57gq",
+        "exId": "dragging",
+        "swapped": false,
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "These are great ",
+        "timed": true,
+        "instanceId": "ex2-jzjde",
+        "exId": "lunge-stretch",
+        "swapped": false,
+        "name": "lunge stretch"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 25,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 55,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 55,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 55,
+            "done": false
+          }
+        ],
+        "cue": "Also did a few sets of Freemason calf first. Things great. ",
+        "timed": false,
+        "instanceId": "ex3-y2ul1",
+        "exId": "seated-calf-raise-",
+        "swapped": false,
+        "name": "Seated calf raise "
+      },
+      {
+        "fallback": null,
+        "custom_name": "Just cranes first set ",
+        "sets": [
+          {
+            "custom": "Crane",
+            "reps": 4,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 4,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 4,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 4,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 4,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 4,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "Can’t even do basic cranes on right so just gonna work those and skip step ups today   Add this to the “rules engine”?",
+        "timed": false,
+        "instanceId": "ex4-q6r9s",
+        "exId": "crane-plane",
+        "swapped": false,
+        "name": "crane-plane"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Risers",
+        "sets": [
+          {
+            "custom": "3",
+            "reps": 8,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": "3",
+            "reps": 8,
+            "lbs": 30,
+            "done": false
+          },
+          {
+            "custom": "4",
+            "reps": 6,
+            "lbs": 30,
+            "done": false
+          },
+          {
+            "custom": "4",
+            "reps": 6,
+            "lbs": 30,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex5-1nh3s",
+        "exId": "step-up",
+        "swapped": false,
+        "name": "step up"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side ",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 9,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 6,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex6-0ftkf",
+        "exId": "single-leg-curls-seated",
+        "swapped": false,
+        "name": "single leg curls seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": "lbs",
+        "sets": [
+          {
+            "custom": "50",
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": "115",
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": "115",
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": true,
+        "instanceId": "ex7-4mhd2",
+        "exId": "leg-extension",
+        "swapped": false,
+        "name": "Leg extension"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex8-8dqkq",
+        "exId": "one-leg-press",
+        "swapped": false,
+        "name": "one leg press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "Smith nachine version",
+        "timed": true,
+        "instanceId": "ex9-l0e6c",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 45,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-n7gxb",
+        "exId": "leg-raises",
+        "swapped": false,
+        "name": "Leg raises…."
+      }
+    ],
+    "finishedAt": "2026-10-06T13:16:29.498Z",
+    "name": "legs-oct-6",
+    "id": "prog_1791285116820"
+  },
+  {
+    "docId": "09-oct-06:30-chest-7qmb",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 4,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 4,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 4,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 4,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-yxedj",
+        "exId": "basic-cranes",
+        "swapped": false,
+        "name": "Basic cranes"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex2-f0p6b",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex3-k4vxj",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex4-cvxor",
+        "exId": "scapular-pull-up",
+        "swapped": false,
+        "name": "Scapular pull-up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 15,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 15,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 15,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex5-ii0wk",
+        "exId": "decline-curl-flossing",
+        "swapped": false,
+        "name": "Decline curl (flossing)"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 135,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 155,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 155,
+            "done": false
+          }
+        ],
+        "cue": "Shoulder sore. Right. Gonna rest it. Ya machine press ",
+        "timed": false,
+        "instanceId": "ex6-xwbc0",
+        "exId": "bench-press",
+        "swapped": false,
+        "name": "Bench press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 55,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 65,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 65,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex9-bmgxg",
+        "exId": "barbell-curl",
+        "swapped": false,
+        "name": "Barbell curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex10-c7bp4",
+        "exId": "incline-db-curl",
+        "swapped": false,
+        "name": "Incline DB curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 140,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-szlas",
+        "exId": "machine-decline-",
+        "swapped": false,
+        "name": "Machine decline "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 17,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex2-5x7kb",
+        "exId": "free-motion-dual-cable-curl-",
+        "swapped": false,
+        "name": "Free motion dual cable curl "
+      }
+    ],
+    "finishedAt": "2026-10-09T10:30:18.688Z",
+    "name": "chest-biceps-oct-8",
+    "id": "prog_1791380271271"
+  },
+  {
+    "docId": "10-oct-14:06-back--fqox",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 75,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 75,
+            "done": false
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-qs2dm",
+        "exId": "meadows-row",
+        "swapped": false,
+        "name": "Meadows row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 100,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex2-h74bt",
+        "exId": "hammer-machine-pulldown",
+        "swapped": false,
+        "name": "Hammer machine pulldown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex3-odkmj",
+        "exId": "seated-cable-row---bar-grip",
+        "swapped": false,
+        "name": "Seated cable row - bar grip"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 50,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 50,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 50,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex4-uu8p4",
+        "exId": "chest-supported-row",
+        "swapped": false,
+        "name": "Chest supported row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 70,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 20,
+            "lbs": 70,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex5-3fkcy",
+        "exId": "triceps-pushdown",
+        "swapped": false,
+        "name": "Triceps pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex6-5x56v",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex7-8dut7",
+        "exId": "skull-crusher-incline-push-up",
+        "swapped": false,
+        "name": "Skull crusher incline push-up"
+      }
+    ],
+    "finishedAt": "2026-10-10T18:06:48.132Z",
+    "name": "back-tri-pump-oct-10",
+    "id": "back-tri-pump-oct-10"
+  },
+  {
+    "docId": "10-oct-18:05-back--kem6",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 70,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 70,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": true
+          }
+        ],
+        "cue": "These feel amazing ",
+        "timed": false,
+        "instanceId": "ex1-knnmg",
+        "exId": "meadows-row",
+        "swapped": false,
+        "name": "Meadows row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 180,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex2-w7prt",
+        "exId": "hammer-machine-pulldown",
+        "swapped": false,
+        "name": "Hammer machine pulldown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 360,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 450,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex3-0w7t5",
+        "exId": "hammer-row-",
+        "swapped": false,
+        "name": "Hammer row "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 35,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 9,
+            "lbs": 80,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 9,
+            "lbs": 80,
+            "done": true
+          }
+        ],
+        "cue": "Love this. Elbows high ",
+        "timed": false,
+        "instanceId": "ex4-8suk8",
+        "exId": "double-cable-row-",
+        "swapped": false,
+        "name": "Double cable row "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 57,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 72,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 7,
+            "lbs": 72,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 72,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex5-g9d9r",
+        "exId": "triceps-pushdown",
+        "swapped": false,
+        "name": "Triceps pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 230,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 230,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex6-llvn9",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "Great finisher. ",
+        "timed": false,
+        "instanceId": "ex7-vgnzz",
+        "exId": "skull-crusher-incline-push-up",
+        "swapped": false,
+        "name": "Skull crusher incline push-up"
+      }
+    ],
+    "finishedAt": "2026-10-10T22:05:46.021Z",
+    "name": "back-tri-pump-oct-10",
+    "id": "back-tri-pump-oct-10"
+  },
+  {
+    "docId": "13-oct-11:37-back--au2t",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 75,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 75,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-0uf1d",
+        "exId": "meadows-row",
+        "swapped": false,
+        "name": "Meadows row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 100,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex2-p0rxp",
+        "exId": "hammer-machine-pulldown",
+        "swapped": false,
+        "name": "Hammer machine pulldown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex3-0mxi8",
+        "exId": "seated-cable-row---bar-grip",
+        "swapped": false,
+        "name": "Seated cable row - bar grip"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 180,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 360,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 360,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex4-goavw",
+        "exId": "hammer-seated-row",
+        "swapped": false,
+        "name": "Hammer seated row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 70,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 20,
+            "lbs": 70,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex5-tzafu",
+        "exId": "triceps-pushdown",
+        "swapped": false,
+        "name": "Triceps pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex6-eord0",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex7-m92lz",
+        "exId": "skull-crusher-incline-push-up",
+        "swapped": false,
+        "name": "Skull crusher incline push-up"
+      }
+    ],
+    "finishedAt": "2026-10-13T15:37:14.518Z",
+    "name": "back-tri-pump-oct-10",
+    "id": "back-tri-pump-oct-10"
+  },
+  {
+    "docId": "13-oct-11:52-back--ae49",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 75,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 75,
+            "done": false
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 95,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex29-1jlsb",
+        "exId": "meadows-row",
+        "swapped": false,
+        "name": "Meadows row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 100,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 140,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex30-pie5y",
+        "exId": "hammer-machine-pulldown",
+        "swapped": false,
+        "name": "Hammer machine pulldown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 120,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 130,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex31-c038w",
+        "exId": "seated-cable-row---bar-grip",
+        "swapped": false,
+        "name": "Seated cable row - bar grip"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 180,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 360,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 360,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex32-6ga0n",
+        "exId": "hammer-seated-row",
+        "swapped": false,
+        "name": "Hammer seated row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 70,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 80,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 20,
+            "lbs": 70,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex33-b2sa0",
+        "exId": "triceps-pushdown",
+        "swapped": false,
+        "name": "Triceps pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex34-ow5n7",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex35-ujvg9",
+        "exId": "skull-crusher-incline-push-up",
+        "swapped": false,
+        "name": "Skull crusher incline push-up"
+      }
+    ],
+    "finishedAt": "2026-10-13T15:52:08.189Z",
+    "name": "back-tri-pump-oct-10",
+    "id": "back-tri-pump-oct-10"
+  },
+  {
+    "docId": "13-oct-18:25-push--eszj",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Neutral ",
+        "sets": [
+          {
+            "custom": "A",
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "~45s each. Feet on a bench if needed. Opens the shoulder.",
+        "timed": false,
+        "instanceId": "ex1-z1124",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Box",
+        "sets": [
+          {
+            "custom": "6",
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "Protract and push, don't row.",
+        "timed": false,
+        "instanceId": "ex2-pv32g",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "Down and back, elbows straight, slow. Two sets, nail both.",
+        "timed": false,
+        "instanceId": "ex3-zgi5d",
+        "exId": "scapular-pull-up",
+        "swapped": false,
+        "name": "Scapular pull-up"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 5,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 5,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 5,
+            "done": false
+          }
+        ],
+        "cue": "Each side. Up from 6 reps last time. Thumb leading, light.",
+        "timed": false,
+        "instanceId": "ex4-uwvxo",
+        "exId": "sword-raise",
+        "swapped": false,
+        "name": "Sword raise"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "Elbows ~45°, finish with a push-plus at the top. If the right shoulder pinches, put hands on a bench and keep going.",
+        "timed": false,
+        "instanceId": "ex5-5r9xx",
+        "exId": "push-ups",
+        "swapped": false,
+        "name": "Push-ups"
+      }
+    ],
+    "finishedAt": "2026-10-14T15:12:47.259Z",
+    "name": "push-shoulder-oct-13",
+    "id": "push-shoulder-oct-13"
+  },
+  {
+    "docId": "14-oct-16:09-chest-xujb",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 230,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 7,
+            "lbs": 270,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 7,
+            "lbs": 290,
+            "done": true
+          }
+        ],
+        "cue": "Partial range of motion — pain-free for the shoulder. Keep the tension, don't lock out.",
+        "timed": false,
+        "instanceId": "ex1-n4o9i",
+        "exId": "hammer-decline-press",
+        "swapped": false,
+        "name": "Hammer decline press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 110,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 14,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 180,
+            "done": true
+          }
+        ],
+        "cue": "Upper chest. Partials if it feels better on the shoulder.",
+        "timed": false,
+        "instanceId": "ex2-c72pe",
+        "exId": "incline-machine-press",
+        "swapped": false,
+        "name": "Incline machine press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "Pure squeeze. Hold the contraction a beat, controlled stretch back.",
+        "timed": false,
+        "instanceId": "ex3-h84ym",
+        "exId": "pec-deck",
+        "swapped": false,
+        "name": "Pec deck"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "Lean forward for chest emphasis. Partial range if the shoulder complains — don't sink too deep.",
+        "timed": false,
+        "instanceId": "ex4-5iwmf",
+        "exId": "chest-dips",
+        "swapped": false,
+        "name": "Chest dips"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 35,
+            "lbs": 40,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 150,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "Constant tension, elbows pinned. Full lockout at the bottom.",
+        "timed": false,
+        "instanceId": "ex5-hhjn7",
+        "exId": "cable-rope-pushdown",
+        "swapped": false,
+        "name": "Cable rope pushdown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "Long head stretch. Keep elbows tucked, slow negative overhead.",
+        "timed": false,
+        "instanceId": "ex6-w7ko7",
+        "exId": "skull-crusher-push-ups-",
+        "swapped": false,
+        "name": "Skull crusher push ups. "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 150,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 235,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "Triceps finisher. Stay upright, controlled reps, squeeze at the bottom.",
+        "timed": false,
+        "instanceId": "ex7-e2n3i",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      }
+    ],
+    "finishedAt": "2026-10-14T20:09:45.825Z",
+    "name": "chest-tri-pump-oct-14",
+    "id": "chest-bi-pump-oct-14"
+  },
+  {
+    "docId": "15-oct-16:01-lower-62w7",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": "Type",
+        "sets": [
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 135,
+            "done": false
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 135,
+            "done": false
+          }
+        ],
+        "cue": "6x Drag, 2x Pull @ 135.",
+        "timed": false,
+        "instanceId": "ex61-bjfzb",
+        "exId": "dragging",
+        "swapped": false,
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 6,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 6,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 6,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 6,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "Way better than last time ",
+        "timed": false,
+        "instanceId": "ex62-u0z2d",
+        "exId": "crane-plane",
+        "swapped": false,
+        "name": "crane-plane"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 40,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 60,
+            "done": true
+          }
+        ],
+        "cue": "Reintroduction. Hinge, soft knees, control the lower. Stop if the right hamstring twinges.",
+        "timed": false,
+        "instanceId": "ex64-2bgu3",
+        "exId": "dumbbell-romanian-deadlift",
+        "swapped": false,
+        "name": "Dumbbell Romanian Deadlift"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 10,
+            "lbs": 55,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 10,
+            "lbs": 55,
+            "done": true
+          }
+        ],
+        "cue": "Right hamstring. Controlled.",
+        "timed": false,
+        "instanceId": "ex65-pg4eu",
+        "exId": "single-leg-curls-seated",
+        "swapped": false,
+        "name": "single leg curls seated"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Nope isometrics ",
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 70,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 30,
+            "lbs": 100,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 100,
+            "done": true
+          }
+        ],
+        "cue": "Controlled, full range.",
+        "timed": false,
+        "instanceId": "ex66-2et23",
+        "exId": "leg-extension",
+        "swapped": false,
+        "name": "Leg extension"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Pain?",
+        "sets": [
+          {
+            "custom": "No",
+            "reps": 10,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": "No ",
+            "reps": 10,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": "Twinge ",
+            "reps": 6,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "Single leg strength. 3 sets each side.",
+        "timed": false,
+        "instanceId": "ex67-hsl09",
+        "exId": "one-leg-press",
+        "swapped": false,
+        "name": "one leg press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 600,
+            "lbs": 0,
+            "done": false
+          }
+        ],
+        "cue": "10 minutes, easy pace.",
+        "timed": false,
+        "instanceId": "ex70-9k4cm",
+        "exId": "cardio",
+        "swapped": false,
+        "name": "Cardio"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 50,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex71-r7e0u",
+        "exId": "calf-raises-seated-",
+        "swapped": false,
+        "name": "Calf raises seated "
+      }
+    ],
+    "finishedAt": "2026-10-17T17:28:02.455Z",
+    "name": "lower-body-rehab-oct-15",
+    "id": "lower-body-rehab-oct-15"
+  },
+  {
+    "docId": "17-oct-15:57-back--a2wt",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "~45s each. Opens the shoulder.",
+        "timed": false,
+        "instanceId": "ex22-o5cbd",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "Protract and push, don't row.",
+        "timed": false,
+        "instanceId": "ex23-ed5ip",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 6,
+            "lbs": 70,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 6,
+            "lbs": 70,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 95,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 95,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex24-tp6rw",
+        "exId": "meadows-row",
+        "swapped": false,
+        "name": "Meadows row"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 90,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 140,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 140,
+            "done": true
+          }
+        ],
+        "cue": "Two stage ",
+        "timed": false,
+        "instanceId": "ex25-4xq5v",
+        "exId": "hammer-machine-pulldown",
+        "swapped": false,
+        "name": "Hammer machine pulldown"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 270,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 9,
+            "lbs": 360,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 360,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex26-yd0pi",
+        "exId": "hammer-row-",
+        "swapped": false,
+        "name": "Hammer row "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 35,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 9,
+            "lbs": 80,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 9,
+            "lbs": 80,
+            "done": true
+          }
+        ],
+        "cue": "Elbows high.",
+        "timed": false,
+        "instanceId": "ex27-cd5yb",
+        "exId": "double-cable-row-",
+        "swapped": false,
+        "name": "Double cable row "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 22,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 22,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 6,
+            "lbs": 30,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex28-m8ajn",
+        "exId": "standing-cable-curl-",
+        "swapped": false,
+        "name": "Standing cable curl "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 45,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 545,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 8,
+            "lbs": 45,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex29-8li18",
+        "exId": "barbell-curl",
+        "swapped": false,
+        "name": "Barbell curl"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side ",
+        "sets": [
+          {
+            "custom": "Left",
+            "reps": 10,
+            "lbs": 30,
+            "done": true
+          },
+          {
+            "custom": "Right ",
+            "reps": 10,
+            "lbs": 30,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": false
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex30-gsx3n",
+        "exId": "preacher-curls-freemason-",
+        "swapped": false,
+        "name": "Preacher curls Freemason "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 17,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 12,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex31-5nxcn",
+        "exId": "free-motion-dual-cable-curl-",
+        "swapped": false,
+        "name": "Free motion dual cable curl "
+      },
+      {
+        "fallback": null,
+        "custom_name": "Type",
+        "sets": [
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          },
+          {
+            "custom": "Push",
+            "reps": 1,
+            "lbs": 135,
+            "done": true
+          }
+        ],
+        "cue": "6x Drag, 2x Pull @ 135.",
+        "timed": false,
+        "instanceId": "ex32-touia",
+        "exId": "dragging",
+        "swapped": false,
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 300,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "5 minutes, easy pace.",
+        "timed": false,
+        "instanceId": "ex33-93996",
+        "exId": "cardio",
+        "swapped": false,
+        "name": "Cardio"
+      }
+    ],
+    "finishedAt": "2026-10-17T19:57:16.257Z",
+    "name": "back-bi-pump-oct-17",
+    "id": "back-tri-pump-oct-17"
+  },
+  {
+    "docId": "19-oct-16:35-shoul-1paj",
+    "exercises": [
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 45,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "~45s each. Opens the shoulder.",
+        "timed": false,
+        "instanceId": "ex1-3011u",
+        "exId": "dead-hang",
+        "swapped": false,
+        "name": "Dead hang"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "Protract and push, don't row.",
+        "timed": false,
+        "instanceId": "ex2-muq0p",
+        "exId": "serratus-shrug",
+        "swapped": false,
+        "name": "Serratus shrug"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 5,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "Down and back, elbows straight, slow. Two sets, nail both.",
+        "timed": false,
+        "instanceId": "ex3-p1u02",
+        "exId": "scapular-pull-up",
+        "swapped": false,
+        "name": "Scapular pull-up"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "Left",
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": "Right",
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": "Left",
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          },
+          {
+            "custom": "Right",
+            "reps": 6,
+            "lbs": 5,
+            "done": true
+          }
+        ],
+        "cue": "Each side. Same 6 reps as last time you did them. Thumb leading, light.",
+        "timed": false,
+        "instanceId": "ex4-yza5w",
+        "exId": "sword-raise",
+        "swapped": false,
+        "name": "Sword raise"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Side",
+        "sets": [
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          },
+          {
+            "custom": "R",
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          },
+          {
+            "custom": "L",
+            "reps": 12,
+            "lbs": 10,
+            "done": true
+          }
+        ],
+        "cue": "Each side. Up from 10 lbs (all sets done last time). Elbow under the line of push. Drop back to 10 if it pinches.",
+        "timed": false,
+        "instanceId": "ex5-09hsg",
+        "exId": "hammer-seated-shoulder-press",
+        "swapped": false,
+        "name": "Hammer seated shoulder press"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": "",
+            "done": true
+          }
+        ],
+        "cue": "Finisher. Elbows tucked, slow negative.",
+        "timed": false,
+        "instanceId": "ex6-6q2fo",
+        "exId": "skull-crusher-push-ups-",
+        "swapped": false,
+        "name": "Skull crusher push ups. "
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 150,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 12,
+            "lbs": 230,
+            "done": false
+          },
+          {
+            "custom": null,
+            "reps": 10,
+            "lbs": 230,
+            "done": false
+          }
+        ],
+        "cue": "Triceps pump. Stay upright, squeeze at the bottom.",
+        "timed": false,
+        "instanceId": "ex7-4yw28",
+        "exId": "dip-machine",
+        "swapped": false,
+        "name": "Dip machine"
+      },
+      {
+        "fallback": null,
+        "custom_name": "Type",
+        "sets": [
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Drag",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "puah",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Pull",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          },
+          {
+            "custom": "Push",
+            "reps": 1,
+            "lbs": 180,
+            "done": true
+          }
+        ],
+        "cue": "6x Drag, 2x Pull @ 135.",
+        "timed": false,
+        "instanceId": "ex8-3fuxk",
+        "exId": "dragging",
+        "swapped": false,
+        "name": "Dragging"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 600,
+            "lbs": 0,
+            "done": true
+          }
+        ],
+        "cue": "10 minutes, easy pace.",
+        "timed": false,
+        "instanceId": "ex9-oeyf8",
+        "exId": "cardio",
+        "swapped": false,
+        "name": "Cardio"
+      },
+      {
+        "fallback": null,
+        "custom_name": null,
+        "sets": [
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 50,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 65,
+            "done": true
+          },
+          {
+            "custom": null,
+            "reps": 15,
+            "lbs": 65,
+            "done": true
+          }
+        ],
+        "cue": "",
+        "timed": false,
+        "instanceId": "ex1-zryjx",
+        "exId": "pushdowns-",
+        "swapped": false,
+        "name": "Pushdowns "
+      }
+    ],
+    "finishedAt": "2026-10-19T20:35:54.281Z",
+    "name": "shoulder-rehab-oct-19",
+    "id": "shoulder-rehab-oct-19"
+  }
+]

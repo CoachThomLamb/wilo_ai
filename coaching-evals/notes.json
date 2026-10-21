@@ -1,0 +1,218 @@
+{
+  "0d18afcd-0e9c-499a-a725-0270a7e3a911": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "we are rebuilding something that should be more established. Also this method of asking me a lot of questions is really non-conducive for getting someone to go to the fucking gym. It should be more like lets get there and I got it you just worry about showing up. ",
+        "organic": true,
+        "tools": "up"
+      }
+    }
+  },
+  "126c5c9a-5847-4156-a6a4-f2e2e811b96b#0": {
+    "chat": "test not real coaching",
+    "messages": {}
+  },
+  "15e1bf74-b010-420e-ba39-26875e033cff": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "up"
+      }
+    }
+  },
+  "27adacb4-849a-423f-bd1e-7c347dad6016#0": {
+    "chat": "",
+    "messages": {
+      "11": {
+        "coaching": "down",
+        "note": "too much text - cognitively draining ",
+        "organic": true
+      },
+      "13": {
+        "tools": "down"
+      },
+      "23": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "25": {
+        "coaching": "down",
+        "note": "fake news - completion was okish bc I stopped doing bench bc its hard on the shoulder. Instead I did more of a pump workout.  but that insight helped promote consistency ? \ncoaching is still to wordy \"le mot juste\". Coaching needs to as for consent before launching on an info update. Its like every interaction has too much weight to it so it shuts down conversation - and getting the user to stay engaged in the convo - or solving his problem so he doesn't have to is the goal. \n",
+        "organic": true,
+        "tools": "up"
+      },
+      "27": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      }
+    }
+  },
+  "27adacb4-849a-423f-bd1e-7c347dad6016#1": {
+    "chat": "",
+    "messages": {
+      "31": {
+        "coaching": "up",
+        "note": "Things you did well - built a great workout, met the client request, used the hevy data (great, but not repeatable) - and I think its great you are explaining to me the details of how things are working behind the scenes, but real users arent going to care - maybe at some point we need to log judgement somewhere as a form of logging. ",
+        "organic": true
+      }
+    }
+  },
+  "28d914ce-abd3-473e-94ab-7b9965e76dc4": {
+    "chat": "",
+    "messages": {
+      "3": {
+        "coaching": "down",
+        "note": "too many fucking questions - in execution phase its short - limited options - the coach is driving its not a multiple choice test. people need to be told what to do confidently ",
+        "tools": "up"
+      }
+    }
+  },
+  "45e1edb3-7cbe-45d6-b26d-5cc2c7b27c27#0": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "should have shown it on tracker ideally or told me to read the tracker. That's the whole point - reading that much text is cognitively draining. "
+      }
+    }
+  },
+  "7cfaec46-4489-4bc7-92ce-60bc9351fb0d#0": {
+    "chat": "test_not real coaching",
+    "messages": {}
+  },
+  "922cc119-4934-4df6-aa40-aa51c037fbf7": {
+    "chat": "might not be loading instructions - ",
+    "messages": {
+      "1": {
+        "note": "when did I say I alternate strength and cardio ? not connected to Wilo so ok "
+      },
+      "16": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "18": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "7": {
+        "coaching": "down"
+      }
+    }
+  },
+  "b90a1af4-325f-4288-b43b-e7b918d3a934": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "up",
+        "note": "good \n",
+        "organic": true,
+        "tools": "down"
+      },
+      "3": {
+        "coaching": "up",
+        "note": "reflection good ",
+        "organic": true,
+        "tools": "down"
+      },
+      "5": {
+        "coaching": "down",
+        "note": "too long \"want me to sketch you an arms finisher is ok, but not how I would say it\"",
+        "organic": true
+      },
+      "7": {
+        "coaching": "down",
+        "note": "chatty ",
+        "organic": true,
+        "tools": "up"
+      },
+      "9": {
+        "organic": true,
+        "tools": "down"
+      }
+    }
+  },
+  "d4a19c3e-6af7-45b7-adfb-8f9becd49032": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "again way to much info, there should be .... well in fairness like planning is fine but we want to separate execution from planning, and there shouldn't be that much need for planning by the human once we have a decent baseline. Like you have all my hevy workouts right - and at this point we should talk once in a while about the plan but mostly just get me into the gym and provide me with the happy path to track and the small wins should come organically ",
+        "tools": "up"
+      }
+    }
+  },
+  "dc5fc2a3-e17e-4ae6-9ca5-fee77f2facb2": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "up",
+        "note": "great push back ",
+        "organic": true
+      },
+      "11": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "23": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "28": {
+        "coaching": "up",
+        "note": "maybe remind Thom to not be an asshole ... ",
+        "organic": true,
+        "tools": "up"
+      },
+      "3": {
+        "coaching": "up",
+        "organic": true
+      },
+      "34": {
+        "coaching": "up",
+        "organic": true,
+        "tools": "up"
+      },
+      "5": {
+        "coaching": "up",
+        "organic": true
+      },
+      "9": {
+        "coaching": "up",
+        "organic": true
+      }
+    }
+  },
+  "f07c09f9-c313-4b42-8d8d-10047bae8901": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "this is an example of way too much information for a coach to give to a client.\nThe coach should know what the clients goals are, and say something like \"no worries, I have you scheduled to train shoulders and tricpes - (for example) tomorrow- sound good ? \nthen if the client has questions it starts with a one line answer and only answers the actual question. ",
+        "organic": true,
+        "tools": "up"
+      }
+    }
+  },
+  "fe531f00-f3fd-4b13-873b-7ea9ee19aaea#0": {
+    "chat": "",
+    "messages": {
+      "1": {
+        "coaching": "down",
+        "note": "should have pointed to the tracker",
+        "tools": "down"
+      },
+      "3": {
+        "coaching": "down",
+        "note": "needy, don't prompt for things not asked for. "
+      }
+    }
+  }
+}
