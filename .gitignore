@@ -71,7 +71,7 @@ node_modules/
 prior-art/runpod/venv
 .agents/
 .claude/skills/*
-!.claude/skills/wilo-coach/
+!.claude/skills/wilo-*/
 
 # Local Firestore document dumps
 data/
