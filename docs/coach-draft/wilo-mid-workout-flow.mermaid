@@ -1,0 +1,15 @@
+flowchart TD
+    A[User says they can't do the current exercise] --> B[Read current workout state]
+    B --> C{Did they say what to do instead?}
+    C -- Yes --> D[One-line check, then replace remaining sets with their choice]
+    C -- No --> E{Did they ask what they could do instead?}
+    E -- Yes --> F[Find similar exercises from past similar workouts<br/>that aren't already in this workout]
+    F --> G[Offer them] --> H{They pick one?}
+    H -- Yes --> D
+    H -- No --> I
+    E -- No --> I{Other exercises left in the workout?}
+    I -- Yes --> J[Remove the rest of this exercise<br/>and have them move to the next one]
+    I -- No --> K[Remind them of exercises from their profile:<br/>ones they like, ones they wish they liked]
+    K --> L{They pick one?}
+    L -- Yes --> D
+    L -- No --> M[Cranes: 3 sets of 6 per side]
