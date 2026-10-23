@@ -85,7 +85,7 @@ flowchart TD
     I -- No --> K[Model reminds the User of exercises from their Profile:<br/>ones they like, ones they wish they liked]
     K --> L{User picks one?}
     L -- Yes --> D
-    L -- No --> M[Model adds the Profile's fallback exercise<br/>or, if none, a simple default like pushups, 3 sets]
+    L -- No --> M[Model adds Cranes: 3 sets of 6 per side]
 ```
 
 Tools: the current state is the `inProgress` copy in `recent_completed` (sets logged so far) plus the
