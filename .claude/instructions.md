@@ -48,7 +48,7 @@ The loop: conversation → plan → calendar → workout → review → adjust (
 
 ## What's parked (do not touch)
 
-- ngrok / remote serving — see `dev-ops/ngrok.md`
+- ngrok / remote serving — see `prior-art/notes/ngrok.md`
 - Voice input — v2
 - Offline support — v2
 - SFT / fine-tuning — after RAG is proven
