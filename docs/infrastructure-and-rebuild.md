@@ -59,7 +59,7 @@ flowchart LR
 | **Firestore** database `wilo` | All workout data, todos, coach profiles + sign-in tokens | GCP `northamerica-northeast2` (Toronto) | `firestore.rules`, `config/wilo.json` | Rules: **manually** with `firebase deploy --only firestore:rules` (last 2026-10-12) | $0 (free quota) |
 | **Firebase Auth** | Google sign-in, one uid per person | Firebase project `wilo2-1ee44` | Console only (provider: Google; authorized domains) | Console | $0 |
 | **Data engine** `wilo/data.py` | All Firestore logic + CLI | Repo (runs wherever it's imported) | `config/wilo.json`, `schema/workout.schema.json` | With the connector | — |
-| **Connector** `wilo/mcp_server.py` + `wilo/auth.py` + `wilo/login.html` | MCP server: 15 tools + OAuth sign-in | Render web service `wilo-connector` → `https://wilo-connector.onrender.com/mcp` | `Dockerfile`; env + secret file **in the Render dashboard** | Render auto-deploys every commit to `main` | $0 (sleeps after 15 min) |
+| **Connector** `wilo/mcp_server.py` + `wilo/auth.py` + `wilo/login.html` + `wilo/chat.py` | MCP server: 15 tools + OAuth sign-in, plus `/chat`: the tracker's coach chat (Claude API over the same tools) | Render web service `wilo-connector` → `https://wilo-connector.onrender.com/mcp` | `Dockerfile`; env + secret file **in the Render dashboard** | Render auto-deploys every commit to `main` | $0 (sleeps after 15 min) |
 | **Local MCP server** | Same tools over stdio, for Claude Code. **Being removed (#87):** sessions reach the data through the connector, like a user. The stdio mode stays in the code for tests | Laptop: `.venv`, editable install | `~/.claude.json` (`claude mcp add wilo …`) | Runs the checked-out branch | $0 |
 | **claude.ai connector** | "wilo" custom connector (DCR + sign-in) | Each user's claude.ai account | claude.ai → Settings → Connectors | Manual, once per user | Claude plan |
 | **Coach** `wilo/coach.md` + per-user profile | The coaching method (any user), served by the `coaching_method` tool; what's personal is data at `users/{uid}/coach/profile` (`get_profile` / `update_profile`) | Repo + Firestore | `wilo/coach.md` | With the connector | — |
@@ -173,6 +173,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 ### 5.3 Connector on Render
 - Service `wilo-connector`: repo `wilo_ai`, branch `main`, Docker (`Dockerfile` at the root), Free instance, region Virginia, auto-deploy on every commit to `main`.
 - Env: `PUBLIC_URL=https://wilo-connector.onrender.com`, `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/wilo-connector-key.json`. Render sets `$PORT`.
+- Env for the coach chat (`/chat`, `wilo/chat.py`): `ANTHROPIC_API_KEY` (secret: our Claude API key; without it `/chat` answers 502 and the rest of the server is unaffected). Optional: `WILO_CHAT_MODEL` (default `claude-opus-5-5`), `WILO_CHAT_EFFORT` (default `medium`), `WILO_CHAT_UIDS` (who may chat; default the uid in `config/wilo.json`), `WILO_CHAT_DAILY_LIMIT` (default 100 messages per user per day), `WILO_TZ` (default `America/Toronto`). Every model call logs one `chat:` line (model, stop reason, tokens) to the Render log.
 - Secret file: `wilo-connector-key.json` (the `wilo-connector` key).
 - **All of this lives only in the Render dashboard.** There's no `render.yaml`.
 - Sleeps after 15 min idle. The first request takes ~1 min.
@@ -181,7 +182,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 ### 5.4 Python package `wilo/`
 - `pyproject.toml`: Python ≥ 3.12; dependencies `firebase-admin`, `jsonschema`, `mcp` are **unpinned**. **The code needs MCP SDK v2** (`MCPServer`). Working versions on 2026-10-09: Python 3.14.7, `mcp` 2.3.0, `firebase-admin` 7.7.0, `google-cloud-firestore` 2.31.0, `jsonschema` 4.26.0, `starlette` 1.7.0, `uvicorn` 0.54.0, `pydantic` 2.13.5.
 - Docker base image `python:3.14-slim` (a tag, not a digest).
-- 88 tests, all with fakes, no Firestore needed: `.venv/bin/python -m unittest discover tests`.
+- 100 tests, all with fakes, no Firestore or API key needed: `.venv/bin/python -m unittest discover tests`. `anthropic` is a dependency since the coach chat (2.2.0 on 2026-10-23).
 
 ### 5.5 Claude side
 - **claude.ai:** custom connector "wilo" → `https://wilo-connector.onrender.com/mcp`, Sign in now + Register automatically (DCR). Read tools always allowed; `assign_workout` / `update_workout` need approval. Works on web and phone.
@@ -208,7 +209,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 **1. Code**
 - [ ] `git clone https://github.com/CoachThomLamb/wilo_ai.git ~/wilo && cd ~/wilo`
 - [ ] `python -m venv .venv && .venv/bin/pip install -e .`. If `mcp` resolves to anything but 2.x, pin `mcp>=2,<3` (see §5.4).
-- [ ] `.venv/bin/python -m unittest discover tests` → 88 OK.
+- [ ] `.venv/bin/python -m unittest discover tests` → 100 OK.
 
 **2. Firebase project** (skip if `wilo2-1ee44` still exists)
 - [ ] Create the project. Add a **web app** and copy its config into the `initializeApp({...})` blocks in `fe/index.html` and `wilo/login.html`.
@@ -242,7 +243,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 
 **6. Connector on Render**
 - [ ] New → Web Service → repo `wilo_ai`, branch `main`, runtime Docker, instance Free, name **`wilo-connector`**. The URL follows the name, so check it.
-- [ ] Env: `PUBLIC_URL=https://<name>.onrender.com`, `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/wilo-connector-key.json`. Secret file `wilo-connector-key.json` = contents of the **connector** key (**never the admin key**). Health check path: empty.
+- [ ] Env: `PUBLIC_URL=https://<name>.onrender.com`, `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/wilo-connector-key.json`. Secret file `wilo-connector-key.json` = contents of the **connector** key (**never the admin key**). For the coach chat, `ANTHROPIC_API_KEY` too (§5.3). Health check path: empty.
 - [ ] Firebase Auth → Authorized domains → add `<name>.onrender.com`.
 - [ ] Check:
   ```bash

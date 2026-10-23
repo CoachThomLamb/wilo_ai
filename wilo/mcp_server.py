@@ -17,6 +17,8 @@ Todo writes save immediately.
 import html
 import os
 import re
+import sys
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -26,6 +28,11 @@ from mcp.server.mcpserver import MCPServer
 
 from wilo import data as wilo_data
 
+# Run as `python -m wilo.mcp_server`, this file is __main__; register it under its real name too, so wilo/chat.py's
+# import gets this same module (one server, one CHAT_UID) instead of loading a second copy.
+if __name__ == '__main__':
+    sys.modules.setdefault('wilo.mcp_server', sys.modules[__name__])
+
 HERE = Path(__file__).resolve().parent
 
 INSTRUCTIONS = (
@@ -34,6 +41,7 @@ INSTRUCTIONS = (
     "result, and only call again with write=True once he approves."
 )
 AUTH = False  # set when serving with sign-in; then current_uid() comes only from the token
+CHAT_UID = ContextVar('chat_uid', default=None)  # set by /chat (wilo/chat.py) after it verifies the Firebase ID token
 _db = None
 
 
@@ -45,7 +53,10 @@ def db():
 
 def current_uid():
     """Whose data the tools act on. With sign-in, the signed-in user's token (never config). Without it (stdio,
-    or local --http), the user in config/wilo.json. Never a tool argument: Claude doesn't choose whose data to read."""
+    or local --http), the user in config/wilo.json. In the tracker's chat, the uid /chat verified.
+    Never a tool argument: Claude doesn't choose whose data to read."""
+    if uid := CHAT_UID.get():
+        return uid
     if AUTH:
         token = get_access_token()
         if not token or not token.subject:
@@ -159,7 +170,7 @@ TOOLS = [coaching_method, get_profile, update_profile, workout_schema, recent_co
 
 
 def make_server(provider=None, issuer=None):
-    """The WILO MCP server. With a provider: OAuth sign-in (SDK endpoints) plus our Firebase login page."""
+    """The WILO MCP server, plus the tracker's /chat. With a provider: OAuth sign-in (SDK endpoints) plus our Firebase login page."""
     kwargs = {}
     if provider:
         from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
@@ -173,6 +184,8 @@ def make_server(provider=None, issuer=None):
         s.add_tool(fn)
     if provider:
         add_login_routes(s, provider)
+    from wilo.chat import add_chat_routes
+    add_chat_routes(s)
     return s
 
 
