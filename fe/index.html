@@ -379,7 +379,13 @@
       if (!old) return fresh;
       used.add(old);
       const logged = old.sets.filter(s => s.done);
-      return { ...fresh, instanceId: old.instanceId, sets: [...logged, ...fresh.sets.slice(logged.length)] };
+      // A rename (or note / custom-field edit) is the user's own: it survives
+      // the merge instead of snapping back to the plan (#109). exId follows
+      // the kept name, or the match by exId would break on the next merge.
+      const kept = old.userEdited
+        ? { name: old.name, exId: old.exId, note: old.note, custom_name: old.custom_name, userEdited: true }
+        : {};
+      return { ...fresh, instanceId: old.instanceId, ...kept, sets: [...logged, ...fresh.sets.slice(logged.length)] };
     });
     const dropped = current.filter(x => !used.has(x) && x.sets.some(s => s.done))
       .map(x => ({ ...x, sets: x.sets.filter(s => s.done) }));
@@ -468,6 +474,9 @@
     } else {
       ex[k] = el.value;
       if (k === 'name') ex.exId = deriveExId(el.value);
+      // Exercise-level edits are the user's own: a merge or reload must not
+      // hand them back to the plan (#109).
+      if (k === 'name' || k === 'note' || k === 'custom_name') ex.userEdited = true;
       last = `${ex.name}.${k}`;
       sync();
     }
@@ -763,15 +772,18 @@
       const next = await fetchNextAssigned();
       if (!next) { note('No workout planned — ask your coach to plan one'); return; }
       const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-      if (logged && next.data.id === state.workoutId) {
-        mergeWorkout(next.data);   // plan changed mid-workout: keep logged sets
+      // Unlogged edits (a rename, a note) are the user's own too: a reload
+      // must merge them, not replace them silently (#109).
+      const edited = state.exercises.some(x => x.userEdited);
+      if ((logged || edited) && next.data.id === state.workoutId) {
+        mergeWorkout(next.data);   // plan changed mid-workout: keep logged sets and edits
         last = 'merged ' + state.workoutId;
         draw();
-        note(`Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}`, 'ok');
+        note(`Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}${edited ? ' and your edits' : ''}`, 'ok');
         return;
       }
-      if (logged && !confirm(`Discard ${logged} logged set${logged === 1 ? '' : 's'} of ${state.workoutName || 'this workout'} and load ${next.data.name || next.data.id}?`)) {
-        note('Kept your logged sets');
+      if ((logged || edited) && !confirm(`Discard ${logged ? `${logged} logged set${logged === 1 ? '' : 's'} of ${state.workoutName || 'this workout'}` : 'your edits'} and load ${next.data.name || next.data.id}?`)) {
+        note('Kept your changes');
         return;
       }
       loadWorkout(next.data);
