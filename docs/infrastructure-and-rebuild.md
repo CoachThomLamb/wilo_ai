@@ -160,7 +160,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 - Repo `CoachThomLamb/wilo_ai`, **public**, default branch `main`. Work happens on branches with PRs, and merging to `main` deploys (Hosting via Actions, connector via Render).
 - **Actions:** `firebase-hosting-pull-request.yml` (preview channel per PR, expires after 7 days), `firebase-hosting-merge.yml` (live deploy on push to `main`). **No tests run in CI** (#46).
 - **Secret:** `FIREBASE_SERVICE_ACCOUNT_WILO2_1EE44` (the github-action key, created 2026-09-25).
-- Gitignored on purpose: `data/` (local Firestore dumps), `.claude/skills/`, `.agents/`, `.env`.
+- Gitignored on purpose: `data/` (local Firestore dumps), installed skills in `.claude/skills/` (our own `wilo-*` skills are tracked), `.agents/`, `.env`.
 
 ### 5.2 Firebase project `wilo2-1ee44`
 - Project number `103580826325`. One web app "Wilo" (`1:103580826325:web:0e5cc800c5cbb29691c05c`). Plan: **Spark** (no billing).
