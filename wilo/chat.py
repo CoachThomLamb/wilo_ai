@@ -20,7 +20,7 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
                                         included, go back to the API byte for byte.
     chat_usage/{uid}_{date}             count: requests today
 
-Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
+Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-sonnet-5-5), WILO_CHAT_EFFORT
 (default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_TZ (default America/Toronto).
 """
 
@@ -35,7 +35,7 @@ import anthropic
 
 from wilo import data as wilo_data
 
-MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-opus-5-5')
+MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-sonnet-5-5')
 EFFORT = os.environ.get('WILO_CHAT_EFFORT', 'medium')
 DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
