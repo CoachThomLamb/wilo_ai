@@ -80,3 +80,6 @@ data/
 # Python bytecode
 __pycache__/
 *.egg-info/
+
+# Local exports from Firestore (#112): Firestore is the source, regenerate instead of committing
+coaching-evals/tracker_traces.jsonl

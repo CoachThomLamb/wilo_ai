@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Coaching evals: read traces.jsonl, write free-text notes per chat and per message.
+<!-- Coaching evals: read traces.jsonl (+ tracker_traces.jsonl if exported, #112), write free-text notes per chat and per message.
      Run serve.py; notes save to notes.json in this folder. -->
 <html lang="en">
 <head>
@@ -90,8 +90,10 @@ const status = (t, err) => { const s = document.getElementById('status'); s.text
 
 async function boot() {
   try {
-    const [t, n] = await Promise.all([fetch('traces.jsonl').then(r => r.text()), fetch('notes.json').then(r => r.json())]);
-    chats = t.split('\n').filter(l => l.trim()).map(l => JSON.parse(l)).sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+    const [t, tr, n] = await Promise.all([fetch('traces.jsonl').then(r => r.text()),
+      fetch('tracker_traces.jsonl').then(r => r.ok ? r.text() : '').catch(() => ''),   // local export, may not exist
+      fetch('notes.json').then(r => r.json())]);
+    chats = (t + '\n' + tr).split('\n').filter(l => l.trim()).map(l => JSON.parse(l)).sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
     notes = n || {};
     completed = await fetch('completed.json').then(r => r.ok ? r.json() : []).catch(() => []);
     render();

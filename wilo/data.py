@@ -262,6 +262,23 @@ def update_profile(db, uid, new, write, now):
     return {'ok': True, 'path': path, 'changes': changes}
 
 
+# Tracker chat traces (#112), for review in coaching-evals. Read-only: the only code outside wilo/chat.py that
+# knows how chats are stored (chat_threads/{chatId} + turns/{0001}, see chat.py), so a storage change stays here.
+def chat_traces(db, uid=None):
+    """Every tracker chat (only this uid's if given), oldest first: {chatId, uid, createdAt, context, turns}, each
+    turn {at, messages} with the API messages as stored. Never writes."""
+    out = []
+    for snap in db.collection('chat_threads').stream():
+        thread = snap.to_dict()
+        if uid and thread.get('uid') != uid:
+            continue
+        turns = sorted(db.collection('chat_threads').document(snap.id).collection('turns').stream(), key=lambda s: s.id)
+        out.append({'chatId': snap.id, 'uid': thread.get('uid'), 'createdAt': thread.get('createdAt'),
+                    'context': thread.get('context', ''),
+                    'turns': [{'at': t.to_dict().get('at'), 'messages': json.loads(t.to_dict()['messages'])} for t in turns]})
+    return sorted(out, key=lambda t: (t['createdAt'] or '', t['chatId']))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description='Read and write WILO workouts.')
     sub = p.add_subparsers(dest='cmd', required=True)
