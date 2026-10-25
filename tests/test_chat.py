@@ -82,6 +82,10 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(req['fallbacks'], 'default')
         self.assertEqual(req['messages'], [{'role': 'user', 'content': 'hello'}])
         self.assertIn('Coaching method', req['system'][0]['text'])
+        # Fixed prefix cached for an hour, the chat for 5 minutes (the API's default TTL) after it.
+        self.assertEqual(req['system'][0]['cache_control'], {'type': 'ephemeral', 'ttl': '1h'})
+        self.assertNotIn('cache_control', req['system'][1])
+        self.assertEqual(req['cache_control'], {'type': 'ephemeral'})
         self.assertIn('Today is', req['system'][1]['text'])
         self.assertEqual({t['name'] for t in req['tools']}, {t.name for t in __import__('asyncio').run(srv.server.list_tools())})
 

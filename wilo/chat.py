@@ -98,8 +98,12 @@ def context(db, uid, now):
 
 
 def system(ctx):
+    """Tools + this first block are the same for every chat, so they're cached for an hour: rests between sets
+    outlast the default 5 minutes. The chat itself (from ctx on) changes every turn and keeps the 5-minute cache
+    set in turn(). The API wants 1-hour entries before 5-minute ones, which this order gives."""
     method = (srv.HERE / 'coach.md').read_text()
-    return [{'type': 'text', 'text': f'{ROLE}\n\n# Coaching method\n\n{method}', 'cache_control': {'type': 'ephemeral'}},
+    return [{'type': 'text', 'text': f'{ROLE}\n\n# Coaching method\n\n{method}',
+             'cache_control': {'type': 'ephemeral', 'ttl': '1h'}},
             {'type': 'text', 'text': ctx}]
 
 
@@ -144,9 +148,9 @@ async def turn(ctx, history, message):
             model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
             output_config={'effort': EFFORT}, cache_control={'type': 'ephemeral'},
             system=system(ctx), tools=await tools(), messages=history + new)
-        u = resp.usage
-        print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} cached={u.cache_read_input_tokens} '
-              f'out={u.output_tokens}', flush=True)
+        u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
+        print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
+              f'write={u.cache_creation_input_tokens or 0} out={u.output_tokens}', flush=True)
         if resp.stop_reason == 'refusal':
             return [], "Sorry, I can't help with that one.", used
         content = [b.model_dump(mode='json', exclude_none=True) for b in resp.content]
