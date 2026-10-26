@@ -18,3 +18,7 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_WILO2_1EE44 }}
           projectId: wilo2-1ee44
+          # One fixed preview URL for every PR (#115): register it once in the OAuth web client and sign-in works
+          # on every PR. With two PRs open, dev shows the last one pushed. 30d is the max; each deploy resets it.
+          channelId: dev
+          expires: 30d

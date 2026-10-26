@@ -36,9 +36,10 @@ them (#46), so run them before every merge.
 only, #50): `firebase deploy --only firestore:rules`. Check the release on the `wilo` database in the
 console. Update the "last release" date in the doc.
 
-**New PR preview can't sign in** (`Error 400: redirect_uri_mismatch`): Thom adds
-`https://<preview host>/__/auth/handler` (and the origin) to the OAuth web client in Google Cloud →
-APIs & Services → Credentials (doc §6 step 2).
+**PR previews** all deploy to one fixed channel, `dev` (#115): the PR comment shows its URL, and the last PR
+pushed is what it serves. **Can't sign in** (`Error 400: redirect_uri_mismatch`) means the dev host changed (the
+channel expired after 30 days without a PR): Thom adds `https://<dev host>/__/auth/handler` (and the origin) to the
+OAuth web client in Google Cloud → APIs & Services → Credentials (doc §6 step 2).
 
 **Connector checks** (with OK):
 ```bash
