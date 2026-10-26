@@ -55,7 +55,7 @@ flowchart LR
 | Piece | What it is | Where it lives | Config is in | Deploys how | Cost |
 |---|---|---|---|---|---|
 | **Repo** `CoachThomLamb/wilo_ai` | All code, docs, rules | GitHub (**public**) | `main` | — | $0 |
-| **Tracker** `fe/index.html` (+ `today.html`, `auth.js`) | Plain HTML pages: the tracker (Load the next unfinished workout, log sets, Finish) and the Today page (todos). Sign-in required | Firebase Hosting `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; preview per PR | $0 (Spark) |
+| **Tracker** `fe/index.html` (+ `today.html`, `auth.js`) | Plain HTML pages: the tracker (Load the next unfinished workout, log sets, Finish) and the Today page (todos). Sign-in required | Firebase Hosting `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; PRs deploy to one fixed preview channel `dev` (#115) | $0 (Spark) |
 | **Firestore** database `wilo` | All workout data, todos, coach profiles + sign-in tokens | GCP `northamerica-northeast2` (Toronto) | `firestore.rules`, `config/wilo.json` | Rules: **manually** with `firebase deploy --only firestore:rules` (last 2026-10-12) | $0 (free quota) |
 | **Firebase Auth** | Google sign-in, one uid per person | Firebase project `wilo2-1ee44` | Console only (provider: Google; authorized domains) | Console | $0 |
 | **Data engine** `wilo/data.py` | All Firestore logic + CLI | Repo (runs wherever it's imported) | `config/wilo.json`, `schema/workout.schema.json` | With the connector | — |
@@ -148,7 +148,7 @@ flowchart TB
 | `github-action-1362674060@…` | `firebasehosting.admin`, `firebaseauth.admin`, `cloudfunctions.developer`, `run.viewer`, `serviceusage.*` | GitHub secret `FIREBASE_SERVICE_ACCOUNT_WILO2_1EE44` | Hosting deploys (created by `firebase init hosting:github`) |
 
 - **Not secrets (public by design):** the Firebase web config (`apiKey` etc. in `fe/index.html`, `wilo/login.html`), Thom's uid in `config/wilo.json`. They identify the project but don't grant access. The rules and the server do that.
-- **Firebase Auth authorized domains:** `localhost`, `wilo2-1ee44.firebaseapp.com`, `wilo2-1ee44.web.app`, `wilo-connector.onrender.com`, plus one `wilo2-1ee44--prNN-….web.app` per PR preview (added automatically, low risk, clutter).
+- **Firebase Auth authorized domains:** `localhost`, `wilo2-1ee44.firebaseapp.com`, `wilo2-1ee44.web.app`, `wilo-connector.onrender.com`, plus the PR preview hosts (added automatically; older `--prNN-…` ones are clutter, since #115 every PR uses the `--dev-…` host).
 
 ---
 
@@ -158,7 +158,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 
 ### 5.1 GitHub
 - Repo `CoachThomLamb/wilo_ai`, **public**, default branch `main`. Work happens on branches with PRs, and merging to `main` deploys (Hosting via Actions, connector via Render).
-- **Actions:** `firebase-hosting-pull-request.yml` (preview channel per PR, expires after 7 days), `firebase-hosting-merge.yml` (live deploy on push to `main`). **No tests run in CI** (#46).
+- **Actions:** `firebase-hosting-pull-request.yml` (every PR deploys to the fixed preview channel `dev`, #115; the last PR pushed wins; expires 30 days after the last deploy, then comes back with a new host), `firebase-hosting-merge.yml` (live deploy on push to `main`). **No tests run in CI** (#46).
 - **Secret:** `FIREBASE_SERVICE_ACCOUNT_WILO2_1EE44` (the github-action key, created 2026-09-25).
 - Gitignored on purpose: `data/` (local Firestore dumps), installed skills in `.claude/skills/` (our own `wilo-*` skills are tracked), `.agents/`, `.env`.
 
@@ -215,7 +215,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 - [ ] Create the project. Add a **web app** and copy its config into the `initializeApp({...})` blocks in `fe/index.html` and `wilo/login.html`.
 - [ ] Firestore: create the **named database `wilo`** in `northamerica-northeast2`, Native mode. Turn on **delete protection**.
 - [ ] Auth: enable the **Google** provider.
-- [ ] **OAuth redirect URIs** (Google Cloud console → APIs & Services → Credentials → the web client Firebase uses, "Web client (auto created by Google Service)"): add `https://<project>.web.app/__/auth/handler`. The tracker signs in through its own domain (`authDomain` = the page's host, needed for in-app browsers), so **every domain the tracker runs on needs its handler URI here**, PR previews included. A missing one gives `Error 400: redirect_uri_mismatch`.
+- [ ] **OAuth redirect URIs** (Google Cloud console → APIs & Services → Credentials → the web client Firebase uses, "Web client (auto created by Google Service)"): add `https://<project>.web.app/__/auth/handler`. The tracker signs in through its own domain (`authDomain` = the page's host, needed for in-app browsers), so **every domain the tracker runs on needs its handler URI here**, including the PR preview host `wilo2-1ee44--dev-<hash>.web.app` (#115: one fixed host for all PRs, registered once). A missing one gives `Error 400: redirect_uri_mismatch`.
 - [ ] Update `.firebaserc` and `config/wilo.json` (`project`).
 - [ ] `firebase deploy --only firestore:rules` and `firebase deploy --only hosting`.
 - [ ] `firebase init hosting:github`. It recreates the github-action service account and the `FIREBASE_SERVICE_ACCOUNT_…` secret. Fix the secret name in both workflow files if the project ID changed.
