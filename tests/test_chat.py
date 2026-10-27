@@ -89,6 +89,25 @@ class ChatTest(unittest.TestCase):
         self.assertIn('Today is', req['system'][1]['text'])
         self.assertEqual({t['name'] for t in req['tools']}, {t.name for t in __import__('asyncio').run(srv.server.list_tools())})
 
+    def test_each_mode_uses_its_own_model(self):
+        saved = dict(chat.MODES)
+        chat.MODES.update(plan=('claude-opus-5-5', 'medium'), workout=('claude-haiku-5-5', 'low'))
+        try:
+            fake = self.claude(message('end_turn', text('ok')), message('end_turn', text('ok')))
+            chat_id = self.post({'message': 'plan my week'}).json()['chatId']
+            r = self.post({'message': 'swap squats', 'chatId': chat_id, 'mode': 'workout'})
+            self.assertEqual(r.json()['model'], 'claude-haiku-5-5')
+            plan, workout = fake.requests
+            self.assertEqual((plan['model'], plan['output_config']['effort']), ('claude-opus-5-5', 'medium'))
+            self.assertEqual((workout['model'], workout['output_config']['effort']), ('claude-haiku-5-5', 'low'))
+            # Haiku has no server-side fallback: sending one would fail the request.
+            self.assertEqual(plan['fallbacks'], 'default')
+            self.assertNotIn('fallbacks', workout)
+            self.assertNotIn('betas', workout)
+            self.assertEqual(self.post({'message': 'x', 'mode': 'nap'}).status_code, 400)
+        finally:
+            chat.MODES.update(saved)
+
     def test_tool_calls_act_on_the_signed_in_user(self):
         self.claude(message('tool_use', text('Checking.'), tool_use('exercise_history', {'name': 'bench'})),
                     message('end_turn', text('Last bench: 135 x 10.')))

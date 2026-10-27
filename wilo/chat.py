@@ -7,8 +7,13 @@ and returns the reply. Claude never picks whose data it touches: the uid comes f
 handed to the tools through mcp_server.CHAT_UID.
 
     POST /chat   Authorization: Bearer <Firebase ID token>
-                 {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>"}
-              →  {"chatId": "...", "reply": "...", "tools": ["recent_completed", ...]}
+                 {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>",
+                  "mode": "plan" | "workout" (optional, default plan)}
+              →  {"chatId": "...", "reply": "...", "tools": ["recent_completed", ...], "model": "..."}
+
+Two jobs, two models: planning needs judgment, changes and questions mid-workout need speed. The tracker sends
+mode "workout" while a workout is under way, and each mode has its own model and effort. One chat can use both:
+caches are per model, and thinking blocks another model can't read are dropped by the API, unbilled.
 
 Who may use it: WILO_CHAT_UIDS (comma-separated), default the uid in config/wilo.json. It spends our API key,
 so it is not open to every Google account that can sign in. Each user also has a daily cap (WILO_CHAT_DAILY_LIMIT).
@@ -20,8 +25,10 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
                                         included, go back to the API byte for byte.
     chat_usage/{uid}_{date}             count: requests today
 
-Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
-(default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_TZ (default America/Toronto).
+Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5) and WILO_CHAT_EFFORT
+(default medium) for both modes, or per mode: WILO_CHAT_MODEL_PLAN / WILO_CHAT_EFFORT_PLAN and
+WILO_CHAT_MODEL_WORKOUT / WILO_CHAT_EFFORT_WORKOUT. WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100),
+WILO_TZ (default America/Toronto).
 """
 
 import json
@@ -37,11 +44,16 @@ from wilo import data as wilo_data
 
 MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-opus-5-5')
 EFFORT = os.environ.get('WILO_CHAT_EFFORT', 'medium')
+MODES = {  # mode -> (model, effort)
+    'plan': (os.environ.get('WILO_CHAT_MODEL_PLAN', MODEL), os.environ.get('WILO_CHAT_EFFORT_PLAN', EFFORT)),
+    'workout': (os.environ.get('WILO_CHAT_MODEL_WORKOUT', MODEL), os.environ.get('WILO_CHAT_EFFORT_WORKOUT', EFFORT)),
+}
 DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
 MAX_STEPS = 12  # model calls per message: enough for a read-heavy plan, a stop for a runaway loop
 MAX_MESSAGE = 4000
 BETAS = ['server-side-fallback-2026-07-01']  # with fallbacks='default': a declined request reruns on another model
+FALLBACK_MODELS = {'claude-fable-5-1', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'}  # Haiku 5.5 has none
 
 # The tracker's own hosts (live and PR previews) and local testing.
 ORIGIN = re.compile(r'https://wilo2-1ee44(--[a-z0-9-]+)?\.(web\.app|firebaseapp\.com)|http://(localhost|127\.0\.0\.1)(:\d+)?')
@@ -138,18 +150,19 @@ def reply_text(content):
     return '\n\n'.join(b['text'] for b in content if b.get('type') == 'text' and b.get('text')).strip()
 
 
-async def turn(ctx, history, message):
+async def turn(ctx, history, message, mode='plan'):
     """Run one user message through Claude and the tools. Returns (new messages to store, reply, tools used).
     A refusal stores nothing, so the declined exchange never goes back to the API."""
+    model, effort = MODES[mode]
+    fallback = {'betas': BETAS, 'fallbacks': 'default'} if model in FALLBACK_MODELS else {}
     new = [{'role': 'user', 'content': message}]
     used, replies = [], []
     for _ in range(MAX_STEPS):
         resp = await client().beta.messages.create(
-            model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
-            output_config={'effort': EFFORT}, cache_control={'type': 'ephemeral'},
-            system=system(ctx), tools=await tools(), messages=history + new)
+            model=model, max_tokens=16000, output_config={'effort': effort}, cache_control={'type': 'ephemeral'},
+            system=system(ctx), tools=await tools(), messages=history + new, **fallback)
         u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
-        print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
+        print(f'chat: {mode} {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
               f'write={u.cache_creation_input_tokens or 0} out={u.output_tokens}', flush=True)
         if resp.stop_reason == 'refusal':
             return [], "Sorry, I can't help with that one.", used
@@ -201,11 +214,13 @@ def add_chat_routes(s):
             return fail(403, 'the coach chat is not open for this account yet')
         try:
             body = await request.json()
-            message, chat_id = body['message'], body.get('chatId')
+            message, chat_id, mode = body['message'], body.get('chatId'), body.get('mode', 'plan')
             assert isinstance(message, str) and 0 < len(message.strip()) <= MAX_MESSAGE
             assert chat_id is None or isinstance(chat_id, str)
+            assert mode in MODES
         except Exception:
-            return fail(400, f'send {{"message": "...", "chatId": optional}}, message up to {MAX_MESSAGE} characters')
+            return fail(400, f'send {{"message": "...", "chatId": optional, "mode": "plan" or "workout"}}, '
+                             f'message up to {MAX_MESSAGE} characters')
         now = datetime.now(timezone.utc)
         if not use_quota(db, uid, now):
             return fail(429, f"that's {DAILY_LIMIT} messages today; the coach is back tomorrow")
@@ -215,7 +230,7 @@ def add_chat_routes(s):
         chat_id, ref, ctx, history = thread
         reset = srv.CHAT_UID.set(uid)
         try:
-            new, reply, used = await turn(ctx, history, message.strip())
+            new, reply, used = await turn(ctx, history, message.strip(), mode)
         except anthropic.APIError as err:
             print(f'chat: API error {err!r}', flush=True)
             return fail(502, 'the coach is unavailable right now; try again in a minute')
@@ -224,7 +239,8 @@ def add_chat_routes(s):
         if new:
             n = len(list(ref.collection('turns').stream())) + 1
             ref.collection('turns').document(f'{n:04d}').set({'messages': json.dumps(new), 'at': now.isoformat()})
-        return JSONResponse({'chatId': chat_id, 'reply': reply, 'tools': used}, headers=headers)
+        return JSONResponse({'chatId': chat_id, 'reply': reply, 'tools': used, 'model': MODES[mode][0]},
+                            headers=headers)
 
 
 # Last: mcp_server imports this module while it builds its server, so it must find add_chat_routes defined.

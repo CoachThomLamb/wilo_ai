@@ -406,6 +406,10 @@
   }
 
   const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
+  // For chat.js: a workout is under way once a set is ticked, until Finish. The coach chat then uses its
+  // quick mid-workout model instead of the planning one.
+  window.__workoutInProgress = () =>
+    !!state.workoutId && !state.finished && state.exercises.some(x => x.sets.some(s => s.done));
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');

@@ -56,6 +56,9 @@ function draw() {
   for (const m of chat.messages) bubble(m.role, m.text);
 }
 
+// Mid-workout messages go to the quick model, everything else to the planning one (wilo/chat.py MODES).
+const inWorkout = () => !!(window.__workoutInProgress && window.__workoutInProgress());
+
 function wake() {
   fetch(SERVER + "/chat", { method: "OPTIONS" }).catch(() => {});
 }
@@ -73,7 +76,7 @@ async function send(text) {
     const res = await fetch(SERVER + "/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
-      body: JSON.stringify({ message: text, chatId: chat.chatId }),
+      body: JSON.stringify({ message: text, chatId: chat.chatId, mode: inWorkout() ? "workout" : "plan" }),
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one
