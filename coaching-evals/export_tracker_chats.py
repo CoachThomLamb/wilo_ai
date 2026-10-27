@@ -2,7 +2,7 @@
 
     .venv/bin/python coaching-evals/export_tracker_chats.py               # dry run: count chats, write nothing
     .venv/bin/python coaching-evals/export_tracker_chats.py --write       # write coaching-evals/tracker_traces.jsonl
-    .venv/bin/python coaching-evals/export_tracker_chats.py --uid <uid>   # another user's chats (needs their OK, #52)
+    .venv/bin/python coaching-evals/export_tracker_chats.py --uid <uid>[,<uid>]   # other users' chats (needs their OK, #52)
 
 Firestore (chat_threads) is the source; the output is a local, gitignored copy, regenerated whenever needed. Reads
 through the read-only facade wilo.data.chat_traces with the admin key. Default uid: config/wilo.json (Thom).
@@ -51,11 +51,14 @@ def to_trace(thread):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description='Export tracker chats from Firestore for the coaching-evals viewer.')
-    p.add_argument('--uid', default=wilo_data.CONFIG['uid'], help="whose chats (default: config/wilo.json)")
+    p.add_argument('--uid', default=wilo_data.CONFIG['uid'], help="whose chats, comma-separated (default: config/wilo.json)")
     p.add_argument('--write', action='store_true', help=f'write {OUT.name} (default: dry run)')
     args = p.parse_args(argv)
 
-    traces = [to_trace(t) for t in wilo_data.chat_traces(wilo_data.connect(), uid=args.uid)]
+    db = wilo_data.connect()
+    uids = [u.strip() for u in args.uid.split(',') if u.strip()]
+    threads = sorted((t for u in uids for t in wilo_data.chat_traces(db, uid=u)), key=lambda t: (t['createdAt'] or '', t['chatId']))
+    traces = [to_trace(t) for t in threads]
     n = sum(len(t['messages']) for t in traces)
     span = f", {traces[0]['updated_at'][:10]} to {traces[-1]['updated_at'][:10]}" if traces else ''
     print(f'{len(traces)} chats, {n} messages for {args.uid}{span}')
