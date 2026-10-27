@@ -147,9 +147,9 @@
   .ex-note {
     display: block; width: 100%; min-width: 0; max-width: 100%;
     background: transparent; border: 0; padding: 0 0 14px;
-    color: var(--dim); font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
+    color: #b5b5bd; font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
   }
-  .ex-cue { color: var(--dim); font-size: 15px; line-height: 1.35; padding: 0 0 8px; white-space: pre-wrap; }
+  .ex-cue { color: #b5b5bd; font-size: 15px; line-height: 1.35; padding: 0 0 8px; white-space: pre-wrap; }
   .ex-cue::before { content: 'Coach: '; color: var(--accent); }
   .ex-name:focus, .ex-note:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
   .sess-name-input {
@@ -158,7 +158,7 @@
   }
   .sess-name-input:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
   .ex-name::placeholder { color: #2d5c8a; }
-  .ex-note::placeholder { color: #4a4a4f; }
+  .ex-note::placeholder { color: #7c7c82; }
   .kill {
     background: none; border: 0; color: var(--dim);
     font-size: 20px; line-height: 1; padding: 2px 4px;
@@ -428,7 +428,7 @@
           <button class="kill" data-kill="${ex.instanceId}">&times;</button>
         </div>
         ${ex.cue ? `<div class="ex-cue">${esc(ex.cue)}</div>` : ''}
-        <input class="ex-note" value="${esc(ex.note)}" placeholder="Your note"
+        <input class="ex-note" value="${esc(ex.note)}" placeholder="Add note"
                data-id="${ex.instanceId}" data-k="note">
         <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
                data-id="${ex.instanceId}" data-k="custom_name">
