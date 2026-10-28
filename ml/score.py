@@ -27,7 +27,11 @@ def ask(url, key, model, item, tools):
     for c in item['context']:
         text = c['text'] + (f"\n[called: {', '.join(c['tools'])}]" if c.get('tools') else '')
         msgs.append({'role': 'user' if c['role'] == 'user' else 'assistant', 'content': text or '(no text)'})
-    msgs.append({'role': 'user', 'content': item['message']})
+    # Like the app since #124: the user's message starts with which workout is on screen.
+    scr = item.get('screen')
+    line = (f'[Tracker: "{scr["name"] or "workout"}" on screen; the plan: get_workout(\'assigned\', \'{scr["assignedDocId"]}\')]'
+            if scr else '[Tracker: no workout loaded]')
+    msgs.append({'role': 'user', 'content': f"{line}\n{item['message']}"})
     body = {'model': model, 'messages': msgs, 'tools': tools, 'tool_choice': 'auto', 'max_tokens': 4096, 'temperature': 0}
     req = urllib.request.Request(url + '/chat/completions', data=json.dumps(body).encode(),
                                  headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}',

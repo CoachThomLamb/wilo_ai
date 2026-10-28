@@ -37,10 +37,32 @@ def complete(name, args):
     return True
 
 
+def screens(msgs):
+    """(message index, assigned doc id, workout name) for every get/update of an assigned workout in the chat,
+    in order: which workout the conversation was about at each point."""
+    out = []
+    for i, m in enumerate(msgs):
+        for c in m.get('tool_calls') or []:
+            a = c.get('args') or {}
+            if tool_name(c['name']) in ('get_workout', 'update_workout') and a.get('collection') == 'assigned' and a.get('doc_id'):
+                wk = a.get('workout') or {}
+                out.append((i, a['doc_id'], wk.get('name') or wk.get('id') or ''))
+    return out
+
+
+def on_screen(seen, i):
+    """The workout on screen at message i, as the app now tells Wilo (#124): the last one touched before or at the
+    reply to i, else the first one the chat touches later (the workout it was about)."""
+    before = [s for s in seen if s[0] <= i + 1]
+    pick = before[-1] if before else (seen[0] if seen else None)
+    return {'assignedDocId': pick[1], 'name': pick[2]} if pick else None
+
+
 def items(chat, source):
     msgs = chat['messages']
     if source != 'tracker' and not any(tool_name(c['name']) for m in msgs for c in m.get('tool_calls') or []):
         return  # a chat that never touched WILO isn't coaching data
+    seen = screens(msgs)
     for i, m in enumerate(msgs):
         if m['role'] != 'user' or i + 1 >= len(msgs) or msgs[i + 1]['role'] != 'assistant':
             continue
@@ -59,7 +81,8 @@ def items(chat, source):
                     **({'tools': [t['name'] for t in c['tool_calls']]} if c.get('tool_calls') else {})}
                    for c in msgs[max(0, i - CONTEXT):i]]
         yield {'id': f"{chat['id']}#{i}", 'source': source, 'date': (m.get('created_at') or chat.get('updated_at') or '')[:10],
-               'context': context, 'message': m.get('content') or '', 'expected': expected, 'review': ''}
+               'context': context, 'screen': on_screen(seen, i), 'message': m.get('content') or '',
+               'expected': expected, 'review': ''}
 
 
 def main():
