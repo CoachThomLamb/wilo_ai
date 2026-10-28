@@ -1,0 +1,6 @@
+# Training on the pod (ml/train.py). torch comes with the image.
+transformers>=5
+trl
+peft
+datasets
+accelerate

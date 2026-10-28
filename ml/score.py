@@ -22,7 +22,8 @@ SYSTEM = """You are the tool-calling part of Wilo, a workout coach in a phone ap
 or reply in one short sentence if no tool is needed. Messages are often messy voice-to-text."""
 
 
-def ask(url, key, model, item, tools):
+def messages(item):
+    """The prompt for one item: system, earlier messages, then the user's message. train.py uses it too."""
     msgs = [{'role': 'system', 'content': SYSTEM}]
     for c in item['context']:
         text = c['text'] + (f"\n[called: {', '.join(c['tools'])}]" if c.get('tools') else '')
@@ -32,7 +33,12 @@ def ask(url, key, model, item, tools):
     line = (f'[Tracker: "{scr["name"] or "workout"}" on screen; the plan: get_workout(\'assigned\', \'{scr["assignedDocId"]}\')]'
             if scr else '[Tracker: no workout loaded]')
     msgs.append({'role': 'user', 'content': f"{line}\n{item['message']}"})
-    body = {'model': model, 'messages': msgs, 'tools': tools, 'tool_choice': 'auto', 'max_tokens': 4096, 'temperature': 0}
+    return msgs
+
+
+def ask(url, key, model, item, tools):
+    body = {'model': model, 'messages': messages(item), 'tools': tools, 'tool_choice': 'auto', 'max_tokens': 4096,
+            'temperature': 0}
     req = urllib.request.Request(url + '/chat/completions', data=json.dumps(body).encode(),
                                  headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}',
                                           'User-Agent': 'wilo-ml/1.0'})  # RunPod's proxy 403s Python's default
@@ -54,13 +60,18 @@ def norm(s):
     return re.sub(r'[^a-z0-9]+', ' ', str(s).lower()).strip()
 
 
+def flag(v):
+    """A boolean argument, whether the tool-call parser returned true or the string 'True'/'False'."""
+    return v is True or str(v).lower() == 'true'
+
+
 def args_ok(tool, want, got, complete=True):
     """Do the arguments that matter match? Free text is compared loosely; big workout objects only for shape.
     complete=False (the label kept only a summary): only the doc and the write flag are compared."""
     if '_unparsed' in got:
         return False
     if not complete:
-        return got.get('doc_id') == want.get('doc_id') and bool(got.get('write')) == bool(want.get('write'))
+        return got.get('doc_id') == want.get('doc_id') and flag(got.get('write')) == flag(want.get('write'))
     if tool == 'get_workout':
         return got.get('collection') == want.get('collection') and got.get('doc_id') == want.get('doc_id')
     if tool == 'exercise_history':
@@ -70,10 +81,10 @@ def args_ok(tool, want, got, complete=True):
         wk = got.get('workout')
         same_doc = tool == 'assign_workout' or got.get('doc_id') == want.get('doc_id')
         shape = isinstance(wk, dict) and isinstance(wk.get('exercises'), list) and len(wk['exercises']) > 0
-        return same_doc and shape and bool(got.get('write')) == bool(want.get('write'))
+        return same_doc and shape and flag(got.get('write')) == flag(want.get('write'))
     if tool == 'update_profile':
         keys = lambda d: {k for k in d if k != 'write'}
-        return keys(got) == keys(want) and bool(got.get('write')) == bool(want.get('write'))
+        return keys(got) == keys(want) and flag(got.get('write')) == flag(want.get('write'))
     if tool == 'add_todo':
         return bool(norm(got.get('text', '')))
     return True  # reads with optional args (recent_completed, recent_assigned, exercise_names, ...)
