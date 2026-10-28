@@ -39,19 +39,18 @@
 - **Baseline (untrained Qwen3.5-4B, no on-screen workout): right tool 36% (35/95), right tool + args 32%
   (31/95)**, ~2 s/item on a 4090. It plays safe: reads (`recent_assigned`, `get_profile`) instead of acting;
   `update_workout` 1/18.
-- Baseline **with** the on-screen workout: not run yet (see "Where it stopped").
+- **Baseline with the on-screen workout: right tool 32% (31/95), right tool + args 29% (28/95)**, ~4.4 s/item on an
+  A4000. Knowing the workout made it *read* it instead of act: `update_workout` → `get_workout` 14/18 times
+  (`get_workout` itself 3/3 now). So the gap is behaviour (act when the user says so), which is what SFT should fix.
 
 ## Where it stopped
-- **Pod `mjyizzwyqy6qzc` is RUNNING** (RTX A4000, Secure, EUR-IS-1, $0.25/hr, created 16:52 via the RunPod MCP),
-  still pulling the vLLM image at 16:58. Its URL + key are in the worktree's `ml/.pod.json`
-  (`~/wilo/.claude/worktrees/midworkout-68/ml/.pod.json`; copy it to `~/wilo/ml/` to score from there).
-  Next session: wait until `/v1/models` answers, run `python ml/score.py`, then **terminate the pod**
-  (RunPod MCP `delete-pod mjyizzwyqy6qzc`, or the console).
+- Both baselines done. Pod `mjyizzwyqy6qzc` terminated (list-pods empty); `ml/.pod.json` removed. No pods running.
+  First boot on a fresh pod took ~25 min (vLLM image pull ~10 GB + model); a network volume or a template with
+  the image cached would cut that for training runs.
 
 ## Next
-1. Baseline with the on-screen workout; terminate the pod.
-2. Split the eval (~50 test / ~45 seeds); generate ~300 training examples in Thom's voice (see the prompt below).
-3. `ml/train.py`: TRL SFTTrainer + LoRA; train on RunPod; serve the adapter with vLLM; re-score; compare with the
+1. Split the eval (~50 test / ~45 seeds); generate ~300 training examples in Thom's voice (see the prompt below).
+2. `ml/train.py`: TRL SFTTrainer + LoRA; train on RunPod; serve the adapter with vLLM; re-score; compare with the
    baseline and Claude.
 
 ## Wilo chat work (same day, separate PRs, waiting on Thom)
