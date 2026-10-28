@@ -89,7 +89,7 @@ def main():
     lora = LoraConfig(r=a.rank, lora_alpha=2 * a.rank, lora_dropout=0.05, task_type='CAUSAL_LM',
                       target_modules=r'.*language_model.*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)')
     cfg = SFTConfig(output_dir=a.out, num_train_epochs=a.epochs, learning_rate=a.lr, lr_scheduler_type='cosine',
-                    warmup_ratio=0.05, per_device_train_batch_size=1, gradient_accumulation_steps=8,
+                    warmup_steps=0.05, per_device_train_batch_size=1, gradient_accumulation_steps=8,
                     gradient_checkpointing=True, bf16=True, max_length=lens[-1], logging_steps=5,
                     save_strategy='no', report_to='none', seed=42)
     trainer = SFTTrainer(model=model, args=cfg, train_dataset=Dataset.from_list(rows), processing_class=tok,
