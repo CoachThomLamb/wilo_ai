@@ -61,7 +61,8 @@ def up():
 
 def status(wait=True):
     s = json.loads(STATE.read_text())
-    req = urllib.request.Request(s['url'] + '/models', headers={'Authorization': f"Bearer {s['key']}"})
+    # RunPod's proxy (Cloudflare) answers 403 to Python's default User-Agent, so send our own.
+    req = urllib.request.Request(s['url'] + '/models', headers={'Authorization': f"Bearer {s['key']}", 'User-Agent': 'wilo-ml/1.0'})
     for _ in range(120 if wait else 1):
         try:
             with urllib.request.urlopen(req, timeout=10) as r:

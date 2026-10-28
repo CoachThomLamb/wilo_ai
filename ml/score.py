@@ -30,7 +30,8 @@ def ask(url, key, model, item, tools):
     msgs.append({'role': 'user', 'content': item['message']})
     body = {'model': model, 'messages': msgs, 'tools': tools, 'tool_choice': 'auto', 'max_tokens': 4096, 'temperature': 0}
     req = urllib.request.Request(url + '/chat/completions', data=json.dumps(body).encode(),
-                                 headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}'})
+                                 headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}',
+                                          'User-Agent': 'wilo-ml/1.0'})  # RunPod's proxy 403s Python's default
     t = time.time()
     with urllib.request.urlopen(req, timeout=300) as r:
         out = json.load(r)['choices'][0]['message']
