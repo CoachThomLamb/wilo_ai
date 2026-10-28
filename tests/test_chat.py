@@ -18,6 +18,10 @@ from wilo import mcp_server as srv
 ME, OTHER = 'thom', 'someone-else'
 TOKENS = {'my-token': ME, 'other-token': OTHER}
 TRACKER = 'https://wilo2-1ee44.web.app'
+NO = '[Tracker: no workout loaded]\n'  # starts every message sent without a workout on screen
+WORKOUT = {'workoutId': 'w-legs', 'name': 'Legs', 'assignedDocId': 'legs-doc', 'completedDocId': 'log-doc',
+           'finished': False, 'setsDone': 4, 'setsTotal': 12,
+           'current': {'exercise': 'Back Squat', 'number': 2, 'of': 4, 'set': 2, 'sets': 3}}
 
 
 def message(stop, *content):
@@ -80,11 +84,11 @@ class ChatTest(unittest.TestCase):
         req = fake.requests[0]
         self.assertEqual(req['model'], chat.MODEL)
         self.assertEqual(req['fallbacks'], 'default')
-        self.assertEqual(req['messages'], [{'role': 'user', 'content': 'hello'}])
+        self.assertEqual(req['messages'], [{'role': 'user', 'content': NO + 'hello'}])
         self.assertIn('Coaching method', req['system'][0]['text'])
         # Fixed prefix cached for an hour, the chat for 5 minutes (the API's default TTL) after it.
         self.assertEqual(req['system'][0]['cache_control'], {'type': 'ephemeral', 'ttl': '1h'})
-        self.assertNotIn('cache_control', req['system'][1])
+        self.assertEqual(req['system'][1]['cache_control'], {'type': 'ephemeral'})  # ctx: written by /chat/warm
         self.assertEqual(req['cache_control'], {'type': 'ephemeral'})
         self.assertIn('Today is', req['system'][1]['text'])
         self.assertEqual({t['name'] for t in req['tools']}, {t.name for t in __import__('asyncio').run(srv.server.list_tools())})
@@ -123,7 +127,7 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(after['system'], before['system'])  # the context is frozen with the chat
         self.assertEqual(after['messages'][:3], before['messages'])
         self.assertEqual(after['messages'][3]['content'][0]['text'], 'You benched Monday.')
-        self.assertEqual(after['messages'][4], {'role': 'user', 'content': 'thanks'})
+        self.assertEqual(after['messages'][4], {'role': 'user', 'content': NO + 'thanks'})
         self.assertEqual(after['messages'][1]['content'][0], {'type': 'thinking', 'thinking': '', 'signature': 'sig'})
 
     def test_refusal_stores_nothing(self):
@@ -131,7 +135,51 @@ class ChatTest(unittest.TestCase):
         chat_id = self.post({'message': 'x'}).json()['chatId']
         nxt = self.claude(message('end_turn', text('ok')))
         self.post({'message': 'y', 'chatId': chat_id})
-        self.assertEqual(nxt.requests[0]['messages'], [{'role': 'user', 'content': 'y'}])
+        self.assertEqual(nxt.requests[0]['messages'], [{'role': 'user', 'content': NO + 'y'}])
+
+    def test_wilo_knows_the_workout_on_screen_and_where_the_user_is(self):
+        fake = self.claude(message('end_turn', text('Nice.')))
+        chat_id = self.post({'message': 'how heavy?', 'workout': WORKOUT}).json()['chatId']
+        req = fake.requests[0]
+        self.assertIn("get_workout('assigned', 'legs-doc')", req['system'][1]['text'])
+        self.assertIn("get_workout('completed', 'log-doc')", req['system'][1]['text'])
+        self.assertEqual(req['messages'][0]['content'],
+                         '[Tracker: "Legs", exercise 2 of 4: Back Squat, set 2 of 3; 4 of 12 sets done]\nhow heavy?')
+        self.assertEqual(self.db.store[f'chat_threads/{chat_id}']['workoutId'], 'w-legs')
+        # Later messages carry the new position; the frozen context doesn't change.
+        nxt = self.claude(message('end_turn', text('Done!')))
+        self.post({'message': 'done', 'chatId': chat_id, 'workout': {**WORKOUT, 'finished': True, 'setsDone': 12}})
+        self.assertEqual(nxt.requests[0]['system'], req['system'])
+        self.assertEqual(nxt.requests[0]['messages'][-1]['content'], '[Tracker: "Legs", finished; 12 of 12 sets done]\ndone')
+
+    def test_malformed_workout_is_ignored(self):
+        fake = self.claude(message('end_turn', text('hi')))
+        r = self.post({'message': 'hello', 'workout': {'name': 'no id', 'current': 'x'}})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(fake.requests[0]['messages'][0]['content'], NO + 'hello')
+
+    def test_warm_starts_the_workouts_chat_and_prewrites_the_cache(self):
+        fake = self.claude(message('max_tokens'))
+        r = self.http.post('/chat/warm', json={'workout': WORKOUT},
+                           headers={'Authorization': 'Bearer my-token', 'Origin': TRACKER})
+        self.assertEqual(r.status_code, 200)
+        chat_id = r.json()['chatId']
+        warm = fake.requests[0]
+        self.assertEqual(warm['max_tokens'], 0)
+        self.assertNotIn('cache_control', warm)  # top-level automatic caching would key on the placeholder
+        self.assertEqual(self.db.store[f'chat_threads/{chat_id}']['workoutId'], 'w-legs')
+        self.assertFalse([k for k in self.db.store if k.startswith(f'chat_threads/{chat_id}/turns')])  # nothing stored
+        # The first real message in that chat sends the same prefix, so it reads what warm wrote.
+        first = self.claude(message('end_turn', text('Ready.')))
+        self.post({'message': 'lets go', 'chatId': chat_id, 'workout': WORKOUT})
+        for k in ('model', 'system', 'tools', 'output_config', 'betas', 'fallbacks'):
+            self.assertEqual(first.requests[0][k], warm[k], k)
+
+    def test_warm_needs_sign_in_and_a_workout(self):
+        self.claude()
+        post = lambda body, tok='my-token': self.http.post('/chat/warm', json=body, headers={'Authorization': f'Bearer {tok}'})
+        self.assertEqual(post({'workout': WORKOUT}, 'other-token').status_code, 403)
+        self.assertEqual(post({}).status_code, 400)
 
     def test_someone_elses_chat_is_not_found(self):
         self.claude(message('end_turn', text('hi')))

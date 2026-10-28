@@ -11,8 +11,11 @@
     (wilo-ops#13). Finish keeps it, so the user can talk the workout over. The server freezes the coach's context (date, profile)
     when a chat starts. "New" starts one sooner. The chat id and the transcript we show are kept in
     localStorage (this phone only; the server keeps the real history).
-  - Wake-up: Render's free tier sleeps after 15 min, so opening the sheet
-    pings /chat first and the first reply isn't stuck behind a cold start.
+  - Wake-up: Render's free tier sleeps after 15 min, so the tracker pings
+    the server as soon as it opens, and again when the sheet opens.
+  - Warm-up on Load (window.__wilo.warm, from index.html): starts this
+    workout's chat on the server and pre-writes the prompt cache, so the
+    first message is fast.
 
   Needs the page's #chatBtn, #chatSheet, #chatLog, #chatForm, #chatInput,
   #chatNew, #chatClose, and window.__auth from auth.js.
@@ -55,13 +58,33 @@ function bubble(role, text) {
 function draw() {
   log.replaceChildren();
   if (!chat.messages.length)
-    bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
+    bubble("hint", "Ask Wilo: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
   for (const m of chat.messages) bubble(m.role, m.text);
 }
 
 function wake() {
   fetch(SERVER + "/chat", { method: "OPTIONS" }).catch(() => {});
 }
+wake();   // the tracker just opened: get the server up before anyone types
+
+// Called by index.html after Load: start this workout's chat now, so Wilo is ready when the user asks.
+async function warm() {
+  const user = window.__auth && window.__auth.currentUser();
+  const workout = window.__workoutInfo && window.__workoutInfo();
+  if (!user || !workout) return;
+  if (chat.scope !== scope()) chat = load();
+  if (chat.chatId) return;   // this workout already has its chat
+  try {
+    const res = await fetch(SERVER + "/chat/warm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
+      body: JSON.stringify({ workout }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.chatId && chat.scope === scope() && !chat.chatId) { chat.chatId = body.chatId; save(); }
+  } catch {}   // best effort: the first message starts the chat anyway
+}
+window.__wilo = { warm };
 
 async function send(text) {
   const user = window.__auth && window.__auth.currentUser();
@@ -76,7 +99,8 @@ async function send(text) {
     const res = await fetch(SERVER + "/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
-      body: JSON.stringify({ message: text, chatId: chat.chatId }),
+      // The workout on screen (index.html), so Wilo knows what "this workout" is.
+      body: JSON.stringify({ message: text, chatId: chat.chatId, workout: (window.__workoutInfo && window.__workoutInfo()) || null }),
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one
@@ -88,13 +112,13 @@ async function send(text) {
     wait.textContent = reply;
     // Its own bubble, so copying the coach's reply copies only the reply.
     if ((body.tools || []).some(t => t === "assign_workout" || t === "update_workout")) {
-      const tip = "If the coach saved a workout, tap Load to get it.";
+      const tip = "If Wilo saved a workout, tap Load to get it.";
       chat.messages.push({ role: "note", text: tip });
       bubble("note", tip);
     }
   } catch (err) {
     wait.className = "msg err";
-    wait.textContent = "Couldn't reach the coach: " + (err.message || err);
+    wait.textContent = "Couldn't reach Wilo: " + (err.message || err);
   } finally {
     clearTimeout(slow);
     save();
