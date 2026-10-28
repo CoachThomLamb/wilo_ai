@@ -813,7 +813,8 @@
         return;
       }
       loadWorkout(next.data);
-    state.assignedDocId = next.id;
+      state.assignedDocId = next.id;
+      if (window.__wilo) window.__wilo.warm();   // get Wilo ready for this workout (chat.js)
       last = 'loaded ' + (state.workoutId || next.id);
       draw();
       note('Loaded ' + (state.workoutName || next.id));
@@ -837,6 +838,7 @@
     if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
     loadWorkout(next.data);
     state.assignedDocId = next.id;
+    if (window.__wilo) window.__wilo.warm();   // get Wilo ready for this workout (chat.js)
     draw();
     note('Loaded ' + (state.workoutName || next.id));
   }

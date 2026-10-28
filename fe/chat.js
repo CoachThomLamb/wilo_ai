@@ -11,8 +11,11 @@
     (wilo-ops#13). Finish keeps it, so the user can talk the workout over. The server freezes the coach's context (date, profile)
     when a chat starts. "New" starts one sooner. The chat id and the transcript we show are kept in
     localStorage (this phone only; the server keeps the real history).
-  - Wake-up: Render's free tier sleeps after 15 min, so opening the sheet
-    pings /chat first and the first reply isn't stuck behind a cold start.
+  - Wake-up: Render's free tier sleeps after 15 min, so the tracker pings
+    the server as soon as it opens, and again when the sheet opens.
+  - Warm-up on Load (window.__wilo.warm, from index.html): starts this
+    workout's chat on the server and pre-writes the prompt cache, so the
+    first message is fast.
 
   Needs the page's #chatBtn, #chatSheet, #chatLog, #chatForm, #chatInput,
   #chatNew, #chatClose, and window.__auth from auth.js.
@@ -62,6 +65,26 @@ function draw() {
 function wake() {
   fetch(SERVER + "/chat", { method: "OPTIONS" }).catch(() => {});
 }
+wake();   // the tracker just opened: get the server up before anyone types
+
+// Called by index.html after Load: start this workout's chat now, so Wilo is ready when the user asks.
+async function warm() {
+  const user = window.__auth && window.__auth.currentUser();
+  const workout = window.__workoutInfo && window.__workoutInfo();
+  if (!user || !workout) return;
+  if (chat.scope !== scope()) chat = load();
+  if (chat.chatId) return;   // this workout already has its chat
+  try {
+    const res = await fetch(SERVER + "/chat/warm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
+      body: JSON.stringify({ workout }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.chatId && chat.scope === scope() && !chat.chatId) { chat.chatId = body.chatId; save(); }
+  } catch {}   // best effort: the first message starts the chat anyway
+}
+window.__wilo = { warm };
 
 async function send(text) {
   const user = window.__auth && window.__auth.currentUser();
