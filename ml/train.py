@@ -90,7 +90,7 @@ def main():
                       target_modules=r'.*language_model.*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)')
     cfg = SFTConfig(output_dir=a.out, num_train_epochs=a.epochs, learning_rate=a.lr, lr_scheduler_type='cosine',
                     warmup_steps=0.05, per_device_train_batch_size=1, gradient_accumulation_steps=8,
-                    gradient_checkpointing=True, bf16=True, max_length=lens[-1], logging_steps=5,
+                    gradient_checkpointing=True, bf16=True, max_length=lens[-1], logging_steps=2, disable_tqdm=True,
                     save_strategy='no', report_to='none', seed=42)
     trainer = SFTTrainer(model=model, args=cfg, train_dataset=Dataset.from_list(rows), processing_class=tok,
                          peft_config=lora)

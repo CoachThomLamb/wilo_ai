@@ -7,9 +7,9 @@ cd "$(dirname "$0")/../.."
 export HF_HOME=/workspace/hf
 
 # Training libs only; --no-deps keeps the image's transformers/torch, which vLLM needs.
-pip install -q --no-deps trl peft && pip install -q datasets accelerate
-python3 -c "import transformers, trl, peft, torch; print('versions', transformers.__version__, trl.__version__, peft.__version__, torch.__version__)"
-python3 ml/train.py --out /workspace/out && echo TRAIN_OK || echo TRAIN_FAILED
+pip install -q --no-deps trl peft flash-linear-attention fla-core && pip install -q datasets accelerate einops
+python3 -c "import transformers, trl, peft, torch, fla; print('versions', transformers.__version__, trl.__version__, peft.__version__, torch.__version__, fla.__version__)"
+PYTHONUNBUFFERED=1 python3 ml/train.py --out /workspace/out && echo TRAIN_OK || echo TRAIN_FAILED
 
 ARGS="--max-model-len 16384 --gpu-memory-utilization 0.42 --api-key $VLLM_KEY --reasoning-parser qwen3
       --enable-auto-tool-choice --tool-call-parser qwen3_coder --language-model-only"
