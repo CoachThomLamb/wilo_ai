@@ -1,4 +1,4 @@
-# Training on the pod (ml/train.py). torch comes with the image.
+# Training libs (ml/train.py). torch and transformers come with the vLLM image; the pod installs the rest.
 transformers>=5
 trl
 peft
