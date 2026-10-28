@@ -410,8 +410,9 @@
   }
 
   const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
-  // The coach chat keeps one conversation per workout (chat.js): a different workout, or Finish, starts a new one.
-  window.__workoutScope = () => state.workoutId ? state.workoutId + (state.finished ? ':done' : '') : '';
+  // The coach chat keeps one conversation per workout (chat.js), through Finish so the user can talk it over;
+  // loading a different workout starts a new one.
+  window.__workoutScope = () => state.workoutId || '';
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
