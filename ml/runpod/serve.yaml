@@ -1,0 +1,22 @@
+# RunPod pod that serves a model with vLLM's OpenAI-compatible API (ml/runpod/pod.py up).
+# Qwen3.5-4B flags are from its model card: tool calls via the qwen3_coder parser, thinking split out by the
+# qwen3 reasoning parser, text only (skip the vision encoder).
+name: wilo-toolcall
+gpu: NVIDIA GeForce RTX 4090        # 24 GB; ~$0.70/hr
+cloud: SECURE                        # SECURE or COMMUNITY (cheaper, less reliable)
+image: vllm/vllm-openai:v0.31.0     # pinned: Qwen3.5 needs a recent vLLM
+container_disk_gb: 20
+volume_gb: 40                        # model weights cache, survives stop/start
+volume_path: /workspace
+port: 8000
+model: Qwen/Qwen3.5-4B
+max_model_len: 32768
+vllm_args:
+  - --reasoning-parser
+  - qwen3
+  - --enable-auto-tool-choice
+  - --tool-call-parser
+  - qwen3_coder
+  - --language-model-only
+env:
+  HF_HOME: /workspace/hf
