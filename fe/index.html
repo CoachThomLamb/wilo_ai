@@ -147,8 +147,10 @@
   .ex-note {
     display: block; width: 100%; min-width: 0; max-width: 100%;
     background: transparent; border: 0; padding: 0 0 14px;
-    color: var(--dim); font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
+    color: #b5b5bd; font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
   }
+  .ex-cue { color: #b5b5bd; font-size: 15px; line-height: 1.35; padding: 0 0 8px; white-space: pre-wrap; }
+  .ex-cue::before { content: 'Coach: '; color: var(--accent); }
   .ex-name:focus, .ex-note:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
   .sess-name-input {
     background: transparent; border: 0; padding: 0; width: 100%;
@@ -156,7 +158,7 @@
   }
   .sess-name-input:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
   .ex-name::placeholder { color: #2d5c8a; }
-  .ex-note::placeholder { color: #4a4a4f; }
+  .ex-note::placeholder { color: #7c7c82; }
   .kill {
     background: none; border: 0; color: var(--dim);
     font-size: 20px; line-height: 1; padding: 2px 4px;
@@ -248,6 +250,17 @@
   .msg.pending { color: var(--dim); }
   .msg.err { align-self: flex-start; background: none; border: 1px solid #ff453a; color: #ff453a; }
   .msg.hint { align-self: center; max-width: 100%; color: var(--dim); font-size: 14px; text-align: center; }
+  .msg.note { align-self: flex-start; padding-top: 0; color: var(--dim); font-size: 14px; }
+  /* hold to copy (chat.js): no word selection or callout on touch screens; held = about to copy */
+  .msg { position: relative; transition: transform .15s, filter .15s; }
+  @media (hover: none) { .msg { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+  .msg.held { transform: scale(.97); filter: brightness(1.25); }
+  .msg.flash::after {
+    content: attr(data-flash); position: absolute; top: -10px; right: 8px;
+    background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) { .msg { transition: none; } }
   .chat-form {
     display: flex; gap: 8px; align-items: flex-end; flex: none;
     padding: 10px 16px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
@@ -346,7 +359,8 @@
       timed,
       name: def.name,
       custom_name: def.custom_name || null,
-      note: def.cue || def.note || '',
+      cue: def.cue || '',     // the coach's instructions (#100), shown read-only
+      note: def.note || '',   // the user's own note
       fallback: def.fallback || null,
       swapped: def.swapped || false,
       original: def.original || null,
@@ -379,12 +393,13 @@
       if (!old) return fresh;
       used.add(old);
       const logged = old.sets.filter(s => s.done);
+      // The coach's new cue comes from the plan; the user's own note stays (#100).
       // A rename (or note / custom-field edit) is the user's own: it survives
       // the merge instead of snapping back to the plan (#109). exId follows
       // the kept name, or the match by exId would break on the next merge.
       const kept = old.userEdited
         ? { name: old.name, exId: old.exId, note: old.note, custom_name: old.custom_name, userEdited: true }
-        : {};
+        : { note: old.note || fresh.note };
       return { ...fresh, instanceId: old.instanceId, ...kept, sets: [...logged, ...fresh.sets.slice(logged.length)] };
     });
     const dropped = current.filter(x => !used.has(x) && x.sets.some(s => s.done))
@@ -418,7 +433,8 @@
                  data-id="${ex.instanceId}" data-k="name">
           <button class="kill" data-kill="${ex.instanceId}">&times;</button>
         </div>
-        <input class="ex-note" value="${esc(ex.note)}" placeholder="Add a note"
+        ${ex.cue ? `<div class="ex-cue">${esc(ex.cue)}</div>` : ''}
+        <input class="ex-note" value="${esc(ex.note)}" placeholder="Add note"
                data-id="${ex.instanceId}" data-k="note">
         <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
                data-id="${ex.instanceId}" data-k="custom_name">
@@ -511,10 +527,10 @@
       const ex = state.exercises.find(x => x.instanceId === id);
       if (!ex) throw new Error('no exercise for id ' + id);
       if (!ex.swapped && ex.fallback) {
-        ex.original = { name: ex.name, note: ex.note, sets: ex.sets };
+        ex.original = { name: ex.name, cue: ex.cue, sets: ex.sets };
         const f = ex.fallback;
         ex.name = f.name;
-        ex.note = f.cue || ex.note;
+        ex.cue = f.cue || ex.cue;
         ex.sets = Array.from({ length: f.sets || ex.sets.length },
           () => ({ lbs: 0, reps: (f.target && f.target.reps) || 8, done: false, custom: null }));
         ex.swapped = true;
@@ -542,6 +558,7 @@
         timed: false,
         name: '',
         custom_name: null,
+        cue: '',
         note: '',
         fallback: null,
         swapped: false,
@@ -661,7 +678,8 @@
         instanceId: ex.instanceId,
         exId: ex.exId,
         name: ex.name,
-        cue: ex.note || '',
+        cue: ex.cue || '',
+        note: ex.note || '',
         custom_name: ex.custom_name || null,
         timed: ex.timed,
         swapped: ex.swapped,
