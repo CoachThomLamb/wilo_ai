@@ -150,7 +150,7 @@
     color: #b5b5bd; font-family: inherit; font-size: 16px; font-weight: 400; line-height: 1.3;
   }
   .ex-cue { color: #b5b5bd; font-size: 15px; line-height: 1.35; padding: 0 0 8px; white-space: pre-wrap; }
-  .ex-cue::before { content: 'Coach: '; color: var(--accent); }
+  .ex-cue::before { content: 'Wilo: '; color: var(--accent); }
   .ex-name:focus, .ex-note:focus { outline: none; box-shadow: 0 1px 0 var(--accent); }
   .sess-name-input {
     background: transparent; border: 0; padding: 0; width: 100%;
@@ -309,12 +309,12 @@
 <div class="list" id="list"></div>
 
 <button class="json-btn" id="jsonBtn">{ }</button>
-<button class="chat-btn" id="chatBtn">Coach</button>
+<button class="chat-btn" id="chatBtn">Wilo</button>
 
-<div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Coach chat">
+<div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Chat with Wilo">
   <div class="sheet-head">
     <button id="chatNew">New</button>
-    <strong>Coach</strong>
+    <strong>Wilo</strong>
     <button id="chatClose">Close</button>
   </div>
   <div class="chat-log" id="chatLog" aria-live="polite"></div>
@@ -409,10 +409,25 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
+  const state = { workoutId: null, workoutName: '', assignedDocId: null, finishDocId: null, finished: false, exercises: [] };
   // The coach chat keeps one conversation per workout (chat.js), through Finish so the user can talk it over;
   // loading a different workout starts a new one.
   window.__workoutScope = () => state.workoutId || '';
+  // What Wilo is told with every message (chat.js → /chat): which workout is on screen and where the user is in it
+  // (the first exercise with a set still to do), so it reads that workout instead of guessing.
+  window.__workoutInfo = () => {
+    if (!state.workoutId) return null;
+    const sets = state.exercises.flatMap(x => x.sets);
+    const at = state.exercises.findIndex(x => x.sets.some(s => !s.done));
+    const ex = state.exercises[at];
+    return {
+      workoutId: state.workoutId, name: state.workoutName, assignedDocId: state.assignedDocId,
+      completedDocId: state.finishDocId, finished: state.finished,
+      setsDone: sets.filter(s => s.done).length, setsTotal: sets.length,
+      current: ex ? { exercise: ex.name, number: at + 1, of: state.exercises.length,
+                      set: ex.sets.findIndex(s => !s.done) + 1, sets: ex.sets.length } : null,
+    };
+  };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -641,6 +656,7 @@
       state.exercises = saved.state.exercises;
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
+      state.assignedDocId = saved.state.assignedDocId || null;
       state.finishDocId = saved.state.finishDocId || null;
       state.finished = !!saved.state.finished;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
@@ -785,6 +801,7 @@
       if (!next) { note('No workout planned — ask your coach to plan one'); return; }
       const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
       if (logged && next.data.id === state.workoutId) {
+        state.assignedDocId = next.id;
         mergeWorkout(next.data);   // plan changed mid-workout: keep logged sets
         last = 'merged ' + state.workoutId;
         draw();
@@ -796,6 +813,7 @@
         return;
       }
       loadWorkout(next.data);
+    state.assignedDocId = next.id;
       last = 'loaded ' + (state.workoutId || next.id);
       draw();
       note('Loaded ' + (state.workoutName || next.id));
@@ -818,6 +836,7 @@
     const next = await fetchNextAssigned();
     if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
     loadWorkout(next.data);
+    state.assignedDocId = next.id;
     draw();
     note('Loaded ' + (state.workoutName || next.id));
   }

@@ -55,7 +55,7 @@ function bubble(role, text) {
 function draw() {
   log.replaceChildren();
   if (!chat.messages.length)
-    bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
+    bubble("hint", "Ask Wilo: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
   for (const m of chat.messages) bubble(m.role, m.text);
 }
 
@@ -76,7 +76,8 @@ async function send(text) {
     const res = await fetch(SERVER + "/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
-      body: JSON.stringify({ message: text, chatId: chat.chatId }),
+      // The workout on screen (index.html), so Wilo knows what "this workout" is.
+      body: JSON.stringify({ message: text, chatId: chat.chatId, workout: (window.__workoutInfo && window.__workoutInfo()) || null }),
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one
@@ -88,13 +89,13 @@ async function send(text) {
     wait.textContent = reply;
     // Its own bubble, so copying the coach's reply copies only the reply.
     if ((body.tools || []).some(t => t === "assign_workout" || t === "update_workout")) {
-      const tip = "If the coach saved a workout, tap Load to get it.";
+      const tip = "If Wilo saved a workout, tap Load to get it.";
       chat.messages.push({ role: "note", text: tip });
       bubble("note", tip);
     }
   } catch (err) {
     wait.className = "msg err";
-    wait.textContent = "Couldn't reach the coach: " + (err.message || err);
+    wait.textContent = "Couldn't reach Wilo: " + (err.message || err);
   } finally {
     clearTimeout(slow);
     save();
