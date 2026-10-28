@@ -6,9 +6,10 @@
 
   - Auth: the signed-in user's Firebase ID token, sent as a Bearer token.
     The server checks it and decides whose data the coach touches.
-  - One chat per local day: the server freezes the coach's context (date,
-    profile) when a chat starts, so a new day starts a new chat. "New"
-    starts one sooner. The chat id and the transcript we show are kept in
+  - One chat per workout (and per day): a different workout, or Finish,
+    starts a new chat, so a chat stays short and each call resends less
+    (wilo-ops#13). The server freezes the coach's context (date, profile)
+    when a chat starts. "New" starts one sooner. The chat id and the transcript we show are kept in
     localStorage (this phone only; the server keeps the real history).
   - Wake-up: Render's free tier sleeps after 15 min, so opening the sheet
     pings /chat first and the first reply isn't stuck behind a cold start.
@@ -25,13 +26,15 @@ const KEEP = 60;   // messages kept for display
 const $ = id => document.getElementById(id);
 const sheet = $("chatSheet"), log = $("chatLog"), form = $("chatForm"), input = $("chatInput");
 const today = () => new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD, local
+// Which conversation this is: today + the workout on screen (and whether it's finished), from index.html.
+const scope = () => today() + "|" + ((window.__workoutScope && window.__workoutScope()) || "");
 
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved && saved.day === today()) return saved;
+    if (saved && saved.scope === scope()) return saved;
   } catch {}
-  return { day: today(), chatId: null, messages: [] };
+  return { scope: scope(), chatId: null, messages: [] };
 }
 let chat = load();
 
@@ -155,14 +158,14 @@ log.addEventListener("pointerup", async () => {
 log.addEventListener("contextmenu", ev => { if (ev.target.closest(".msg")) ev.preventDefault(); });
 
 $("chatBtn").addEventListener("click", () => {
-  if (chat.day !== today()) chat = load();
+  if (chat.scope !== scope()) chat = load();
   draw();
   sheet.classList.add("open");
   wake();
 });
 $("chatClose").addEventListener("click", () => sheet.classList.remove("open"));
 $("chatNew").addEventListener("click", () => {
-  chat = { day: today(), chatId: null, messages: [] };
+  chat = { scope: scope(), chatId: null, messages: [] };
   save();
   draw();
   input.focus();
