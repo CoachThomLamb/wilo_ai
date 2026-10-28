@@ -2,8 +2,18 @@
 # Qwen3.5-4B flags are from its model card: tool calls via the qwen3_coder parser, thinking split out by the
 # qwen3 reasoning parser, text only (skip the vision encoder).
 name: wilo-toolcall
-gpu: NVIDIA GeForce RTX 4090        # 24 GB; ~$0.70/hr
-cloud: SECURE                        # SECURE or COMMUNITY (cheaper, less reliable)
+# RunPod often has no stock of a given card. pod.py tries each GPU in this order, in each cloud in order,
+# until one is free. All have 24 GB or more, enough for a 4B model; roughly cheapest first.
+gpus:
+  - NVIDIA GeForce RTX 4090
+  - NVIDIA RTX A5000
+  - NVIDIA GeForce RTX 3090
+  - NVIDIA L4
+  - NVIDIA RTX A6000
+  - NVIDIA A40
+  - NVIDIA L40S
+  - NVIDIA RTX 6000 Ada Generation
+clouds: [SECURE, COMMUNITY]          # Secure first (more reliable), then Community (cheaper)
 image: vllm/vllm-openai:v0.31.0     # pinned: Qwen3.5 needs a recent vLLM
 container_disk_gb: 20
 volume_gb: 40                        # model weights cache, survives stop/start

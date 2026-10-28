@@ -1,7 +1,7 @@
 """Start, check and stop the model-serving pod described in serve.yaml.
 
     export RUNPOD_API_KEY=...                       # runpod.io → Settings → API Keys
-    python ml/runpod/pod.py up                      # create the pod; prints the endpoint
+    python ml/runpod/pod.py up                      # create the pod on the first free GPU in serve.yaml
     python ml/runpod/pod.py status                  # waits until the model answers /v1/models
     python ml/runpod/pod.py down                    # terminate it (stop paying)
 
@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 import runpod
+import runpod.error
 import yaml
 
 HERE = Path(__file__).resolve().parent
@@ -33,14 +34,29 @@ def up():
     key = secrets.token_urlsafe(24)
     args = ['--model', c['model'], '--port', str(c['port']), '--max-model-len', str(c['max_model_len']),
             '--api-key', key, *c['vllm_args']]
-    pod = runpod.create_pod(
-        name=c['name'], image_name=c['image'], gpu_type_id=c['gpu'], cloud_type=c['cloud'],
-        container_disk_in_gb=c['container_disk_gb'], volume_in_gb=c['volume_gb'], volume_mount_path=c['volume_path'],
-        ports=f"{c['port']}/http", docker_args=' '.join(args), env=c.get('env') or {})
+    pod, misses = None, []
+    for gpu in c['gpus']:
+        for cloud in c['clouds']:
+            try:
+                pod = runpod.create_pod(
+                    name=c['name'], image_name=c['image'], gpu_type_id=gpu, cloud_type=cloud,
+                    container_disk_in_gb=c['container_disk_gb'], volume_in_gb=c['volume_gb'],
+                    volume_mount_path=c['volume_path'], ports=f"{c['port']}/http", docker_args=' '.join(args),
+                    env=c.get('env') or {})
+                break
+            except runpod.error.QueryError as e:  # usually "no longer any instances available"; try the next
+                misses.append(f'{gpu} / {cloud}: {str(e)[:80]}')
+                print(f'  no {gpu} in {cloud}', flush=True)
+        if pod:
+            break
+    if not pod:
+        sys.exit('No GPU free in any cloud right now:\n  ' + '\n  '.join(misses) + '\nTry again in a few minutes.')
     url = f"https://{pod['id']}-{c['port']}.proxy.runpod.net/v1"
-    STATE.write_text(json.dumps({'id': pod['id'], 'url': url, 'key': key, 'model': c['model']}, indent=2))
+    STATE.write_text(json.dumps({'id': pod['id'], 'url': url, 'key': key, 'model': c['model'],
+                                 'gpu': gpu, 'cloud': cloud}, indent=2))
     STATE.chmod(0o600)
-    print(f"pod {pod['id']} starting: {url}\nFirst start downloads the model (a few minutes). Then: pod.py status")
+    print(f"pod {pod['id']} starting on {gpu} ({cloud}): {url}\n"
+          f"First start downloads the model (a few minutes). Then: pod.py status")
 
 
 def status(wait=True):
