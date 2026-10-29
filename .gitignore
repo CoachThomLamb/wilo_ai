@@ -82,6 +82,5 @@ __pycache__/
 *.egg-info/
 
 # Small-model experiment (ml/): local results and the running pod (its URL and API key)
-ml/results/
 ml/.pod.json
 ml/out/

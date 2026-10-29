@@ -2,16 +2,24 @@
 
     pip install -r ml/requirements-train.txt
     python ml/train.py --show 2            # print 2 rendered examples, no GPU needed
-    python ml/train.py                      # train → ml/out/adapter and ml/out/merged (for vLLM)
+    python ml/train.py --hub-repo <user>/wilo-toolcall   # train → ml/out/{adapter,merged}, then upload the run
 
-Data: ml/train_synth.jsonl (local, gitignored) + ml/seeds.jsonl. Never ml/test.jsonl. Each item becomes the same
+Every run is saved (Thom, 2026-10-29: the first trained model was lost with its pod): the LoRA adapter, the exact
+training data and the run settings go to a private Hugging Face repo (HF_TOKEN in the env), one folder per run
+(runs/<UTC time>). If the upload fails, the script exits non-zero. --no-upload only for a local dry run.
+
+Data: ml/train_synth.jsonl + ml/seeds.jsonl (both committed). Never ml/test.jsonl. Each item becomes the same
 prompt score.py sends (messages(item), with the tool definitions) and one target: the expected tool call, or a fixed
 "No tool needed." when Claude answered without a tool (the small model is only the tool caller; Claude replies).
 Loss is on the target only. The chat template gives the target an empty <think> block, so the model learns to call
 the tool without reasoning first.
 """
 import argparse
+import hashlib
 import json
+import shutil
+import sys
+import time
 from pathlib import Path
 
 from score import messages
@@ -53,12 +61,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--base', default=BASE)
     ap.add_argument('--out', default=str(HERE / 'out'))
+    ap.add_argument('--hub-repo', help='private HF repo for the run, e.g. thomlamb/wilo-toolcall')
+    ap.add_argument('--no-upload', action='store_true', help='local dry run only: nothing saved off the machine')
     ap.add_argument('--epochs', type=float, default=3)
     ap.add_argument('--lr', type=float, default=1e-4)
     ap.add_argument('--rank', type=int, default=16)
     ap.add_argument('--no-seeds', action='store_true', help='train on the synthetic data only')
     ap.add_argument('--show', type=int, help='print this many rendered examples and stop')
     a = ap.parse_args()
+    if a.show is None and not a.no_upload and not a.hub_repo:
+        sys.exit('Set --hub-repo (or --no-upload for a local dry run): a trained run must be saved off the machine.')
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(a.base)
@@ -105,6 +117,33 @@ def main():
     from transformers import AutoProcessor
     AutoProcessor.from_pretrained(a.base).save_pretrained(out / 'merged')
     print(f'saved {out / "adapter"} and {out / "merged"}')
+    if not a.no_upload:
+        upload(a, out)
+
+
+def upload(a, out):
+    """Save the run where it outlives the pod: adapter + training data + settings → private HF repo."""
+    from huggingface_hub import HfApi
+    run = time.strftime('runs/%Y%m%d-%H%M%S', time.gmtime())
+    keep = out / 'run'
+    shutil.copytree(out / 'adapter', keep / 'adapter', dirs_exist_ok=True)
+    (keep / 'data').mkdir(parents=True, exist_ok=True)
+    data = [HERE / 'train_synth.jsonl'] + ([HERE / 'seeds.jsonl'] if not a.no_seeds else [])
+    for f in data:
+        shutil.copy(f, keep / 'data' / f.name)
+    info = {'base': a.base, 'args': vars(a), 'data': {f.name: hashlib.sha256(f.read_bytes()).hexdigest() for f in data}}
+    (keep / 'run.json').write_text(json.dumps(info, indent=2, default=str))
+    try:
+        api = HfApi()
+        api.create_repo(a.hub_repo, private=True, exist_ok=True)
+        api.upload_folder(repo_id=a.hub_repo, folder_path=str(keep), path_in_repo=run,
+                          commit_message=f'{run}: adapter + training data + settings')
+        files = [f for f in api.list_repo_files(a.hub_repo) if f.startswith(run + '/adapter/')]
+        assert any(f.endswith('.safetensors') for f in files), f'no adapter weights in {a.hub_repo}/{run}'
+    except Exception as e:
+        sys.exit(f'UPLOAD_FAILED: {e!r}. The trained adapter is only in {out} on this machine: copy it before '
+                 f'the pod goes away.')
+    print(f'UPLOAD_OK https://huggingface.co/{a.hub_repo}/tree/main/{run}')
 
 
 if __name__ == '__main__':

@@ -4,12 +4,14 @@
 # downloads this branch and runs this script; follow it with the pod logs.
 set -x
 cd "$(dirname "$0")/../.."
+# Every run is saved off the pod (ml/train.py uploads it). Don't spend GPU time on a run that can't be saved.
+if [ -z "$HF_TOKEN" ] || [ -z "$WILO_HF_REPO" ]; then echo "TRAIN_REFUSED: set HF_TOKEN and WILO_HF_REPO"; exit 1; fi
 export HF_HOME=/workspace/hf
 
 # Training libs only; --no-deps keeps the image's transformers/torch, which vLLM needs.
-pip install -q --no-deps trl peft flash-linear-attention fla-core && pip install -q datasets accelerate einops
+pip install -q --no-deps trl peft flash-linear-attention fla-core && pip install -q datasets accelerate einops huggingface_hub
 python3 -c "import transformers, trl, peft, torch, fla; print('versions', transformers.__version__, trl.__version__, peft.__version__, torch.__version__, fla.__version__)"
-PYTHONUNBUFFERED=1 python3 ml/train.py --out /workspace/out && echo TRAIN_OK || echo TRAIN_FAILED
+PYTHONUNBUFFERED=1 python3 ml/train.py --out /workspace/out --hub-repo "$WILO_HF_REPO" && echo TRAIN_OK || echo TRAIN_FAILED
 
 ARGS="--max-model-len 16384 --gpu-memory-utilization 0.42 --api-key $VLLM_KEY --reasoning-parser qwen3
       --enable-auto-tool-choice --tool-call-parser qwen3_coder --language-model-only"
