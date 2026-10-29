@@ -1,10 +1,10 @@
 """Talk to Kimi as Wilo: coach.md is its system prompt, and it calls the real WILO tools on your data.
 
-    export RUNPOD_API_KEY=...        # runpod.io → Settings → API Keys
     ~/wilo/.venv/bin/python ml/kimi_coach.py                       # coach.md from ~/wilo/wilo/coach.md
     ~/wilo/.venv/bin/python ml/kimi_coach.py --coach path/to/coach.md --model kimi-k3.1-pro
 
-Kimi runs on RunPod's public endpoint (pay per token, ~1-2 cents a message). Tools run locally through the wilo
+Kimi runs on RunPod's public endpoint (pay per token, ~1-2 cents a message); the key is RUNPOD_API_KEY, from the
+env or ~/wilo/ml/.env. Tools run locally through the wilo
 package (same as Claude Code's local `wilo` server, user from config/wilo.json). Reads run straight away; anything
 that saves (write=True, todos) asks you y/n first. coach.md is re-read every message, so edit it and keep talking.
 /reset clears the conversation, /quit exits.
@@ -22,6 +22,14 @@ HERE = Path(__file__).resolve().parent
 URL = 'https://api.runpod.ai/v2/moonshot-kimi/openai/v1/chat/completions'
 SAVES = {'add_todo', 'update_todo', 'delete_todo'}  # these save without a write flag
 DIM, BOLD, END = '\033[2m', '\033[1m', '\033[0m'
+
+
+def env_key():
+    """RUNPOD_API_KEY from ~/wilo/ml/.env (the main checkout's, gitignored)."""
+    f = Path('~/wilo/ml/.env').expanduser()
+    for line in f.read_text().splitlines() if f.exists() else []:
+        if line.startswith('RUNPOD_API_KEY='):
+            return line.split('=', 1)[1].strip().strip('"\'')
 
 
 def system(coach):
@@ -52,7 +60,7 @@ def main():
     p.add_argument('--coach', default='~/wilo/wilo/coach.md')
     p.add_argument('--model', default='kimi-k3.1-pro')
     a = p.parse_args()
-    key = os.environ.get('RUNPOD_API_KEY') or exit('Set RUNPOD_API_KEY first.')
+    key = os.environ.get('RUNPOD_API_KEY') or env_key() or exit('Set RUNPOD_API_KEY (or put it in ~/wilo/ml/.env).')
     defs = [t for t in json.loads((HERE / 'wilo_tools.json').read_text()) if t['function']['name'] != 'coaching_method']
     history = []
     while True:
