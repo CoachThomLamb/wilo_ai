@@ -4,24 +4,27 @@
 
   - Sign-in required (Google, via auth.js). Signed out, a gate covers the
     app. All data is users/{uid}/...; no top-level collections (#15).
-  - Boot: restores the draft; once signed in, loads the next workout:
-    the earliest of users/{uid}/assigned (by assignedFor) with no completed
-    copy, unless a draft is in progress. Load button does the same; if the
-    coach changed the workout in progress, Load merges: logged sets stay, the
-    rest comes from the new plan (#68).
+  - Workouts (#126): one doc per workout in users/{uid}/workouts, from plan
+    to done. The coach writes the plan (`exercises`, the plan with its diffs
+    applied); this page writes only the log (what you did), `status`
+    (in progress / done) and timestamps. The security rules hold it to that.
+  - Boot: restores the draft; once signed in, listens to the workouts. With
+    no draft it loads the next one: the earliest by assignedFor that isn't
+    done. When the coach changes the workout you're on, the new plan merges
+    in right away: logged sets stay, the rest comes from the new plan (#68).
+    Exercises match by their stable exId, so renames don't break it (#109).
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
-  - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
-    writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
-    "Workout complete" screen only after Firestore confirms, else
-    "Save failed — retry".
-    The doc id is kept per workout, so retries overwrite, never duplicate.
-    Save as you go: once a set is ticked, changes also save quietly to that
-    same doc with inProgress: true ("Synced to WILO"), so the coach sees them
-    mid-workout; Finish saves it with inProgress: false (#68).
+  - Persistence: draft autosaves to localStorage ("Draft saved"); it's the
+    offline copy. Save as you go: once a set is ticked, the log also saves
+    quietly to the workout doc with status "in progress" ("Synced to WILO"),
+    so the coach sees it mid-workout. Finish saves it with status "done";
+    "Saved ✓" and a "Workout complete" screen only after Firestore confirms,
+    else "Save failed — retry". A workout logged with no plan gets its own
+    doc (DD-mmm-HH:MM-slug-rand) on its first save.
 
   Coach chat: the Coach button opens chat.js's sheet, which talks to the
   connector server's /chat (wilo/chat.py).
@@ -36,7 +39,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // authDomain = this page's own host on Firebase Hosting (live and PR
   // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
   // Safari's in-app browsers (Camera, Claude app): the handler on another
@@ -56,9 +59,8 @@
   // Only per-user paths: every read and write goes through auth.js's
   // userCol / userDoc (users/{uid}/...). No top-level collection access.
   window.__setDoc = setDoc;
-  window.__getDocs = getDocs;
-  window.__query = query;
-  window.__orderBy = orderBy;
+  window.__updateDoc = updateDoc;
+  window.__onSnapshot = onSnapshot;
   // auth.js calls getApp() at load, so import it after initializeApp.
   import("./auth.js")
     .then(a => a.onUser(user =>
@@ -335,9 +337,10 @@
 <script>
   let nextId = 1;
   const uid = () => 'ex' + (nextId++) + '-' + Math.random().toString(36).slice(2, 7);
-  const deriveExId = name => (name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  // Exercises you add get u-... ids; the coach's get x1, x2, ... from the server.
+  const userExId = () => 'u-' + Math.random().toString(36).slice(2, 8);
 
-  // Assigned workout loaded from Firestore assigned collection
+  // The workout doc loaded from users/{uid}/workouts ({docId, ...data}).
   let loadedWorkout = null;
 
   // ---- program -> logging state -------------------------------------
@@ -351,10 +354,10 @@
       ? def.sets.map(s => ({ lbs: s.lbs ?? defaultLbs, reps: s.reps ?? defaultReps, done: s.done ?? false, custom: s.custom || null }))
       : Array.from({ length: def.sets || 1 }, () => ({ lbs: defaultLbs, reps: defaultReps, done: false, custom: null }));
 
-    const exId = def.exId || deriveExId(def.name);
+    const exId = def.exId || userExId();
 
     return {
-      instanceId: def.instanceId || def.id || uid(),
+      instanceId: def.exId || def.instanceId || uid(),
       exId,
       timed,
       name: def.name,
@@ -364,52 +367,68 @@
       fallback: def.fallback || null,
       swapped: def.swapped || false,
       original: def.original || null,
+      removed: !!def.removed,
       sets
     };
   }
 
-  function loadWorkout(assigned) {
-    if (!assigned || !assigned.id) throw new Error('invalid workout');
-    loadedWorkout = assigned;
-    state.finishDocId = null;   // a new workout gets a new completed doc
-    state.finished = false;
-    state.workoutId = assigned.id;
-    state.workoutName = assigned.name;
-    state.exercises = (assigned.exercises || []).map(makeExercise);
-    document.getElementById('sessName').value = assigned.name || 'WILO';
+  // fresh: start from the plan even if the doc has a log (Reset).
+  function loadWorkout(w, fresh = false) {
+    if (!w || !w.docId) throw new Error('invalid workout');
+    loadedWorkout = w;
+    state.docId = w.docId;
+    state.finished = w.status === 'done';
+    state.workoutId = w.id || null;
+    state.workoutName = w.name;
+    state.logBase = (w.diffs || []).length;
+    // Picking up a workout started on another phone: carry on from its log.
+    const log = !fresh && (w.log || []).length ? w.log : null;
+    state.exercises = (log || w.exercises || []).map(makeExercise);
+    document.getElementById('sessName').value = w.name || 'WILO';
   }
 
-  // Mid-workout plan change (#68): the coach updated the workout in progress.
+  // Mid-workout plan change (#68): the coach changed the workout you're on.
   // Every logged (done) set is kept as logged; the sets still to do come from
-  // the new plan. Exercises match by instanceId or exercise id (from the name).
-  // A started exercise the new plan dropped keeps its logged sets, first.
-  // The plan's own done flags are ignored, so a set is never counted twice.
-  function mergePlan(current, planDefs) {
+  // the new plan. Exercises match by exId, which never changes, so a rename
+  // doesn't break the match (#109); your rename stays unless this change
+  // renamed it (prevPlan: the plan before the change). One you deleted stays
+  // deleted; one you added stays, at the end. A started exercise the new plan
+  // dropped keeps its logged sets, first. The plan's own done flags are
+  // ignored, so a set is never counted twice.
+  function mergePlan(current, planDefs, prevPlan = []) {
     const used = new Set();
     const merged = planDefs.map(def => {
       const fresh = makeExercise(def);
       fresh.sets.forEach(s => { s.done = false; });
-      const old = current.find(x => !used.has(x) && (x.instanceId === fresh.instanceId || x.exId === fresh.exId));
+      const old = current.find(x => !used.has(x) && x.exId === fresh.exId);
       if (!old) return fresh;
       used.add(old);
       const logged = old.sets.filter(s => s.done);
-      // The coach's new cue comes from the plan; the user's own note stays (#100).
-      return { ...fresh, instanceId: old.instanceId, note: old.note || fresh.note, sets: [...logged, ...fresh.sets.slice(logged.length)] };
+      const before = prevPlan.find(p => p.exId === fresh.exId);
+      const name = before && before.name !== fresh.name ? fresh.name : old.name;
+      // The coach's plan sets the cue; your note and your deletion stay (#100).
+      return { ...fresh, instanceId: old.instanceId, name, note: old.note || fresh.note, removed: old.removed,
+               sets: [...logged, ...fresh.sets.slice(logged.length)] };
     });
-    const dropped = current.filter(x => !used.has(x) && x.sets.some(s => s.done))
+    const rest = current.filter(x => !used.has(x));
+    const dropped = rest.filter(x => !x.exId.startsWith('u-') && !x.removed && x.sets.some(s => s.done))
       .map(x => ({ ...x, sets: x.sets.filter(s => s.done) }));
-    return [...dropped, ...merged];
+    const added = rest.filter(x => x.exId.startsWith('u-'));
+    return [...dropped, ...merged, ...added];
   }
 
-  // Same workout as the draft: merge, keep the same completed doc.
-  function mergeWorkout(assigned) {
-    loadedWorkout = assigned;
-    state.workoutName = assigned.name || state.workoutName;
-    state.exercises = mergePlan(state.exercises, assigned.exercises || []);
+  // Same workout, new plan from the coach: merge it into what you've logged.
+  function mergeWorkout(w, prev) {
+    loadedWorkout = w;
+    state.workoutName = w.name || state.workoutName;
+    state.logBase = (w.diffs || []).length;
+    state.exercises = mergePlan(state.exercises, w.exercises || [], (prev && prev.exercises) || []);
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
+  // docId: the workout doc in users/{uid}/workouts. logBase: how many of the
+  // coach's diffs the log has merged in.
+  const state = { docId: null, workoutId: null, workoutName: '', logBase: 0, finished: false, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -417,7 +436,7 @@
 
   function draw() {
     list.innerHTML = '';
-    state.exercises.forEach(ex => {
+    state.exercises.filter(ex => !ex.removed).forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
       el.className = 'exercise';
@@ -482,8 +501,7 @@
       last = `${ex.name}.sets[${i}].${k} = ${ex.sets[i][k]}`;
       sync();
     } else {
-      ex[k] = el.value;
-      if (k === 'name') ex.exId = deriveExId(el.value);
+      ex[k] = el.value;   // a rename keeps the exId, so the coach's changes still find it
       last = `${ex.name}.${k}`;
       sync();
     }
@@ -538,14 +556,17 @@
       const id = kill.dataset.kill;
       const idx = state.exercises.findIndex(x => x.instanceId === id);
       if (idx < 0) throw new Error('no exercise for id ' + id);
-      last = `exercises.splice(${idx}, 1)`;
-      state.exercises.splice(idx, 1);
+      const ex = state.exercises[idx];
+      // One from the plan is only hidden, so the coach's next change doesn't bring it back.
+      if (ex.exId.startsWith('u-')) state.exercises.splice(idx, 1);
+      else ex.removed = true;
+      last = `${ex.name}.removed`;
       return draw();
     }
     if (e.target.id === 'addEx') {
       state.exercises.push({
         instanceId: uid(),
-        exId: '',
+        exId: userExId(),
         timed: false,
         name: '',
         custom_name: null,
@@ -554,6 +575,7 @@
         fallback: null,
         swapped: false,
         original: null,
+        removed: false,
         sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
       });
       last = `exercises.push() \u2192 ${state.exercises.length}`;
@@ -636,14 +658,15 @@
       const saved = JSON.parse(raw);
       if (!saved.state || !Array.isArray(saved.state.exercises)) return;
       state.exercises = saved.state.exercises;
+      state.docId = saved.state.docId || null;   // a draft from before #126 has none: found by workoutId once signed in
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
-      state.finishDocId = saved.state.finishDocId || null;
+      state.logBase = saved.state.logBase || 0;
       state.finished = !!saved.state.finished;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
         if (!ex.instanceId) ex.instanceId = uid();
-        if (!ex.exId && ex.name) ex.exId = deriveExId(ex.name);
+        if (!ex.exId) ex.exId = userExId();
         if (ex.timed === undefined) ex.timed = false;
         if (ex.swapped === undefined) ex.swapped = false;
       });
@@ -657,27 +680,20 @@
 
   const pad = n => String(n).padStart(2, '0');
 
-  // inProgress: saved as you go, not finished yet (#68). Finish saves the same
-  // doc with inProgress false.
-  function buildPayload(stamp, inProgress = false) {
-    return {
-      id: state.workoutId,
-      name: state.workoutName,
-      finishedAt: stamp.toISOString(),
-      inProgress,
-      exercises: state.exercises.map(ex => ({
-        instanceId: ex.instanceId,
-        exId: ex.exId,
-        name: ex.name,
-        cue: ex.cue || '',
-        note: ex.note || '',
-        custom_name: ex.custom_name || null,
-        timed: ex.timed,
-        swapped: ex.swapped,
-        fallback: ex.fallback || null,
-        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
-      }))
-    };
+  // The log: what you did, as this page shows it. Only this page writes it.
+  function buildLog() {
+    return state.exercises.map(ex => ({
+      exId: ex.exId,
+      name: ex.name,
+      cue: ex.cue || '',
+      note: ex.note || '',
+      custom_name: ex.custom_name || null,
+      timed: ex.timed,
+      swapped: ex.swapped,
+      fallback: ex.fallback || null,
+      removed: !!ex.removed,
+      sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    }));
   }
 
   // DD-mmm-HH:MM-slug-rand, e.g. 09-oct-06:30-chest-7qmb
@@ -688,31 +704,47 @@
     return `${pad(stamp.getDate())}-${month}-${pad(stamp.getHours())}:${pad(stamp.getMinutes())}-${nameSlug}-${rand}`;
   }
 
-  // Writes users/{uid}/completed/{id} and resolves only once Firestore confirms.
-  // The id is made once per workout and kept in state (and the draft), so a
-  // retry or a second Finish overwrites the same doc instead of duplicating it.
-  async function saveCompleted(payload, stamp) {
+  // Saves the log to the workout doc and resolves only once Firestore confirms.
+  // Only the log, status and timestamps: the plan is the coach's. A workout
+  // logged with no plan gets its doc on the first save; the id is kept in state
+  // (and the draft), so a retry or a second Finish never duplicates it.
+  async function saveWorkout(status, stamp) {
     const a = window.__auth;
     if (!a || !a.currentUser()) throw new Error('not signed in');
-    if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
-    await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
-    return state.finishDocId;
+    const iso = stamp.toISOString();
+    const fields = { log: buildLog(), logBase: state.logBase, status, updatedAt: iso };
+    if (status === 'done') fields.finishedAt = iso;
+    if (state.docId) {
+      try {
+        await window.__updateDoc(a.userDoc('workouts', state.docId), fields);
+        return state.docId;
+      } catch (err) {
+        if (err.code !== 'not-found') throw err;   // our own unplanned doc whose first save never landed
+      }
+    } else {
+      state.docId = makeDocId(stamp);
+      persist();
+    }
+    await window.__setDoc(a.userDoc('workouts', state.docId), {
+      id: state.workoutId || 'log_' + stamp.getTime(), name: state.workoutName || 'Workout',
+      assignedFor: iso, createdAt: iso, plan: [], diffs: [], exercises: [], ...fields });
+    return state.docId;
   }
 
   // Save as you go (#68): a couple of seconds after any change, quietly save the
-  // logged sets to the same completed doc Finish uses, so the coach can see them
-  // mid-workout. Only once a set is ticked; failures stay quiet (the draft has it).
-  // After Finish it stays finished, so a later edit doesn't reopen the workout.
+  // log to the workout doc Finish uses, so the coach can see it mid-workout.
+  // Only once a set is ticked; failures stay quiet (the draft has it).
+  // After Finish it stays done, so a later edit doesn't reopen the workout.
   let cloudTimer = null;
   function queueCloudSave() {
     clearTimeout(cloudTimer);
     cloudTimer = setTimeout(async () => {
       const a = window.__auth;
-      if (!state.workoutId || !a || !a.currentUser()) return;
+      if (!a || !a.currentUser()) return;
       if (!state.exercises.some(x => x.sets.some(s => s.done))) return;
       const stamp = new Date();
       try {
-        await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+        await saveWorkout(state.finished ? 'done' : 'in progress', stamp);
         if (Date.now() < noteUntil) return;
         savedEl.textContent = 'Synced to WILO ' + stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         savedEl.classList.remove('ok', 'err');
@@ -723,7 +755,7 @@
   // Celebrates a confirmed save, with sets done vs. planned (the MVP metric).
   const doneScreen = document.getElementById('doneScreen');
   function showDone() {
-    const sets = state.exercises.flatMap(x => x.sets);
+    const sets = state.exercises.filter(x => !x.removed).flatMap(x => x.sets);
     const done = sets.filter(s => s.done).length;
     document.getElementById('doneStat').textContent =
       `${done} of ${sets.length} sets · ${state.workoutName || 'workout'}`;
@@ -737,10 +769,9 @@
     persist();
     clearTimeout(cloudTimer);   // this save replaces any pending quiet one
     const stamp = new Date();
-    const payload = buildPayload(stamp, false);
     note('Saving…');
     try {
-      await saveCompleted(payload, stamp);
+      await saveWorkout('done', stamp);
       state.finished = true;
       persist();
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -752,53 +783,75 @@
     }
   });
 
-  // ---- program loading ----------------------------------------------
-  // Next workout to do (#90): the earliest of users/{uid}/assigned by
-  // assignedFor that has no completed copy. A completed copy shares the
-  // assigned workout's `id` field; one saved as you go (inProgress) doesn't
-  // count, so a workout stays loadable until Finish (#68). Past dates count,
-  // so a skipped workout still shows. Only the signed-in user's workouts:
-  // there is no top-level fallback, so a new user sees nothing.
-  async function fetchNextAssigned() {
-    const a = window.__auth;
-    if (!a || !a.currentUser()) throw new Error('not signed in');
-    const [assigned, completed] = await Promise.all([
-      window.__getDocs(window.__query(a.userCol('assigned'), window.__orderBy('assignedFor', 'asc'))),
-      window.__getDocs(a.userCol('completed')),
-    ]);
-    const done = new Set(completed.docs.filter(d => !d.data().inProgress).map(d => d.data().id).filter(Boolean));
-    const next = assigned.docs.find(d => !done.has(d.data().id));
-    return next ? { data: next.data(), id: next.id } : null;
+  // ---- workout loading ----------------------------------------------
+  // The signed-in user's workouts, kept current by a listener (#126).
+  let workouts = null;
+
+  // Next workout to do (#90): the earliest by assignedFor that isn't done.
+  // Past dates count, so a skipped workout still shows. One in progress stays
+  // loadable until Finish (#68).
+  function nextWorkout() {
+    return (workouts || []).filter(w => w.status !== 'done')
+      .sort((a, b) => String(a.assignedFor || '').localeCompare(String(b.assignedFor || '')))[0] || null;
+  }
+
+  // Every change to the workouts lands here: the coach planning one, the coach
+  // changing the one you're on, or this page's own saves.
+  function onWorkouts(snap) {
+    workouts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    // A draft from before #126 knows its workout only by id.
+    if (!state.docId && state.workoutId) {
+      const w = workouts.find(x => x.id === state.workoutId);
+      if (w) { state.docId = w.docId; state.logBase = (w.diffs || []).length; loadedWorkout = w; persist(); }
+    }
+    const cur = state.docId && workouts.find(w => w.docId === state.docId);
+    if (cur) {
+      const prev = loadedWorkout;
+      loadedWorkout = cur;
+      if ((cur.diffs || []).length > state.logBase) {
+        const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
+        mergeWorkout(cur, prev && prev.docId === cur.docId ? prev : null);
+        last = 'coach changed ' + state.docId;
+        draw();
+        note(`Coach updated the plan${logged ? `, kept ${logged} logged set${logged === 1 ? '' : 's'}` : ''}`, 'ok');
+      }
+      return;
+    }
+    if (state.exercises.length) return;   // never replace sets in progress
+    const next = nextWorkout();
+    if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
+    loadWorkout(next);
+    draw();
+    note('Loaded ' + (state.workoutName || next.docId));
+  }
+
+  let unlisten = null;
+  function listen() {
+    if (unlisten) unlisten();
+    unlisten = window.__onSnapshot(window.__auth.userCol('workouts'), onWorkouts,
+      err => note("Couldn't load workouts: " + (err.code || err.message || err), 'err'));
   }
 
   document.getElementById('sessName').addEventListener('input', e => {
     state.workoutName = e.target.value;
   });
 
-  document.getElementById('loadBtn').addEventListener('click', async () => {
-    try {
-      note('Loading next workout…');
-      const next = await fetchNextAssigned();
-      if (!next) { note('No workout planned — ask your coach to plan one'); return; }
-      const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-      if (logged && next.data.id === state.workoutId) {
-        mergeWorkout(next.data);   // plan changed mid-workout: keep logged sets
-        last = 'merged ' + state.workoutId;
-        draw();
-        note(`Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}`, 'ok');
-        return;
-      }
-      if (logged && !confirm(`Discard ${logged} logged set${logged === 1 ? '' : 's'} of ${state.workoutName || 'this workout'} and load ${next.data.name || next.data.id}?`)) {
-        note('Kept your logged sets');
-        return;
-      }
-      loadWorkout(next.data);
-      last = 'loaded ' + (state.workoutId || next.id);
-      draw();
-      note('Loaded ' + (state.workoutName || next.id));
-    } catch (err) {
-      note("Couldn't load workout: " + (err && err.message ? err.message : err));
+  // Load: jump to the next workout (e.g. after Finish). Changes to the one
+  // you're on arrive by themselves; this is never needed for those.
+  document.getElementById('loadBtn').addEventListener('click', () => {
+    if (!workouts) { note('Still loading workouts…'); return; }
+    const next = nextWorkout();
+    if (!next) { note('No workout planned — ask your coach to plan one'); return; }
+    if (next.docId === state.docId) { note('Already on ' + (state.workoutName || next.docId)); return; }
+    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
+    if (logged && !state.finished && !confirm(`Leave ${state.workoutName || 'this workout'} (${logged} logged set${logged === 1 ? '' : 's'}, saved) and load ${next.name || next.docId}?`)) {
+      note('Kept your workout');
+      return;
     }
+    loadWorkout(next);
+    last = 'loaded ' + next.docId;
+    draw();
+    note('Loaded ' + (state.workoutName || next.docId));
   });
 
   // ---- sign-in -------------------------------------------------------
@@ -810,15 +863,6 @@
   const gateBtn = document.getElementById('gateBtn');
   let authSeen = false;
 
-  async function loadNextIfNoDraft() {
-    if (state.exercises.length) return;   // never replace sets in progress
-    const next = await fetchNextAssigned();
-    if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
-    loadWorkout(next.data);
-    draw();
-    note('Loaded ' + (state.workoutName || next.id));
-  }
-
   window.addEventListener('wilo-user', ev => {
     const user = ev.detail;
     gate.hidden = !!user;
@@ -829,8 +873,8 @@
     // First event is just the restored session; don't clobber the status line.
     if (authSeen && user) note('Signed in as ' + user.email);
     authSeen = true;
-    if (user) loadNextIfNoDraft().catch(err =>
-      note("Couldn't load workout: " + (err.code || err.message || err), 'err'));
+    if (user) listen();
+    else if (unlisten) { unlisten(); unlisten = null; workouts = null; }
   });
   window.addEventListener('wilo-auth-error', ev => {
     gateMsg.textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
@@ -854,13 +898,13 @@
     const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
     const msg = logged
       ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
-      : 'Reset to the assigned workout?';
+      : 'Reset to the planned workout?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadWorkout(loadedWorkout);
+    loadWorkout(loadedWorkout, true);
     last = 'reset to ' + (state.workoutId || 'workout');
     draw();
-    note('Reset to ' + (state.workoutName || 'assigned'));
+    note('Reset to ' + (state.workoutName || 'the plan'));
   });
 
   // Boot: restore any saved draft. The next workout loads once sign-in

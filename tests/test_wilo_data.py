@@ -1,4 +1,4 @@
-"""Tests for wilo/data.py. No Firestore access: assign() gets a fake db.
+"""Tests for wilo/data.py. No Firestore access: the functions get a fake db.
 
     .venv/bin/python -m unittest discover tests
 """
@@ -13,7 +13,7 @@ NOW = datetime(2026, 10, 6, 11, 11, 56, 820000, tzinfo=timezone.utc)
 MINIMAL = {'id': 'w1', 'name': 'legs', 'exercises': [
     {'name': 'squats', 'sets': [{'reps': 8, 'done': False}]}]}
 
-# Shape the tracker writes today, extra fields included.
+# An exercise list the tracker writes as its log, extra fields included.
 TRACKER = {'id': 'prog_1', 'name': 'legs-oct-6', 'finishedAt': '2026-10-06T13:16:29.498Z', 'exercises': [
     {'instanceId': 'ex1', 'exId': 'step-up', 'name': 'step up', 'timed': False, 'cue': '', 'note': 'felt good',
      'custom_name': 'Risers', 'fallback': None, 'swapped': False,
@@ -46,6 +46,11 @@ class Ref:
     def set(self, doc):
         self.store[self.path] = doc
 
+    def update(self, fields):
+        if self.path not in self.store:
+            raise KeyError(f'{self.path} not found')
+        self.store[self.path] = {**self.store[self.path], **fields}
+
     def delete(self):
         self.store.pop(self.path, None)
 
@@ -54,7 +59,7 @@ class Ref:
 
 
 class FakeDB:
-    """Just enough of firestore.Client for assign, update, history and names. Docs live in a dict by path."""
+    """Just enough of firestore.Client for assign, change, history and names. Docs live in a dict by path."""
 
     def __init__(self, docs=None):
         self.store = dict(docs or {})
@@ -65,21 +70,25 @@ class FakeDB:
 
 UID = 'thom'
 OTHER = 'someone-else'
-COMPLETED = f'users/{UID}/completed'
+WORKOUTS = f'users/{UID}/workouts'
 
 
 def done(name, sets, finished):
-    return {'id': finished, 'name': 'w', 'finishedAt': finished, 'exercises': [{'name': name, 'sets': sets}]}
+    """A finished workout logged with no plan: what history and names read."""
+    return {'id': finished, 'name': 'w', 'status': 'done', 'finishedAt': finished, 'plan': [], 'diffs': [],
+            'exercises': [], 'log': [{'exId': 'u-1', 'name': name, 'sets': sets}]}
 
 
 class SchemaTest(unittest.TestCase):
-    def test_accepts_minimal_and_tracker_shapes(self):
-        self.assertEqual(wilo_data.validate(MINIMAL), [])
-        self.assertEqual(wilo_data.validate(TRACKER), [])
+    def test_accepts_planned_workout_and_a_stored_doc_with_a_tracker_log(self):
+        self.assertEqual(wilo_data.validate(MINIMAL, 'plannedWorkout'), [])
+        doc = {'id': 'w1', 'name': 'legs', 'status': 'in progress', 'plan': [], 'diffs': [], 'exercises': [],
+               'log': TRACKER['exercises']}
+        self.assertEqual(wilo_data.validate(doc), [])
 
     def test_accepts_blank_lbs_and_reps(self):
         doc = {**MINIMAL, 'exercises': [{'name': 'x', 'sets': [{'lbs': '', 'reps': '', 'done': False}]}]}
-        self.assertEqual(wilo_data.validate(doc), [])
+        self.assertEqual(wilo_data.validate(doc, 'plannedWorkout'), [])
 
     def test_rejects_broken_workouts(self):
         broken = {
@@ -92,25 +101,33 @@ class SchemaTest(unittest.TestCase):
         }
         for label, doc in broken.items():
             with self.subTest(label):
-                self.assertNotEqual(wilo_data.validate(doc), [])
+                self.assertNotEqual(wilo_data.validate(doc, 'plannedWorkout'), [])
+
+    def test_rejects_bad_ops(self):
+        for op in [{'op': 'explode'}, {'op': 'remove'}, {'op': 'set', 'exId': 'x1', 'fields': {'log': []}},
+                   {'op': 'move', 'exId': 'x1', 'to': -1}]:
+            with self.subTest(op=op):
+                self.assertNotEqual(wilo_data.validate(op, 'op'), [])
 
 
 class AssignTest(unittest.TestCase):
-    def test_fills_id_and_assigned_for_without_overriding(self):
-        filled = wilo_data.with_defaults({'name': 'legs', 'exercises': []}, NOW)
-        self.assertEqual(filled['id'], 'prog_1791285116820')
-        self.assertEqual(filled['assignedFor'], '2026-10-06T11:11:56.820Z')
-        kept = wilo_data.with_defaults({'id': 'mine', 'assignedFor': '2026-10-08', 'name': 'x', 'exercises': []}, NOW)
-        self.assertEqual((kept['id'], kept['assignedFor']), ('mine', '2026-10-08'))
-
     def test_doc_id_is_tracker_style(self):
         self.assertRegex(wilo_data.doc_id({'name': 'Pull Press'}, NOW), r'^\d{2}-[a-z]{3}-\d{2}:\d{2}-pull-$')
 
-    def test_dry_run_writes_nothing(self):
+    def test_dry_run_writes_nothing_and_shows_the_doc(self):
         db = FakeDB()
         out = wilo_data.assign(db, UID, MINIMAL, write=False, now=NOW)
         self.assertTrue(out['ok'] and out['dryRun'])
         self.assertEqual(db.store, {})
+        doc = out['doc']
+        self.assertEqual((doc['status'], doc['diffs'], doc['log'], doc['nextExId']), ('planned', [], [], 2))
+        self.assertEqual(doc['plan'], doc['exercises'])
+        self.assertEqual(doc['plan'][0]['exId'], 'x1')
+        self.assertEqual(doc['assignedFor'], '2026-10-06T11:11:56.820Z')  # filled when missing
+
+    def test_plan_sets_are_never_done(self):
+        w = {'name': 'x', 'exercises': [{'name': 'squat', 'sets': [{'reps': 5, 'done': True}]}]}
+        self.assertFalse(wilo_data.assign(FakeDB(), UID, w, write=False, now=NOW)['doc']['plan'][0]['sets'][0]['done'])
 
     def test_invalid_workout_is_not_written(self):
         db = FakeDB()
@@ -122,10 +139,75 @@ class AssignTest(unittest.TestCase):
         db = FakeDB()
         first = wilo_data.assign(db, UID, MINIMAL, write=True, now=NOW)
         self.assertTrue(first['ok'])
-        self.assertEqual(len(db.store), 1)
+        self.assertEqual(list(db.store), [first['path']])
+        self.assertTrue(first['path'].startswith(f'{WORKOUTS}/'))
         again = wilo_data.assign(db, UID, MINIMAL, write=True, now=NOW)
         self.assertFalse(again['ok'])
         self.assertIn('already exists', again['errors'][0])
+
+
+LEGS = {'name': 'legs', 'assignedFor': '2026-10-08', 'exercises': [
+    {'name': 'squat', 'cue': 'deep', 'sets': [{'lbs': 135, 'reps': 5, 'done': False}] * 3},
+    {'name': 'leg curl', 'sets': [{'lbs': 50, 'reps': 10, 'done': False}] * 2},
+    {'name': 'calf raise', 'sets': [{'reps': 15, 'done': False}] * 2}]}
+
+
+class DiffTest(unittest.TestCase):
+    """The coach changes a plan by adding a diff; the plan as it is now is apply_diffs(plan, diffs)."""
+
+    def setUp(self):
+        self.db = FakeDB()
+        self.path = wilo_data.assign(self.db, UID, LEGS, write=True, now=NOW)['path']
+        self.doc_id = self.path.rsplit('/', 1)[1]
+
+    def change(self, ops, write=True):
+        return wilo_data.change(self.db, UID, self.doc_id, ops, write, NOW)
+
+    def names(self):
+        return [x['name'] for x in self.db.store[self.path]['exercises']]
+
+    def test_each_op(self):
+        self.change([{'op': 'replace', 'exId': 'x1', 'exercise': {'name': 'leg press', 'sets': [{'lbs': 200, 'reps': 10, 'done': False}]}}])
+        self.assertEqual(self.names(), ['leg press', 'leg curl', 'calf raise'])
+        self.change([{'op': 'move', 'exId': 'x3', 'to': 0}, {'op': 'remove', 'exId': 'x2'}])
+        self.assertEqual(self.names(), ['calf raise', 'leg press'])
+        self.change([{'op': 'add', 'exercise': {'name': 'lunges', 'sets': [{'reps': 10, 'done': False}]}, 'at': 1},
+                     {'op': 'set', 'exId': 'x3', 'fields': {'cue': 'slow', 'sets': [{'reps': 20, 'done': True}]}},
+                     {'op': 'workout', 'name': 'legs (knee)', 'assignedFor': '2026-10-09'}])
+        doc = self.db.store[self.path]
+        self.assertEqual(self.names(), ['calf raise', 'lunges', 'leg press'])
+        self.assertEqual([x['exId'] for x in doc['exercises']], ['x3', 'x5', 'x4'])  # new ones get new ids
+        self.assertEqual(doc['exercises'][0]['cue'], 'slow')
+        self.assertFalse(doc['exercises'][0]['sets'][0]['done'])  # a plan never says done
+        self.assertEqual((doc['name'], doc['assignedFor']), ('legs (knee)', '2026-10-09'))
+        self.assertEqual(len(doc['diffs']), 3)
+        self.assertEqual(len(doc['plan']), 3)  # the plan as first written never changes
+        self.assertEqual(wilo_data.apply_diffs(doc['plan'], doc['diffs'])[0], doc['exercises'])  # replay gives the same
+
+    def test_dry_run_returns_the_new_plan_and_writes_nothing(self):
+        before = dict(self.db.store[self.path])
+        out = self.change([{'op': 'remove', 'exId': 'x1'}], write=False)
+        self.assertTrue(out['ok'] and out['dryRun'])
+        self.assertEqual([x['name'] for x in out['exercises']], ['leg curl', 'calf raise'])
+        self.assertEqual(self.db.store[self.path], before)
+
+    def test_never_touches_the_log(self):
+        log = [{'exId': 'x1', 'name': 'squat', 'sets': [{'lbs': 135, 'reps': 5, 'done': True}]}]
+        self.db.store[self.path] = {**self.db.store[self.path], 'log': log, 'logBase': 0, 'status': 'in progress'}
+        self.change([{'op': 'remove', 'exId': 'x1'}])
+        self.assertEqual(self.db.store[self.path]['log'], log)
+        self.assertEqual(self.db.store[self.path]['status'], 'in progress')
+
+    def test_refuses_unknown_exercise_bad_op_done_workout_and_missing_doc(self):
+        before = dict(self.db.store[self.path])
+        for label, ops in {'unknown exId': [{'op': 'remove', 'exId': 'x9'}], 'bad op': [{'op': 'explode'}],
+                           'no ops': [], 'invalid result': [{'op': 'set', 'exId': 'x1', 'fields': {'sets': [{'reps': -1, 'done': False}]}}]}.items():
+            with self.subTest(label):
+                self.assertFalse(self.change(ops)['ok'])
+                self.assertEqual(self.db.store[self.path], before)
+        self.db.store[self.path] = {**before, 'status': 'done'}
+        self.assertIn('is done', self.change([{'op': 'remove', 'exId': 'x1'}])['errors'][0])
+        self.assertFalse(wilo_data.change(self.db, UID, 'nope', [{'op': 'remove', 'exId': 'x1'}], True, NOW)['ok'])
 
 
 class MatchTest(unittest.TestCase):
@@ -145,55 +227,33 @@ class MatchTest(unittest.TestCase):
 class HistoryNamesTest(unittest.TestCase):
     def setUp(self):
         self.db = FakeDB({
-            f'{COMPLETED}/a': done('Pushups ', [{'reps': 10, 'done': True}], '2026-10-01T22:36:00Z'),
-            f'{COMPLETED}/b': done('Push-ups', [{'reps': 12, 'done': True}], '2026-10-08T17:00:00Z'),
-            f'{COMPLETED}/c': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-08T17:00:00Z'),
-            'completed/top-level': done('Push-ups', [{'reps': 99, 'done': True}], '2026-10-09T00:00:00Z'),
+            f'{WORKOUTS}/a': done('Pushups ', [{'reps': 10, 'done': True}], '2026-10-01T22:36:00Z'),
+            f'{WORKOUTS}/b': done('Push-ups', [{'reps': 12, 'done': True}], '2026-10-08T17:00:00Z'),
+            f'{WORKOUTS}/c': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-08T17:00:00Z'),
+            f'{WORKOUTS}/planned': {**done('Push-ups', [], ''), 'status': 'planned', 'log': []},
+            'workouts/top-level': done('Push-ups', [{'reps': 99, 'done': True}], '2026-10-09T00:00:00Z'),
         })
 
     def test_history_newest_first_and_loose(self):
         h = wilo_data.history(self.db, UID, 'push up', limit=5)
-        self.assertEqual([x['name'] for x in h], ['Push-ups', 'Pushups '])  # top-level doc not included
+        self.assertEqual([x['name'] for x in h], ['Push-ups', 'Pushups '])  # top-level and unlogged docs not included
         self.assertEqual(h[0]['sets'], [{'reps': 12, 'done': True}])
 
     def test_history_limit(self):
         self.assertEqual(len(wilo_data.history(self.db, UID, 'push up', limit=1)), 1)
+
+    def test_deleted_exercises_are_not_history(self):
+        self.db.store[f'{WORKOUTS}/b']['log'][0]['removed'] = True
+        self.assertEqual([x['name'] for x in wilo_data.history(self.db, UID, 'push up', limit=5)], ['Pushups '])
 
     def test_names_counts_and_last_done(self):
         n = {x['name']: x for x in wilo_data.names(self.db, UID)}
         self.assertEqual(set(n), {'Pushups ', 'Push-ups', 'Bench press'})  # distinct as written; matching is Claude's job
         self.assertEqual(n['Push-ups']['lastDone'], '2026-10-08T17:00:00Z')
 
-
-class UpdateTest(unittest.TestCase):
-    def setUp(self):
-        self.key = f'{COMPLETED}/oct5'
-        self.old = done('Calf raise. ', [{'reps': 5, 'done': False}], '2026-10-05T13:22:00Z')
-        self.db = FakeDB({self.key: self.old})
-        self.new = {**self.old, 'docId': 'oct5', 'exercises': [{**self.old['exercises'][0], 'name': 'Seated calf raise'}]}
-
-    def test_dry_run_shows_change_and_writes_nothing(self):
-        out = wilo_data.update(self.db, UID, 'completed', 'oct5', self.new, write=False)
-        self.assertTrue(out['ok'] and out['dryRun'])
-        self.assertEqual(out['changes'], ['exercises/0/name: "Calf raise. " -> "Seated calf raise"'])
-        self.assertEqual(self.db.store[self.key], self.old)
-
-    def test_write_saves_without_doc_id(self):
-        out = wilo_data.update(self.db, UID, 'completed', 'oct5', self.new, write=True)
-        self.assertTrue(out['ok'])
-        self.assertEqual(self.db.store[self.key]['exercises'][0]['name'], 'Seated calf raise')
-        self.assertNotIn('docId', self.db.store[self.key])
-
-    def test_refuses_missing_doc_changed_id_and_invalid(self):
-        cases = {
-            'missing doc': ('nope', self.new),
-            'changed id': ('oct5', {**self.new, 'id': 'other'}),
-            'invalid': ('oct5', {**self.new, 'exercises': [{'sets': []}]}),
-        }
-        for label, (doc_id, doc) in cases.items():
-            with self.subTest(label):
-                self.assertFalse(wilo_data.update(self.db, UID, 'completed', doc_id, doc, write=True)['ok'])
-                self.assertEqual(self.db.store[self.key], self.old)
+    def test_recent_filters_by_status(self):
+        self.assertEqual([w['docId'] for w in wilo_data.recent(self.db, UID, 'planned', 5)], ['planned'])
+        self.assertEqual(len(wilo_data.recent(self.db, UID, 'done', 2)), 2)
 
 
 class IsolationTest(unittest.TestCase):
@@ -201,24 +261,27 @@ class IsolationTest(unittest.TestCase):
 
     def setUp(self):
         self.db = FakeDB({
-            f'users/{UID}/completed/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
-            f'users/{OTHER}/completed/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
+            f'users/{UID}/workouts/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
+            f'users/{OTHER}/workouts/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
         })
 
     def test_reads_only_own_data(self):
         self.assertEqual([h['sets'][0]['lbs'] for h in wilo_data.history(self.db, UID, 'bench', 5)], [135])
         self.assertEqual([h['sets'][0]['lbs'] for h in wilo_data.history(self.db, OTHER, 'bench', 5)], [225])
         self.assertEqual(len(wilo_data.names(self.db, OTHER)), 1)
+        self.assertIs(wilo_data.get(self.db, OTHER, 'a').get('ok'), False)
 
     def test_writes_only_under_own_uid(self):
+        before = set(self.db.store)
         wilo_data.assign(self.db, OTHER, MINIMAL, write=True, now=NOW)
-        new = [k for k in self.db.store if '/assigned/' in k]
+        new = [k for k in self.db.store if k not in before]
         self.assertEqual(len(new), 1)
-        self.assertTrue(new[0].startswith(f'users/{OTHER}/assigned/'))
+        self.assertTrue(new[0].startswith(f'users/{OTHER}/workouts/'))
 
-    def test_cannot_update_another_users_doc(self):
-        out = wilo_data.update(self.db, OTHER, 'completed', 'a', done('x', [], '2026-10-01T00:00:00Z'), write=True)
-        self.assertFalse(out['ok'])  # doc 'a' only exists under UID
+    def test_cannot_change_another_users_workout(self):
+        path = wilo_data.assign(self.db, UID, MINIMAL, write=True, now=NOW)['path']
+        out = wilo_data.change(self.db, OTHER, path.rsplit('/', 1)[1], [{'op': 'remove', 'exId': 'x1'}], True, NOW)
+        self.assertFalse(out['ok'])
 
 
 class TodoTest(unittest.TestCase):
