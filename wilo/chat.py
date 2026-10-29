@@ -8,7 +8,7 @@ handed to the tools through mcp_server.CHAT_UID.
 
     POST /chat   Authorization: Bearer <Firebase ID token>
                  {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>"}
-              →  {"chatId": "...", "reply": "...", "tools": ["recent_completed", ...]}
+              →  {"chatId": "...", "reply": "...", "tools": ["recent_workouts", ...]}
 
 Who may use it: WILO_CHAT_UIDS (comma-separated), default the uid in config/wilo.json. It spends our API key,
 so it is not open to every Google account that can sign in. Each user also has a daily cap (WILO_CHAT_DAILY_LIMIT).

@@ -81,8 +81,8 @@ sequenceDiagram
     participant W as Tracker (web)
 
     T->>C: "Plan today's pull day"
-    C->>S: coaching_method, get_profile, recent_completed, exercise_history
-    S->>F: read completed workouts
+    C->>S: coaching_method, get_profile, recent_workouts, exercise_history
+    S->>F: read done workouts
     F-->>S: history
     S-->>C: JSON
     C->>S: assign_workout(plan)  [dry run]
@@ -90,21 +90,21 @@ sequenceDiagram
     C-->>T: shows the plan
     T->>C: "post"
     C->>S: assign_workout(plan, write=True)
-    S->>F: write users/uid/assigned/doc
+    S->>F: write users/uid/workouts/doc (status planned)
     Note over T,W: at the gym
-    T->>W: Load
-    W->>F: next assigned (earliest by assignedFor, not yet completed)
-    T->>W: log sets, Finish
-    W->>F: write users/uid/completed
-    Note over C,F: next chat: Claude reads completed, reviews, plans again
+    W->>F: listens to users/uid/workouts, shows the next one not done
+    T->>W: log sets (saved as you go), Finish
+    W->>F: write the log + status to the same doc
+    Note over C,F: mid-workout, change_workout adds a diff to the plan and the tracker merges it in live
+    Note over C,F: next chat: Claude reads done workouts, reviews, plans again
 ```
 
 **Data layout (Firestore database `wilo`):**
 
 | Path | What | Written by |
 |---|---|---|
-| `users/{uid}/assigned/{docId}` | Planned workouts (`assignedFor` = the day) | Connector / CLI |
-| `users/{uid}/completed/{docId}` | Finished workouts (`finishedAt`) | Tracker Finish |
+| `users/{uid}/workouts/{docId}` | One doc per workout from plan to done (#126): `plan` (as first written), `diffs` (the coach's changes), `exercises` (plan with diffs applied), `log` (what was done), `status` planned / in progress / done | Plan: connector. Log, status: tracker (the rules allow it nothing else) |
+| `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py`; left in place until a cleanup (#53) | Nothing |
 | `users/{uid}/todos/{docId}` | Todos for the Today page | Connector, Today page |
 | `users/{uid}/coach/profile` | Coaching profile: `preferences`, `limitations`, `plan`, `notes` (free text) | Connector (`update_profile`) |
 | `oauth_clients`, `oauth_pending`, `oauth_codes`, `oauth_access`, `oauth_refresh` | Connector sign-in state, sha256-hashed | Connector |
@@ -137,7 +137,7 @@ flowchart TB
     CONN --> K2
 ```
 
-- **Browsers** go through the Firestore rules. `users/{uid}/**` is locked to that user; everything else is denied (#15, rules deployed 2026-10-12). The rules check only the owner, not the fields, so the schema is enforced by the connector (on its writes), not by the rules.
+- **Browsers** go through the Firestore rules. `users/{uid}/**` is locked to that user; everything else is denied (#15, rules deployed 2026-10-12). On `workouts` the rules also limit the tracker to the log, status and timestamps, and to creating workouts with no plan (#126); it can't delete them. Elsewhere they check only the owner, so the schema is enforced by the connector (on its writes), not by the rules.
 - **The connector** decides whose data a call touches from the OAuth token (`current_uid()`). The uid is never a tool argument. It refuses to listen publicly without sign-in (`--public-url` requires `--auth` and https).
 - **Service accounts bypass the rules**, so their keys are the crown jewels:
 

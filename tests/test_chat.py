@@ -50,8 +50,8 @@ class FakeClaude:
 class ChatTest(unittest.TestCase):
     def setUp(self):
         self.db = FakeDB({
-            f'users/{ME}/completed/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
-            f'users/{OTHER}/completed/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
+            f'users/{ME}/workouts/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
+            f'users/{OTHER}/workouts/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
         })
         self.saved = srv.db, firebase_admin.auth.verify_id_token, srv.AUTH, chat._client, chat.allowed_uids
         srv.db = lambda: self.db
@@ -101,11 +101,13 @@ class ChatTest(unittest.TestCase):
 
     def test_writes_stay_dry_runs_unless_claude_passes_write(self):
         self.claude(message('tool_use', tool_use('assign_workout', {'workout': MINIMAL})), message('end_turn', text('Plan ready.')))
+        before = dict(self.db.store)
         self.post({'message': 'plan legs'})
-        self.assertFalse([k for k in self.db.store if '/assigned/' in k])
+        self.assertEqual({k: v for k, v in self.db.store.items() if '/workouts/' in k},
+                         {k: v for k, v in before.items() if '/workouts/' in k})
 
     def test_tool_errors_go_back_to_claude(self):
-        self.claude(message('tool_use', tool_use('get_workout', {'collection': 'nope', 'doc_id': 'x'})),
+        self.claude(message('tool_use', tool_use('recent_workouts', {'status': 'nope'})),
                     message('end_turn', text('That failed.')))
         r = self.post({'message': 'x'})
         self.assertEqual(r.status_code, 200)
@@ -113,7 +115,7 @@ class ChatTest(unittest.TestCase):
 
     def test_next_message_replays_the_whole_chat_unchanged(self):
         first = self.claude(message('tool_use', {'type': 'thinking', 'thinking': '', 'signature': 'sig'},
-                                    tool_use('recent_completed', {})),
+                                    tool_use('recent_workouts', {})),
                             message('end_turn', text('You benched Monday.')))
         chat_id = self.post({'message': 'how am I doing?'}).json()['chatId']
         second = self.claude(message('end_turn', text('Sure.')))

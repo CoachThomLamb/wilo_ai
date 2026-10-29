@@ -3,7 +3,7 @@
 Read this before debugging or extending `wilo/` (the workout data engine, the MCP server, connector sign-in). It describes **how things work now** and what isn't obvious from the code. History lives in the PRs linked below, not here. Keep this file current when the code changes.
 
 ## What it is
-WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `users/{uid}/completed` (done). This package lets Claude read and write them:
+WILO's workouts live in Firestore under `users/{uid}/workouts`, one doc per workout from plan to done (#126). This package lets Claude read and write them:
 - **The connector (live since 2026-10-09, #31):** the server over HTTPS with OAuth sign-in at **`https://wilo-connector.onrender.com/mcp`** (Render, free tier), added in claude.ai as a custom connector. It's the **one path to the data** for every user and for Claude Code sessions too (#87).
 - **Locally (stdio):** the same server over stdio still works and the tests use it. As a Claude Code entry (`wilo` in `/mcp`) it's being removed (#87): it runs the checked-out branch with the admin key, so it can differ from what users get.
 
@@ -29,8 +29,9 @@ WILO's workouts live in Firestore under `users/{uid}/assigned` (planned) and `us
 
 ## Data model (decisions)
 Schema = what a workout means to a human, not a contract with the tracker's internals (#28 discussion):
-- Workout requires `id`, `name`, `exercises`. `assignedFor` = **the date the workout is for** (e.g. `"2026-10-08"`); `finishedAt` is set by the tracker's Finish.
-- Exercise requires `name`, `sets`. Names are **free text**: no exercise catalog or IDs. Order = array order. Optional: `timed` (true → `reps` are seconds), `cue` (coach), `note` (Thom), `custom_name` (one free-text column per set: `Risers`, `Side` R/L, `Direction`, `Assistance`).
+- **One doc per workout (#126):** `plan` (as first written, never changes), `diffs` (the coach's changes, each a list of ops), `exercises` (`apply_diffs(plan, diffs)`, written by the server with each diff), `log` (what the user did; only the tracker writes it), `status` (planned → in progress → done). The coach never touches the log and the tracker never touches the plan, so neither can overwrite the other.
+- `assign_workout` takes `{name, assignedFor, exercises}`. `assignedFor` = **the date the workout is for** (e.g. `"2026-10-08"`); `finishedAt` is set by the tracker's Finish. `change_workout` adds one diff: ops `add`, `remove`, `replace`, `move`, `set`, `workout`.
+- Exercise requires `name`, `sets`. Names are **free text**: no exercise catalog. Each exercise has a stable `exId` (`x1`, `x2`, … from the server; `u-…` for one added in the tracker) that diffs and the tracker's merge match on. Order = array order. Optional: `timed` (true → `reps` are seconds), `cue` (coach), `note` (Thom), `custom_name` (one free-text column per set: `Risers`, `Side` R/L, `Direction`, `Assistance`).
 - Set requires `reps`, `done`. `lbs` and `reps` may be `""` (not set yet; blank doesn't mean bodyweight).
 - Extra fields are allowed (the tracker writes `instanceId`, `exId`, `swapped`, …).
 - `history` matches names **loosely but only cosmetically** (case, spacing, punctuation, plurals, word order). Synonyms (`crane-plane` vs `Basic cranes`) are for Claude to judge using `exercise_names`.
@@ -96,7 +97,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **Ports:** an old test server can hold a port (`ss -ltnp | grep :8000`). Use another `--port`; the issuer follows the port.
 - **Don't name a folder after a dependency:** the old `mcp/` folder shadowed the `mcp` SDK. That's why everything lives in `wilo/`.
 - **Stacked PRs:** retarget the next PR to `main` right after its base merges, or it merges into the old branch (#37 had to be re-landed as #42).
-- **Tracker quirks:** the tracker infers timed exercises from `target.duration_sec` and ignores the schema's `timed` (#85). Load opens the **earliest unfinished** assigned workout (#90), so a stale or skipped plan comes first: delete or finish old plans (#53).
+- **Tracker quirks:** the tracker infers timed exercises from `target.duration_sec` and ignores the schema's `timed` (#85). The tracker opens the **earliest workout not done** (#90), so a stale or skipped plan comes first: delete or finish old plans (#53).
 
 ## Container and hosting (#43)
 - **Image:** `Dockerfile` + `.dockerignore` (an **allowlist**: only `pyproject.toml`, `wilo/`, `config/`, `schema/`, so keys and data can't be copied in). Runs as non-root `app`. `CMD` = `--http --auth --public-url "$PUBLIC_URL"`, so it fails fast if `PUBLIC_URL` is unset or not https.

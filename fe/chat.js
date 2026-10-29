@@ -2,7 +2,8 @@
   WILO coach chat — a full-screen sheet in the tracker that talks to the
   connector server's POST /chat (wilo/chat.py). The server runs the coach
   over the same tools Claude uses through the connector, so a plan made
-  here lands in users/{uid}/assigned like one made in the Claude app.
+  here lands in users/{uid}/workouts like one made in the Claude app, and
+  the tracker shows it as soon as it's saved (#126).
 
   - Auth: the signed-in user's Firebase ID token, sent as a Bearer token.
     The server checks it and decides whose data the coach touches.
@@ -83,12 +84,6 @@ async function send(text) {
     chat.messages.push({ role: "coach", text: reply });
     wait.className = "msg coach";
     wait.textContent = reply;
-    // Its own bubble, so copying the coach's reply copies only the reply.
-    if ((body.tools || []).some(t => t === "assign_workout" || t === "update_workout")) {
-      const tip = "If the coach saved a workout, tap Load to get it.";
-      chat.messages.push({ role: "note", text: tip });
-      bubble("note", tip);
-    }
   } catch (err) {
     wait.className = "msg err";
     wait.textContent = "Couldn't reach the coach: " + (err.message || err);

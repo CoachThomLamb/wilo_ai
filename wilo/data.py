@@ -1,24 +1,28 @@
 """
-Read and write workouts in users/{uid}/assigned and users/{uid}/completed (#19),
-todos in users/{uid}/todos (#64) and the coaching profile in users/{uid}/coach/profile
-(#48; no CLI commands for those two yet).
+Read and write workouts in users/{uid}/workouts (#126), todos in users/{uid}/todos (#64) and the
+coaching profile in users/{uid}/coach/profile (#48; no CLI commands for those two yet).
+
+A workout is one doc from plan to done: the plan as first written, the coach's diffs to it, the
+plan as it is now (`exercises` = apply_diffs(plan, diffs), written here with each diff), and the
+user's log, which only the tracker writes. The coach never touches the log; the tracker never
+touches the plan.
 
 Settings come from config/wilo.json, and the workout shape from
 schema/workout.schema.json. Output is JSON on stdout.
 
-    .venv/bin/python -m wilo.data completed [--limit N]
-    .venv/bin/python -m wilo.data assigned [--limit N]
-    .venv/bin/python -m wilo.data get <assigned|completed> <docId>
+    .venv/bin/python -m wilo.data recent [--status planned|"in progress"|done] [--limit N]
+    .venv/bin/python -m wilo.data get <docId>
     .venv/bin/python -m wilo.data assign <file.json|-> [--write]
+    .venv/bin/python -m wilo.data change <docId> <ops.json|-> [--write]
     .venv/bin/python -m wilo.data history <exercise name> [--limit N]
     .venv/bin/python -m wilo.data names
-    .venv/bin/python -m wilo.data update <assigned|completed> <docId> <file.json|-> [--write]
 
-assign and update are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
+assign and change are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
 if set, overrides the key path in the config.
 """
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -31,22 +35,26 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / 'config' / 'wilo.json').read_text())
 SCHEMA = json.loads((ROOT / 'schema' / 'workout.schema.json').read_text())
-VALIDATOR = Draft202012Validator(SCHEMA, format_checker=Draft202012Validator.FORMAT_CHECKER)
-ORDER_FIELD = {'assigned': 'assignedFor', 'completed': 'finishedAt'}
+WORKOUTS = 'workouts'
+STATUSES = ('planned', 'in progress', 'done')
 
 
-def validate(doc):
-    """Schema errors as readable strings, e.g. 'exercises/0/sets/1/reps: -5 is not valid ...'."""
+def _validator(name):
+    return Draft202012Validator({**SCHEMA, '$ref': f'#/$defs/{name}'}, format_checker=Draft202012Validator.FORMAT_CHECKER)
+
+
+VALIDATORS = {name: _validator(name) for name in ('workout', 'plannedWorkout', 'op')}
+
+
+def validate(doc, kind='workout'):
+    """Schema errors as readable strings, e.g. 'exercises/0/sets/1/reps: -5 is not valid ...'.
+    kind: 'workout' (a stored doc), 'plannedWorkout' (what assign takes) or 'op' (one diff op)."""
     return [f"{'/'.join(map(str, e.absolute_path)) or '(workout)'}: {e.message}"
-            for e in sorted(VALIDATOR.iter_errors(doc), key=lambda e: list(map(str, e.absolute_path)))]
+            for e in sorted(VALIDATORS[kind].iter_errors(doc), key=lambda e: list(map(str, e.absolute_path)))]
 
 
-def with_defaults(doc, now):
-    """Fill the fields the coach shouldn't have to make up: id and assignedFor."""
-    doc = dict(doc)
-    doc.setdefault('id', f"prog_{int(now.timestamp() * 1000)}")
-    doc.setdefault('assignedFor', now.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'))
-    return doc
+def _iso(now):
+    return now.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
 
 def doc_id(doc, now):
@@ -70,10 +78,143 @@ def collection(db, uid, name):
     return db.collection('users').document(uid).collection(name)
 
 
-def recent(db, uid, name, limit):
-    from firebase_admin import firestore
-    q = collection(db, uid, name).order_by(ORDER_FIELD[name], direction=firestore.Query.DESCENDING).limit(limit)
-    return [{'docId': d.id, **d.to_dict()} for d in q.stream()]
+# ---- the plan: diffs -------------------------------------------------------
+
+def _find(exercises, ex_id):
+    for i, x in enumerate(exercises):
+        if x.get('exId') == ex_id:
+            return i
+    raise ValueError(f'no exercise with exId {ex_id!r}')
+
+
+def apply_diffs(plan, diffs):
+    """The plan as it is now: every diff's ops applied in order, to a copy. The one place diffs mean anything.
+    Returns (exercises, workout_fields) where workout_fields holds a 'workout' op's name/assignedFor.
+    Raises ValueError on an op that doesn't fit (unknown exId, ...)."""
+    exercises, fields = copy.deepcopy(plan), {}
+    for d in diffs:
+        for op in d['ops']:
+            kind = op['op']
+            if kind == 'add':
+                exercises.insert(op.get('at', len(exercises)), copy.deepcopy(op['exercise']))
+            elif kind == 'remove':
+                exercises.pop(_find(exercises, op['exId']))
+            elif kind == 'replace':
+                exercises[_find(exercises, op['exId'])] = copy.deepcopy(op['exercise'])
+            elif kind == 'move':
+                exercises.insert(op['to'], exercises.pop(_find(exercises, op['exId'])))
+            elif kind == 'set':
+                exercises[_find(exercises, op['exId'])].update(copy.deepcopy(op['fields']))
+            elif kind == 'workout':
+                fields.update({k: op[k] for k in ('name', 'assignedFor') if k in op})
+    return exercises, fields
+
+
+def _with_ids(exercises, next_id):
+    """Give each exercise a new server exId (x1, x2, ...). Returns (exercises, next_id)."""
+    out = []
+    for x in exercises:
+        out.append({**x, 'exId': f'x{next_id}'})
+        next_id += 1
+    return out, next_id
+
+
+def _planned_sets(exercises):
+    """The plan's sets are what to do, never what was done."""
+    return [{**x, 'sets': [{**s, 'done': False} for s in x.get('sets', [])]} for x in exercises]
+
+
+def assign(db, uid, workout, write, now):
+    """Plan a new workout: status planned, every exercise gets an exId. Dry run unless write."""
+    errors = validate(workout, 'plannedWorkout')
+    if errors:
+        return {'ok': False, 'errors': errors}
+    plan, next_id = _with_ids(_planned_sets(workout['exercises']), 1)
+    doc = {'id': f'prog_{int(now.timestamp() * 1000)}', 'name': workout['name'],
+           'assignedFor': workout.get('assignedFor') or _iso(now), 'status': 'planned', 'createdAt': _iso(now),
+           'plan': plan, 'diffs': [], 'exercises': plan, 'nextExId': next_id, 'log': [], 'logBase': 0}
+    path = f'users/{uid}/{WORKOUTS}/{doc_id(doc, now)}'
+    errors = validate(doc)
+    if errors:
+        return {'ok': False, 'errors': errors}
+    if not write:
+        return {'ok': True, 'dryRun': True, 'path': path, 'doc': doc}
+    ref = collection(db, uid, WORKOUTS).document(path.rsplit('/', 1)[1])
+    if ref.get().exists:
+        return {'ok': False, 'errors': [f'{path} already exists']}
+    ref.set(doc)
+    return {'ok': ref.get().to_dict() == doc, 'path': path, 'doc': doc}
+
+
+def change(db, uid, doc_id, ops, write, now):
+    """Add one diff (a list of ops) to a workout's plan. Returns the plan as it would be / now is.
+    Refuses a done workout: its plan is history. Never touches the log. Dry run unless write."""
+    path = f'users/{uid}/{WORKOUTS}/{doc_id}'
+    ref = collection(db, uid, WORKOUTS).document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'{path} not found']}
+    doc = snap.to_dict()
+    if doc.get('status') == 'done':
+        return {'ok': False, 'errors': [f'{path} is done; its plan is history']}
+    if not ops:
+        return {'ok': False, 'errors': ['no ops']}
+    errors = [f'ops/{i}/{e}' for i, op in enumerate(ops) for e in validate(op, 'op')]
+    if errors:
+        return {'ok': False, 'errors': errors}
+    next_id, stored = doc.get('nextExId', 1), []
+    for op in ops:  # new exercises get their exId now, so replaying the diffs always gives the same ids
+        op = copy.deepcopy(op)
+        if op['op'] in ('add', 'replace'):
+            (op['exercise'],), next_id = _with_ids(_planned_sets([op['exercise']]), next_id)
+        if op['op'] == 'set' and 'sets' in op['fields']:
+            op['fields']['sets'] = _planned_sets([{'sets': op['fields']['sets']}])[0]['sets']
+        stored.append(op)
+    diffs = doc.get('diffs', []) + [{'at': _iso(now), 'ops': stored}]
+    try:
+        exercises, fields = apply_diffs(doc.get('plan', []), diffs)
+    except ValueError as e:
+        return {'ok': False, 'errors': [str(e)]}
+    update = {'diffs': diffs, 'exercises': exercises, 'nextExId': next_id, **fields}
+    errors = validate({**doc, **update})
+    if errors:
+        return {'ok': False, 'errors': errors}
+    if not write:
+        return {'ok': True, 'dryRun': True, 'path': path, 'exercises': exercises, **fields}
+    ref.update(update)  # only the plan's fields: the tracker's log is left as it is
+    return {'ok': True, 'path': path, 'exercises': exercises, **fields}
+
+
+# ---- reading ---------------------------------------------------------------
+
+def when(w):
+    """What to sort a workout by: when it was finished, else last logged, else the date it's for."""
+    return w.get('finishedAt') or w.get('updatedAt') or w.get('assignedFor') or ''
+
+
+def workouts(db, uid, status=None):
+    """The user's workouts, newest first; only one status if given."""
+    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, uid, WORKOUTS).stream()]
+    return sorted([w for w in docs if not status or w.get('status') == status], key=when, reverse=True)
+
+
+def recent(db, uid, status, limit):
+    return workouts(db, uid, status)[:limit]
+
+
+def get(db, uid, doc_id):
+    snap = collection(db, uid, WORKOUTS).document(doc_id).get()
+    return {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
+
+
+def _logged(db, uid):
+    """Workouts with something logged (in progress or done), newest first, with the exercises the user kept."""
+    out = []
+    for w in workouts(db, uid):
+        kept = [x for x in w.get('log', []) if not x.get('removed')]
+        if kept:
+            out.append({**w, 'log': kept})
+    return out
 
 
 def _plain(word):
@@ -88,28 +229,23 @@ def name_matches(query, name):
     return words(query) <= words(name) or squash(query) in squash(name)
 
 
-def _completed(db, uid):
-    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, uid, 'completed').stream()]
-    return sorted(docs, key=lambda w: w.get('finishedAt', ''), reverse=True)
-
-
 def history(db, uid, query, limit):
-    """Past sets for exercises whose name matches, newest first."""
+    """Logged sets for exercises whose name matches, newest first."""
     out = []
-    for w in _completed(db, uid):
-        for e in w['exercises']:
+    for w in _logged(db, uid):
+        for e in w['log']:
             if name_matches(query, e['name']):
-                out.append({'finishedAt': w.get('finishedAt'), 'workout': w['name'], 'docId': w['docId'],
-                            'name': e['name'], 'custom_name': e.get('custom_name'), 'sets': e['sets']})
+                out.append({'finishedAt': w.get('finishedAt'), 'status': w.get('status'), 'workout': w['name'],
+                            'docId': w['docId'], 'name': e['name'], 'custom_name': e.get('custom_name'), 'sets': e['sets']})
     return out[:limit]
 
 
 def names(db, uid):
-    """Every distinct exercise name in completed workouts, with how often and when it was last done."""
+    """Every distinct exercise name the user has logged, with how often and when it was last done."""
     seen = {}
-    for w in _completed(db, uid):
-        for e in w['exercises']:
-            n = seen.setdefault(e['name'], {'name': e['name'], 'count': 0, 'lastDone': w.get('finishedAt')})
+    for w in _logged(db, uid):
+        for e in w['log']:
+            n = seen.setdefault(e['name'], {'name': e['name'], 'count': 0, 'lastDone': when(w)})
             n['count'] += 1
     return sorted(seen.values(), key=lambda n: n['name'].strip().lower())
 
@@ -126,47 +262,7 @@ def diff(old, new, path=''):
     return [] if old == new else [f'{path}: {json.dumps(old, default=str)} -> {json.dumps(new, default=str)}']
 
 
-def update(db, uid, name, doc_id, doc, write):
-    """Replace an existing workout with an edited version. Never creates; keeps the same id."""
-    doc = {k: v for k, v in doc.items() if k != 'docId'}  # `get` adds docId; it isn't part of the doc
-    path = f"users/{uid}/{name}/{doc_id}"
-    ref = collection(db, uid, name).document(doc_id)
-    snap = ref.get()
-    if not snap.exists:
-        return {'ok': False, 'errors': [f'{path} not found (use assign to create)']}
-    old = snap.to_dict()
-    if doc.get('id') != old.get('id'):
-        return {'ok': False, 'errors': [f"id changed: {old.get('id')!r} -> {doc.get('id')!r}"]}
-    errors = validate(doc)
-    if errors:
-        return {'ok': False, 'errors': errors}
-    changes = diff(old, doc)
-    if not write or not changes:
-        return {'ok': True, 'dryRun': not write, 'path': path, 'changes': changes}
-    ref.set(doc)
-    return {'ok': ref.get().to_dict() == doc, 'path': path, 'changes': changes}
-
-
-def assign(db, uid, doc, write, now):
-    doc = with_defaults(doc, now)
-    errors = validate(doc)
-    path = f"users/{uid}/assigned/{doc_id(doc, now)}"
-    if errors:
-        return {'ok': False, 'errors': errors}
-    if not write:
-        return {'ok': True, 'dryRun': True, 'path': path, 'doc': doc}
-    ref = collection(db, uid, 'assigned').document(path.rsplit('/', 1)[1])
-    if ref.get().exists:
-        return {'ok': False, 'errors': [f'{path} already exists']}
-    ref.set(doc)
-    return {'ok': ref.get().to_dict() == doc, 'path': path, 'doc': doc}
-
-
 TODO_FIELDS = ('text', 'done', 'due', 'notes')  # loose on purpose: free text, due like '2026-10-12' or '2026-10-12 19:00'
-
-
-def _iso(now):
-    return now.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
 
 def todos(db, uid, include_done=False):
@@ -265,40 +361,37 @@ def update_profile(db, uid, new, write, now):
 def main(argv=None):
     p = argparse.ArgumentParser(description='Read and write WILO workouts.')
     sub = p.add_subparsers(dest='cmd', required=True)
-    for name in ('completed', 'assigned'):
-        sub.add_parser(name).add_argument('--limit', type=int, default=5)
-    g = sub.add_parser('get')
-    g.add_argument('collection', choices=['assigned', 'completed'])
-    g.add_argument('doc_id')
+    r = sub.add_parser('recent')
+    r.add_argument('--status', choices=STATUSES)
+    r.add_argument('--limit', type=int, default=5)
+    sub.add_parser('get').add_argument('doc_id')
     a = sub.add_parser('assign')
     a.add_argument('file', help='workout JSON file, or - for stdin')
     a.add_argument('--write', action='store_true', help='post it (default is a dry run)')
+    c = sub.add_parser('change')
+    c.add_argument('doc_id')
+    c.add_argument('file', help='JSON list of ops, or - for stdin')
+    c.add_argument('--write', action='store_true', help='save it (default is a dry run)')
     h = sub.add_parser('history')
     h.add_argument('name', help='exercise name; loose match (case, spacing, punctuation, plurals, word order)')
     h.add_argument('--limit', type=int, default=5)
     sub.add_parser('names')
-    u = sub.add_parser('update')
-    u.add_argument('collection', choices=['assigned', 'completed'])
-    u.add_argument('doc_id')
-    u.add_argument('file', help='edited workout JSON file, or - for stdin')
-    u.add_argument('--write', action='store_true', help='save it (default is a dry run)')
     args = p.parse_args(argv)
 
-    db, uid = connect(), CONFIG['uid']  # the command line always acts as the user in config
+    db, uid, now = connect(), CONFIG['uid'], datetime.now(timezone.utc)  # the command line acts as the user in config
     read = lambda f: json.loads(sys.stdin.read() if f == '-' else Path(f).read_text())
-    if args.cmd in ('completed', 'assigned'):
-        out = recent(db, uid, args.cmd, args.limit)
+    if args.cmd == 'recent':
+        out = recent(db, uid, args.status, args.limit)
     elif args.cmd == 'get':
-        snap = collection(db, uid, args.collection).document(args.doc_id).get()
-        out = {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
+        out = get(db, uid, args.doc_id)
     elif args.cmd == 'history':
         out = history(db, uid, args.name, args.limit)
     elif args.cmd == 'names':
         out = names(db, uid)
-    elif args.cmd == 'update':
-        out = update(db, uid, args.collection, args.doc_id, read(args.file), args.write)
+    elif args.cmd == 'change':
+        out = change(db, uid, args.doc_id, read(args.file), args.write, now)
     else:
-        out = assign(db, uid, read(args.file), args.write, datetime.now(timezone.utc))
+        out = assign(db, uid, read(args.file), args.write, now)
 
     print(json.dumps(out, indent=2, default=str))
     return 1 if isinstance(out, dict) and out.get('ok') is False else 0

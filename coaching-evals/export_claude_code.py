@@ -13,7 +13,7 @@ append records to traces.jsonl; never reorder it (notes.json is keyed by message
 import json, pathlib, sys
 from datetime import datetime, timedelta
 
-COACH = {'recent_completed', 'recent_assigned', 'assign_workout', 'update_workout', 'exercise_history',
+COACH = {'recent_completed', 'recent_assigned', 'recent_workouts', 'assign_workout', 'update_workout', 'change_workout', 'exercise_history',
          'exercise_names', 'coaching_method', 'get_profile', 'update_profile', 'get_workout', 'workout_schema'}
 SKIP = {'281beb48', '5bd22244',   # same conversation as 27adacb4 (resumed copies)
         'de5a2ada'}               # 2026-10-19 data cleanup, not coaching
