@@ -9,6 +9,7 @@ tool when Claude did. Writes per-item results to ml/results/<model>-<time>.jsonl
 Read-only for WILO: the model only sees tool definitions, nothing runs against real data.
 """
 import argparse
+import datetime
 import json
 import re
 import time
@@ -23,8 +24,10 @@ or reply in one short sentence if no tool is needed. Messages are often messy vo
 
 
 def messages(item):
-    """The prompt for one item: system, earlier messages, then the user's message. train.py uses it too."""
-    msgs = [{'role': 'system', 'content': SYSTEM}]
+    """The prompt for one item: system, earlier messages, then the user's message. train.py uses it too.
+    Today's date goes in the system prompt so "friday" or "tomorrow" can become a real date (try.py: today)."""
+    day = datetime.date.fromisoformat(item.get('date') or datetime.date.today().isoformat())
+    msgs = [{'role': 'system', 'content': f"{SYSTEM}\nToday is {day:%A}, {day.isoformat()}."}]
     for c in item['context']:
         text = c['text'] + (f"\n[called: {', '.join(c['tools'])}]" if c.get('tools') else '')
         msgs.append({'role': 'user' if c['role'] == 'user' else 'assistant', 'content': text or '(no text)'})
