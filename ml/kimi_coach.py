@@ -21,6 +21,7 @@ from wilo import mcp_server as tools
 HERE = Path(__file__).resolve().parent
 URL = 'https://api.runpod.ai/v2/moonshot-kimi/openai/v1/chat/completions'
 SAVES = {'add_todo', 'update_todo', 'delete_todo'}  # these save without a write flag
+PRICE_IN, PRICE_OUT = 2.00, 10.00  # $ per million tokens, Kimi K3.1 Pro on RunPod (2026-10-29)
 DIM, BOLD, END = '\033[2m', '\033[1m', '\033[0m'
 
 
@@ -42,7 +43,8 @@ def chat(key, model, msgs, defs):
     req = urllib.request.Request(URL, data=json.dumps(body).encode(), headers={
         'Content-Type': 'application/json', 'Authorization': f'Bearer {key}', 'User-Agent': 'wilo-ml/1.0'})
     with urllib.request.urlopen(req, timeout=300) as r:
-        return json.load(r)['choices'][0]['message']
+        out = json.load(r)
+    return out['choices'][0]['message'], out.get('usage') or {}
 
 
 def run(name, args):
@@ -77,10 +79,14 @@ def main():
         if not text:
             continue
         history.append({'role': 'user', 'content': text})
+        calls_made, tok_in, tok_out = 0, 0, 0
         for _ in range(12):  # tool rounds per message
             msgs = [{'role': 'system', 'content': system(a.coach)}] + history
             try:
-                out = chat(key, a.model, msgs, defs)
+                out, usage = chat(key, a.model, msgs, defs)
+                calls_made += 1
+                tok_in += usage.get('prompt_tokens', 0)
+                tok_out += usage.get('completion_tokens', 0)
             except Exception as e:
                 print(f'  error: {str(e)[:300]}')
                 history.pop()
@@ -89,6 +95,8 @@ def main():
             history.append({k: v for k, v in out.items() if k in ('role', 'content', 'tool_calls', 'reasoning_content') and v is not None})
             if not calls:
                 print(f"\nwilo> {out.get('content') or ''}")
+                cost = tok_in * PRICE_IN / 1e6 + tok_out * PRICE_OUT / 1e6
+                print(f'{DIM}  [{calls_made} call(s), {tok_in:,} tokens in, {tok_out:,} out, ~${cost:.3f}]{END}')
                 break
             for c in calls:
                 name = c['function']['name']
