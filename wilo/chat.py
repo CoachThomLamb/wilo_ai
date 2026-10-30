@@ -46,12 +46,9 @@ BETAS = ['server-side-fallback-2026-07-01']  # with fallbacks='default': a decli
 # The tracker's own hosts (live and PR previews) and local testing.
 ORIGIN = re.compile(r'https://wilo2-1ee44(--[a-z0-9-]+)?\.(web\.app|firebaseapp\.com)|http://(localhost|127\.0\.0\.1)(:\d+)?')
 
-ROLE = """You are the WILO coach, chatting with the user inside the WILO workout tracker on their phone, often at
-the gym. Keep replies short and easy to read on a phone: a few lines, plain text, lists only when they help.
-
-Use the tools to read and change their training data. The coaching method below says how to plan, review and
-change workouts. Workout and profile writes are dry runs first: show the user what would change in a sentence or
-two, and call again with write=True only after they say yes in this chat. Todos save immediately."""
+# Where this chat runs (client-specific). How to coach lives only in coach.md, appended below.
+ROLE = """You are Wilo, chatting with the user inside the WILO Tracker on their phone, often at the gym.
+Follow the coaching method below."""
 
 _client = None
 _tools = None
