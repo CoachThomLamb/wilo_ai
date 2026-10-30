@@ -35,11 +35,9 @@ if __name__ == '__main__':
 
 HERE = Path(__file__).resolve().parent
 
-INSTRUCTIONS = (
-    "Thom's workout data. Read history before planning. Exercise names are free text: use "
-    "exercise_names to spot synonyms. Always dry-run assign_workout/update_workout, show Thom the "
-    "result, and only call again with write=True once he approves."
-)
+# Coaching instructions live only in coach.md (served by coaching_method); this and the tool descriptions say
+# what the tools do, not how to coach.
+INSTRUCTIONS = "The user's WILO workout data. Call coaching_method first: it returns the coaching method (coach.md)."
 AUTH = False  # set when serving with sign-in; then current_uid() comes only from the token
 CHAT_UID = ContextVar('chat_uid', default=None)  # set by /chat (wilo/chat.py) after it verifies the Firebase ID token
 _db = None
@@ -66,15 +64,13 @@ def current_uid():
 
 
 def coaching_method() -> dict[str, Any]:
-    """How to coach with these tools: the principles and step-by-step workflows (plan, review, check in,
-    change a workout, update the profile). Call this first, before planning, reviewing or changing workouts."""
+    """The coaching method (coach.md): how to coach with these tools. Call it first."""
     return {'method': (HERE / 'coach.md').read_text()}
 
 
 def get_profile() -> dict[str, Any]:
     """The user's coaching profile: preferences (what they like and don't), limitations (injuries, pain, what to
-    avoid), plan (their current split, schedule, goals) and coach notes. Read it before planning or reviewing.
-    It overrides the general method, except on safety. A new user has none yet (exists=false): ask them."""
+    avoid), plan (their current split, schedule, goals) and coach notes. A new user has none yet (exists=false)."""
     return wilo_data.profile(db(), current_uid())
 
 
@@ -82,8 +78,7 @@ def update_profile(preferences: str | None = None, limitations: str | None = Non
                    notes: str | None = None, write: bool = False) -> dict[str, Any]:
     """Edit the user's coaching profile. Each section is free text; pass the full new text of the sections you
     change (read get_profile first and keep what's still true), '' to empty one; sections left out stay as they
-    are. Returns the changes. Dry run unless write=True: show the user the changes and save only once they
-    approve. Use it when they tell you a preference, an injury changes, or a review teaches you something."""
+    are. Returns the changes. Dry run unless write=True."""
     sections = {'preferences': preferences, 'limitations': limitations, 'plan': plan, 'notes': notes}
     edits = {k: v for k, v in sections.items() if v is not None}
     return wilo_data.update_profile(db(), current_uid(), edits, write, datetime.now(timezone.utc))
@@ -119,15 +114,14 @@ def exercise_history(name: str, limit: int = 5) -> dict[str, Any]:
 
 
 def exercise_names() -> dict[str, Any]:
-    """Every distinct exercise name Thom has logged, with how often and when last done.
-    Names are free text: decide which ones mean the same exercise, and ask Thom when unsure."""
+    """Every distinct exercise name the user has logged, with how often and when last done.
+    Names are free text, so the same exercise can appear under several names."""
     return {'names': wilo_data.names(db(), current_uid())}
 
 
 def assign_workout(workout: dict[str, Any], write: bool = False) -> dict[str, Any]:
-    """Post a new workout to Thom's assigned list. Fills id and assignedFor if missing (assignedFor = the date
-    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True.
-    Follow coaching_method when planning."""
+    """Post a new workout to the user's assigned list. Fills id and assignedFor if missing (assignedFor = the date
+    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True."""
     return wilo_data.assign(db(), current_uid(), workout, write, datetime.now(timezone.utc))
 
 
@@ -136,8 +130,7 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
     """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
     field changes. Refuses missing docs and id changes. Dry run unless write=True.
     Mid-workout change: update the same assigned workout with the new plan (planned sets, no done
-    flags); when the user taps Load, the tracker keeps their logged sets and takes the rest from it.
-    Follow coaching_method when planning."""
+    flags); when the user taps Load, the tracker keeps their logged sets and takes the rest from it."""
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
 
 

@@ -53,11 +53,14 @@ class ServerTest(unittest.TestCase):
     def test_coaching_method_returns_the_method_file(self):
         self.assertEqual(call('coaching_method')['method'], (srv.HERE / 'coach.md').read_text())
 
-    def test_write_tools_point_to_the_method(self):
+    def test_server_points_to_the_method_and_tools_carry_no_coaching(self):
+        # coach.md is the only place that says how to coach (it's served by coaching_method)
+        self.assertIn('coaching_method', srv.INSTRUCTIONS)
         tools = {t.name: t for t in asyncio.run(srv.server.list_tools())}
-        for name in ('assign_workout', 'update_workout'):
+        for name, tool in tools.items():
             with self.subTest(name):
-                self.assertIn('coaching_method', tools[name].description)
+                self.assertNotIn('approve', tool.description)
+                self.assertNotIn('Thom', tool.description)
 
     def test_reads_act_on_current_user_only(self):
         self.assertEqual([h['sets'][0]['lbs'] for h in call('exercise_history', name='bench')['history']], [135])
@@ -119,9 +122,9 @@ class ServerTest(unittest.TestCase):
         self.uid = OTHER
         self.assertFalse(call('get_profile')['exists'])
 
-    def test_method_covers_profile_and_safety(self):
+    def test_method_covers_profile_and_limitations(self):
         method = call('coaching_method')['method']
-        for needle in ('get_profile', 'update_profile', 'except on safety', 'Load keeps the sets'):
+        for needle in ('get_profile', 'update_profile', '`limitations`', 'tap **Load**'):
             with self.subTest(needle):
                 self.assertIn(needle, method)
 
