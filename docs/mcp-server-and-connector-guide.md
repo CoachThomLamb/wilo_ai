@@ -96,7 +96,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
 - **Ports:** an old test server can hold a port (`ss -ltnp | grep :8000`). Use another `--port`; the issuer follows the port.
 - **Don't name a folder after a dependency:** the old `mcp/` folder shadowed the `mcp` SDK. That's why everything lives in `wilo/`.
 - **Stacked PRs:** retarget the next PR to `main` right after its base merges, or it merges into the old branch (#37 had to be re-landed as #42).
-- **Tracker quirks:** the tracker infers timed exercises from `target.duration_sec` and ignores the schema's `timed` (#85). Load opens the **earliest unfinished** assigned workout (#90), so a stale or skipped plan comes first: delete or finish old plans (#53).
+- **Tracker quirks:** the tracker infers timed exercises from `target.duration_sec` and ignores the schema's `timed` (#85). With nothing in progress, it opens the **earliest unfinished** assigned workout (#90), so a stale or skipped plan comes first: delete or finish old plans (#53). ‹ › step through done and planned workouts; a change to the workout in progress shows an Update bar (merge, #68).
 
 ## Container and hosting (#43)
 - **Image:** `Dockerfile` + `.dockerignore` (an **allowlist**: only `pyproject.toml`, `wilo/`, `config/`, `schema/`, so keys and data can't be copied in). Runs as non-root `app`. `CMD` = `--http --auth --public-url "$PUBLIC_URL"`, so it fails fast if `PUBLIC_URL` is unset or not https.

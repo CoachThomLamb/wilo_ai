@@ -128,7 +128,7 @@ flowchart TD
 
 Tools: the current state is the `inProgress` copy in `recent_completed` (sets logged so far) plus the
 Workout in `recent_assigned`. Change it with `get_workout`, then `update_workout` on the assigned Workout
-(planned sets, no done flags): dry run, one-line check, `write=True`. Then: tap Load.
+(planned sets, no done flags): dry run, one-line check, `write=True`. Then: tap Update in the tracker.
 
 ## Review a finished Workout
 Keep it light. `recent_completed`: did everything get done? Then find things to congratulate them on:

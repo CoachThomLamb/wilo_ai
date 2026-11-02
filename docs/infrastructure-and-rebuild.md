@@ -55,7 +55,7 @@ flowchart LR
 | Piece | What it is | Where it lives | Config is in | Deploys how | Cost |
 |---|---|---|---|---|---|
 | **Repo** `CoachThomLamb/wilo_ai` | All code, docs, rules | GitHub (**public**) | `main` | — | $0 |
-| **Tracker** `fe/index.html` (+ `today.html`, `auth.js`) | Plain HTML pages: the tracker (Load the next unfinished workout, log sets, Finish) and the Today page (todos). Sign-in required | Firebase Hosting `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; PRs deploy to one fixed preview channel `dev` (#115) | $0 (Spark) |
+| **Tracker** `fe/index.html` (+ `today.html`, `auth.js`) | Plain HTML pages: the tracker (opens the next unfinished workout, ‹ › through done and planned ones, log sets, Finish) and the Today page (todos). Sign-in required | Firebase Hosting `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; PRs deploy to one fixed preview channel `dev` (#115) | $0 (Spark) |
 | **Firestore** database `wilo` | All workout data, todos, coach profiles + sign-in tokens | GCP `northamerica-northeast2` (Toronto) | `firestore.rules`, `config/wilo.json` | Rules: **manually** with `firebase deploy --only firestore:rules` (last 2026-10-12) | $0 (free quota) |
 | **Firebase Auth** | Google sign-in, one uid per person | Firebase project `wilo2-1ee44` | Console only (provider: Google; authorized domains) | Console | $0 |
 | **Data engine** `wilo/data.py` | All Firestore logic + CLI | Repo (runs wherever it's imported) | `config/wilo.json`, `schema/workout.schema.json` | With the connector | — |
@@ -92,7 +92,7 @@ sequenceDiagram
     C->>S: assign_workout(plan, write=True)
     S->>F: write users/uid/assigned/doc
     Note over T,W: at the gym
-    T->>W: Load
+    T->>W: open
     W->>F: next assigned (earliest by assignedFor, not yet completed)
     T->>W: log sets, Finish
     W->>F: write users/uid/completed
@@ -256,7 +256,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 - [ ] Coach: nothing to upload. The method is `wilo/coach.md` (served by the connector); each user's profile starts empty and fills in through `update_profile`.
 
 **8. End-to-end check**
-- [ ] On the phone: ask Claude for your last workout, plan one, approve the write → tracker → Load shows it → Finish → Claude sees it.
+- [ ] On the phone: ask Claude for your last workout, plan one, approve the write → tracker → › shows it → Start → Finish → Claude sees it.
 
 ---
 
