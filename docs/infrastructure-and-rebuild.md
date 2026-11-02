@@ -256,7 +256,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 - [ ] Coach: nothing to upload. The method is `wilo/coach.md` (served by the connector); each user's profile starts empty and fills in through `update_profile`.
 
 **8. End-to-end check**
-- [ ] On the phone: ask Claude for your last workout, plan one, approve the write → tracker → › shows it → Start → Finish → Claude sees it.
+- [ ] On the phone: ask Claude for your last workout, plan one, approve the write → tracker → › to its day → Finish → Claude sees it.
 
 ---
 

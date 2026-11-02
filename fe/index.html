@@ -8,12 +8,12 @@
     the earliest of users/{uid}/assigned (by assignedFor) with no completed
     copy, unless a draft is in progress.
   - Timeline: ‹ › under the header step through every workout by day: done
-    ones back in time, planned ones ahead. "Now" is the draft, the only one
-    you can edit; the rest are read-only, and a planned one has Start. If the
-    coach changed the workout in progress, an Update bar appears; Update
-    merges: logged sets stay, the rest comes from the new plan (#68). The
-    timeline refetches on sign-in, on returning to the app, and after the
-    in-app coach saves a workout.
+    ones back in time, planned ones ahead. Every day is the normal tracker:
+    log sets on whichever one is on screen. Leaving a day saves its logged
+    sets first. If the coach changed the workout on screen, an Update bar
+    appears; Update merges: logged sets stay, the rest comes from the new
+    plan (#68). The timeline refetches on sign-in, on returning to the app,
+    and after the in-app coach saves a workout.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
@@ -213,20 +213,11 @@
   }
   .tl-mid strong { font-size: 16px; font-weight: 600; }
   .tl-mid span { font-size: 12px; color: var(--dim); }
-  .tl-mid span.now { color: var(--done-line); }
-  /* read-only stops, and the Update bar on the draft */
+  /* the Update bar when the coach changed the workout */
   .view-bar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--dim); font-size: 15px;
   }
-  .ex-cue.mine::before { content: 'Note: '; color: var(--dim); }
-  .val {
-    display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 38px;
-    background: var(--field); border-radius: 8px; font-size: 17px; font-weight: 500;
-  }
-  .val.chk { width: 44px; height: 36px; color: var(--dim); }
-  tr.done .val { background: var(--done); }
-  tr.done .val.chk { color: var(--done-line); }
 
   /* JSON sheet */
   .json-btn {
@@ -340,7 +331,7 @@
 
 <nav class="tl" aria-label="Workouts by day">
   <button class="tl-step" id="tlPrev" aria-label="Earlier workout">&lsaquo;</button>
-  <button class="tl-mid" id="tlMid" aria-label="Back to now"><strong id="tlDay">Today</strong><span id="tlWhat" class="now">Now</span></button>
+  <div class="tl-mid"><strong id="tlDay">Today</strong><span id="tlWhat"></span></div>
   <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
 </nav>
 
@@ -411,6 +402,7 @@
     loadedWorkout = assigned;
     state.finishDocId = null;   // a new workout gets a new completed doc
     state.finished = false;
+    state.finishedAt = null;
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
     state.exercises = (assigned.exercises || []).map(makeExercise);
@@ -447,19 +439,15 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
+  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
   let last = 'state';
 
-  // Draws the stop on screen: the draft (editable) or a read-only one.
+  // Draws the workout in the tracker: whichever day is on screen is the one you log.
   function draw() {
     rebuild();
-    drawNav();
-    const s = timeline[at];
-    if (s && !s.live) return drawStop(s);
-    sessName.readOnly = false;
     sessName.value = state.workoutName || 'WILO';
     drawDraft();
   }
@@ -512,6 +500,7 @@
   function sync() {
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
+    drawNav();
     queueSave();
     queueCloudSave();
   }
@@ -541,7 +530,6 @@
   });
 
   list.addEventListener('click', e => {
-    if (e.target.id === 'startBtn') return startStop(timeline[at]);
     if (e.target.id === 'updateBtn') return updatePlan();
     const chk = e.target.closest('.check');
     if (chk) {
@@ -694,6 +682,7 @@
       state.workoutName = saved.state.workoutName || '';
       state.finishDocId = saved.state.finishDocId || null;
       state.finished = !!saved.state.finished;
+      state.finishedAt = saved.state.finishedAt || null;
       loadedWorkout = saved.plan || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
@@ -718,7 +707,9 @@
     return {
       id: state.workoutId,
       name: state.workoutName,
-      finishedAt: stamp.toISOString(),
+      // Once finished, it keeps the time it was finished, so a later edit
+      // doesn't make an old workout look like the latest one.
+      finishedAt: (state.finished && state.finishedAt) || stamp.toISOString(),
       inProgress,
       exercises: state.exercises.map(ex => ({
         instanceId: ex.instanceId,
@@ -751,23 +742,33 @@
     if (!a || !a.currentUser()) throw new Error('not signed in');
     if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
     await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
-    return state.finishDocId;
+    // Keep the timeline's copy current, so coming back to this day shows what was saved.
+    const id = state.finishDocId;
+    if (fetched) fetched.done = fetched.done.filter(c => c.docId !== id).concat({ docId: id, doc: payload });
+    return id;
   }
 
   // Save as you go (#68): a couple of seconds after any change, quietly save the
   // logged sets to the same completed doc Finish uses, so the coach can see them
   // mid-workout. Only once a set is ticked; failures stay quiet (the draft has it).
   // After Finish it stays finished, so a later edit doesn't reopen the workout.
+  // Nothing changed since the day was opened or last saved: nothing to save,
+  // so stepping through old workouts doesn't rewrite them.
   let cloudTimer = null;
+  let savedSig = null;
+  const sig = () => JSON.stringify([state.workoutId, state.workoutName, state.exercises]);
   function queueCloudSave() {
     clearTimeout(cloudTimer);
     cloudTimer = setTimeout(async () => {
       const a = window.__auth;
       if (!state.workoutId || !a || !a.currentUser()) return;
       if (!state.exercises.some(x => x.sets.some(s => s.done))) return;
+      const mark = sig();
+      if (mark === savedSig) return;
       const stamp = new Date();
       try {
         await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+        savedSig = mark;
         if (Date.now() < noteUntil) return;
         savedEl.textContent = 'Synced to WILO ' + stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         savedEl.classList.remove('ok', 'err');
@@ -797,11 +798,9 @@
     try {
       await saveCompleted(payload, stamp);
       state.finished = true;
+      state.finishedAt = payload.finishedAt;
       persist();
-      // It's done now: move it to the done side of the timeline without a refetch.
-      if (fetched) fetched.done = fetched.done.filter(c => c.docId !== state.finishDocId)
-        .concat({ docId: state.finishDocId, doc: payload });
-      draw();
+      draw();   // it's on the done side of the timeline now
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       note('Saved ✓ ' + t, 'ok');
       showDone();
@@ -816,12 +815,11 @@
   // copy, saved as you go, doesn't count). Planned: users/{uid}/assigned with
   // no finished copy (a copy shares the plan's `id`). Past dates count, so a
   // skipped workout still shows (#90). A stop's day is its plan's assignedFor,
-  // or the day it was finished if the plan is gone. The draft (the workout in
-  // the editor) is one stop, "Now", and the only one you can edit.
+  // or the day it was finished if the plan is gone. The stop that matches the
+  // workout in the tracker is live: that's the one on screen.
   let fetched = null;   // { plans: [{ docId, doc }], done: [{ docId, doc }] }
   let timeline = [];    // [{ kind: 'done' | 'plan' | 'draft', key, docId, doc, live }], oldest first
   let at = -1;          // index of the stop on screen
-  let draftScroll = 0;  // where you were in the draft, for coming back to it
 
   // YYYY-MM-DD in local time; a plain date passes through.
   function dayOf(v) {
@@ -854,20 +852,14 @@
     return stops.sort((x, y) => cmp(x.key, y.key) || rank[x.kind] - rank[y.kind] || cmp(fin(x), fin(y)));
   }
 
-  const ident = s => s.kind + ':' + (s.docId || '');
-
-  // Rebuild from the last fetch and the draft as it is now. Stays on the stop
-  // on screen, unless that was the draft: then it follows the draft.
+  // Rebuild from the last fetch and what's in the tracker now.
   function rebuild() {
-    const was = timeline[at];
-    const keep = was && !was.live ? ident(was) : null;
     timeline = buildTimeline(fetched ? fetched.plans : [], fetched ? fetched.done : [], {
       workoutId: state.workoutId,
       finishDocId: state.finishDocId,
       key: dayOf((loadedWorkout && loadedWorkout.assignedFor) || new Date().toISOString()),
     });
-    const i = keep ? timeline.findIndex(s => ident(s) === keep) : -1;
-    at = i >= 0 ? i : timeline.findIndex(s => s.live);
+    at = timeline.findIndex(s => s.live);
   }
 
   async function fetchTimeline() {
@@ -882,7 +874,7 @@
     fetched = { plans: rows(assigned), done: rows(completed) };
   }
 
-  // Fetch, load the next workout if the editor is empty, redraw. quiet: a
+  // Fetch, open the next workout if the tracker is empty, redraw. quiet: a
   // background refresh (back in the app, coach saved), so no status message.
   async function refresh(quiet) {
     await fetchTimeline();
@@ -890,7 +882,7 @@
     if (!state.exercises.length) {   // never replace sets in progress
       const next = timeline.find(s => s.kind === 'plan');
       if (next) {
-        loadWorkout(next.doc);
+        openStop(next);
         if (!quiet) note('Loaded ' + (state.workoutName || next.docId));
       } else if (!quiet) note('No workout planned — ask your coach to plan one');
     }
@@ -900,11 +892,11 @@
     draw();
   }
 
-  // The coach changed the workout in the editor since it was loaded (#68)?
+  // The coach changed the workout in the tracker since it was opened (#68)?
   // Returns the new plan, or null.
   function changedPlan() {
     const s = timeline[at];
-    if (!s || !s.live || s.kind !== 'plan' || !loadedWorkout) return null;
+    if (!s || s.kind !== 'plan' || !loadedWorkout) return null;
     const sig = w => JSON.stringify([w.name, w.exercises]);
     return sig(s.doc) === sig(loadedWorkout) ? null : s.doc;
   }
@@ -919,49 +911,43 @@
     note(logged ? `Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}` : 'Updated plan', 'ok');
   }
 
-  // Start a planned workout: it becomes the draft.
-  function startStop(s) {
-    if (!s || s.kind !== 'plan') return;
-    const logged = state.exercises.flatMap(x => x.sets).filter(x => x.done).length;
-    if (logged && !state.finished && !confirm(`Discard ${logged} logged set${logged === 1 ? '' : 's'} of ${state.workoutName || 'this workout'} and start ${s.doc.name || 'this one'}?`)) {
-      note('Kept your logged sets');
-      return;
+  // Put a day's workout in the tracker. Done: its finished copy, and edits
+  // save back to it. Planned: its saved-as-you-go copy if it has one (so
+  // logged sets come back), else the plan.
+  function openStop(s) {
+    if (s.kind === 'draft') return;
+    const planOf = id => { const p = (fetched ? fetched.plans : []).find(x => x.doc.id === id); return p ? p.doc : null; };
+    let copy = s.kind === 'done' ? s : null;
+    if (s.kind === 'plan') {
+      copy = (fetched ? fetched.done : []).filter(c => c.doc.inProgress && c.doc.id === s.doc.id)
+        .sort((x, y) => (x.doc.finishedAt || '') < (y.doc.finishedAt || '') ? 1 : -1)[0] || null;
+      if (!copy) { loadWorkout(s.doc); savedSig = sig(); return; }
     }
-    loadWorkout(s.doc);
-    last = 'started ' + state.workoutId;
-    draw();
-    list.scrollTop = 0;
-    note('Started ' + (state.workoutName || s.docId));
+    loadedWorkout = planOf(copy.doc.id);
+    state.workoutId = copy.doc.id;
+    state.workoutName = copy.doc.name || '';
+    state.finishDocId = copy.docId;
+    state.finished = s.kind === 'done';
+    state.finishedAt = state.finished ? copy.doc.finishedAt || null : null;
+    state.exercises = (copy.doc.exercises || []).map(makeExercise);
+    savedSig = sig();
   }
 
-  // A done or planned workout, read-only.
-  function drawStop(s) {
-    const exs = (s.doc.exercises || []).map(makeExercise);
-    const sets = exs.flatMap(x => x.sets);
-    const bar = s.kind === 'plan'
-      ? `<div class="view-bar"><span>Planned · ${exs.length} exercise${exs.length === 1 ? '' : 's'}, ${sets.length} sets</span><button class="finish" id="startBtn">Start</button></div>`
-      : `<div class="view-bar"><span>Done · ${sets.filter(x => x.done).length} of ${sets.length} sets</span></div>`;
-    list.innerHTML = bar + exs.map(viewHtml).join('');
-    sessName.readOnly = true;
-    sessName.value = s.doc.name || 'WILO';
-  }
-
-  function viewHtml(ex) {
-    const cell = v => `<td><div class="val">${esc(v ?? '')}</div></td>`;
-    return `<div class="exercise">
-      <div class="ex-name">${esc(ex.name)}</div>
-      ${ex.cue ? `<div class="ex-cue">${esc(ex.cue)}</div>` : ''}
-      ${ex.note ? `<div class="ex-cue mine">${esc(ex.note)}</div>` : ''}
-      <table>
-        <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${ex.timed ? 'secs' : 'reps'}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
-        <tbody>${ex.sets.map((s, i) => `
-          <tr class="${s.done ? 'done' : ''}">
-            <td><div class="setno">${i + 1}</div></td>
-            ${ex.timed ? '' : cell(s.lbs)}${cell(s.reps)}${ex.custom_name ? cell(s.custom) : ''}
-            <td><div class="val chk">&check;</div></td>
-          </tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+  // Before leaving a day: save its logged sets now (the quiet save, without
+  // the wait). If that fails, stay, so nothing logged is left behind.
+  async function saveBeforeLeaving() {
+    clearTimeout(cloudTimer);
+    if (sig() === savedSig || !state.exercises.some(x => x.sets.some(s => s.done))) return true;
+    if (!state.workoutId) return confirm("This workout isn't from a plan, so it isn't saved to WILO. Leave it?");
+    const stamp = new Date(), mark = sig();
+    try {
+      await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+      savedSig = mark;
+      return true;
+    } catch (err) {
+      note("Couldn't save this workout, so you're still on it (" + (err.code || err.message || err) + ')', 'err');
+      return false;
+    }
   }
 
   function dayLabel(key) {
@@ -979,29 +965,29 @@
   const tlNext = document.getElementById('tlNext');
   function drawNav() {
     const s = timeline[at];
-    const live = !s || s.live;
     tlPrev.disabled = at <= 0;
     tlNext.disabled = at < 0 || at >= timeline.length - 1;
-    document.getElementById('tlDay').textContent = s ? dayLabel(s.key) : 'Today';
-    const what = document.getElementById('tlWhat');
-    what.textContent = live ? (state.finished ? 'Now · done' : 'Now')
-      : s.kind === 'done' ? 'Done'
-      : s.key && s.key < dayOf(new Date().toISOString()) ? 'Planned · not done' : 'Planned';
-    what.classList.toggle('now', live);
-    document.getElementById('finish').hidden = !live;
-    document.getElementById('resetBtn').hidden = !live;
+    document.getElementById('tlDay').textContent = dayLabel(s ? s.key : dayOf(new Date().toISOString()));
+    const logged = state.exercises.some(x => x.sets.some(x => x.done));
+    document.getElementById('tlWhat').textContent =
+      state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
   }
 
-  function goTo(i) {
-    if (i < 0 || i >= timeline.length || i === at) return;
-    if (timeline[at] && timeline[at].live) draftScroll = list.scrollTop;
-    at = i;
-    draw();
-    list.scrollTop = timeline[at].live ? draftScroll : 0;
+  let moving = false;
+  async function goTo(i) {
+    if (moving || i < 0 || i >= timeline.length || i === at) return;
+    moving = true;
+    try {
+      const s = timeline[i];
+      if (!(await saveBeforeLeaving())) return;
+      openStop(s);
+      last = 'opened ' + (state.workoutId || s.docId);
+      draw();
+      list.scrollTop = 0;
+    } finally { moving = false; }
   }
   tlPrev.addEventListener('click', () => goTo(at - 1));
   tlNext.addEventListener('click', () => goTo(at + 1));
-  document.getElementById('tlMid').addEventListener('click', () => goTo(timeline.findIndex(s => s.live)));
 
   // Pick up the coach's changes: back in the app (from Claude), or the
   // in-app coach saved a workout (chat.js).
