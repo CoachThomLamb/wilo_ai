@@ -6,9 +6,14 @@
     app. All data is users/{uid}/...; no top-level collections (#15).
   - Boot: restores the draft; once signed in, loads the next workout:
     the earliest of users/{uid}/assigned (by assignedFor) with no completed
-    copy, unless a draft is in progress. Load button does the same; if the
-    coach changed the workout in progress, Load merges: logged sets stay, the
-    rest comes from the new plan (#68).
+    copy, unless a draft is in progress.
+  - Timeline: ‹ › under the header step through every workout by day: done
+    ones back in time, planned ones ahead. Every day is the normal tracker:
+    log sets on whichever one is on screen. Leaving a day saves its logged
+    sets first. If the coach changed the workout on screen, an Update bar
+    appears; Update merges: logged sets stay, the rest comes from the new
+    plan (#68). The timeline refetches on sign-in, on returning to the app,
+    and after the in-app coach saves a workout.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
@@ -195,6 +200,25 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
+  /* timeline: ‹ day › under the header */
+  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .tl-step {
+    flex: none; width: 48px; height: 40px; background: var(--field); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 26px; line-height: 1; padding: 0 0 3px;
+  }
+  .tl-step:disabled { opacity: .25; }
+  .tl-mid {
+    flex: 1; min-width: 0; background: none; border: 0; color: var(--text); font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .tl-mid strong { font-size: 16px; font-weight: 600; }
+  .tl-mid span { font-size: 12px; color: var(--dim); }
+  /* the Update bar when the coach changed the workout */
+  .view-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--dim); font-size: 15px;
+  }
+
   /* JSON sheet */
   .json-btn {
     position: fixed; right: 16px; bottom: 20px; z-index: 3;
@@ -293,7 +317,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-10-10-signin</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-02-timeline</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -301,10 +325,15 @@
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
-    <button class="ghost" id="loadBtn">Load</button>
     <button class="finish" id="finish">Finish</button>
   </div>
 </header>
+
+<nav class="tl" aria-label="Workouts by day">
+  <button class="tl-step" id="tlPrev" aria-label="Earlier workout">&lsaquo;</button>
+  <div class="tl-mid"><strong id="tlDay">Today</strong><span id="tlWhat"></span></div>
+  <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
+</nav>
 
 <div class="list" id="list"></div>
 
@@ -373,6 +402,7 @@
     loadedWorkout = assigned;
     state.finishDocId = null;   // a new workout gets a new completed doc
     state.finished = false;
+    state.finishedAt = null;
     state.workoutId = assigned.id;
     state.workoutName = assigned.name;
     state.exercises = (assigned.exercises || []).map(makeExercise);
@@ -409,14 +439,23 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, exercises: [] };
+  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
   let last = 'state';
 
+  // Draws the workout in the tracker: whichever day is on screen is the one you log.
   function draw() {
+    rebuild();
+    sessName.value = state.workoutName || 'WILO';
+    drawDraft();
+  }
+
+  function drawDraft() {
     list.innerHTML = '';
+    if (changedPlan()) list.insertAdjacentHTML('beforeend',
+      '<div class="view-bar"><span>Your coach changed this workout</span><button class="finish" id="updateBtn">Update</button></div>');
     state.exercises.forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
@@ -461,6 +500,7 @@
   function sync() {
     document.getElementById('state').textContent = JSON.stringify(state, null, 2);
     document.getElementById('last').textContent = last;
+    drawNav();
     queueSave();
     queueCloudSave();
   }
@@ -490,6 +530,7 @@
   });
 
   list.addEventListener('click', e => {
+    if (e.target.id === 'updateBtn') return updatePlan();
     const chk = e.target.closest('.check');
     if (chk) {
       const id = chk.dataset.id, i = +chk.dataset.i;
@@ -612,7 +653,8 @@
 
   function persist() {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), state }));
+      // plan: the assigned workout as loaded, so Reset and the Update bar work after a reload.
+      localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), state, plan: loadedWorkout }));
       if (Date.now() < noteUntil) return;   // don't stomp a visible message
       // "Draft", not "Saved": this is only this phone's browser, not Firestore.
       const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
@@ -640,6 +682,8 @@
       state.workoutName = saved.state.workoutName || '';
       state.finishDocId = saved.state.finishDocId || null;
       state.finished = !!saved.state.finished;
+      state.finishedAt = saved.state.finishedAt || null;
+      loadedWorkout = saved.plan || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       state.exercises.forEach(ex => {
         if (!ex.instanceId) ex.instanceId = uid();
@@ -663,7 +707,9 @@
     return {
       id: state.workoutId,
       name: state.workoutName,
-      finishedAt: stamp.toISOString(),
+      // Once finished, it keeps the time it was finished, so a later edit
+      // doesn't make an old workout look like the latest one.
+      finishedAt: (state.finished && state.finishedAt) || stamp.toISOString(),
       inProgress,
       exercises: state.exercises.map(ex => ({
         instanceId: ex.instanceId,
@@ -696,23 +742,33 @@
     if (!a || !a.currentUser()) throw new Error('not signed in');
     if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
     await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
-    return state.finishDocId;
+    // Keep the timeline's copy current, so coming back to this day shows what was saved.
+    const id = state.finishDocId;
+    if (fetched) fetched.done = fetched.done.filter(c => c.docId !== id).concat({ docId: id, doc: payload });
+    return id;
   }
 
   // Save as you go (#68): a couple of seconds after any change, quietly save the
   // logged sets to the same completed doc Finish uses, so the coach can see them
   // mid-workout. Only once a set is ticked; failures stay quiet (the draft has it).
   // After Finish it stays finished, so a later edit doesn't reopen the workout.
+  // Nothing changed since the day was opened or last saved: nothing to save,
+  // so stepping through old workouts doesn't rewrite them.
   let cloudTimer = null;
+  let savedSig = null;
+  const sig = () => JSON.stringify([state.workoutId, state.workoutName, state.exercises]);
   function queueCloudSave() {
     clearTimeout(cloudTimer);
     cloudTimer = setTimeout(async () => {
       const a = window.__auth;
       if (!state.workoutId || !a || !a.currentUser()) return;
       if (!state.exercises.some(x => x.sets.some(s => s.done))) return;
+      const mark = sig();
+      if (mark === savedSig) return;
       const stamp = new Date();
       try {
         await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+        savedSig = mark;
         if (Date.now() < noteUntil) return;
         savedEl.textContent = 'Synced to WILO ' + stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         savedEl.classList.remove('ok', 'err');
@@ -742,7 +798,9 @@
     try {
       await saveCompleted(payload, stamp);
       state.finished = true;
+      state.finishedAt = payload.finishedAt;
       persist();
+      draw();   // it's on the done side of the timeline now
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       note('Saved ✓ ' + t, 'ok');
       showDone();
@@ -752,53 +810,199 @@
     }
   });
 
-  // ---- program loading ----------------------------------------------
-  // Next workout to do (#90): the earliest of users/{uid}/assigned by
-  // assignedFor that has no completed copy. A completed copy shares the
-  // assigned workout's `id` field; one saved as you go (inProgress) doesn't
-  // count, so a workout stays loadable until Finish (#68). Past dates count,
-  // so a skipped workout still shows. Only the signed-in user's workouts:
-  // there is no top-level fallback, so a new user sees nothing.
-  async function fetchNextAssigned() {
+  // ---- timeline: step through the stack -------------------------------
+  // Every workout by day. Done: users/{uid}/completed, finished (an inProgress
+  // copy, saved as you go, doesn't count). Planned: users/{uid}/assigned with
+  // no finished copy (a copy shares the plan's `id`). Past dates count, so a
+  // skipped workout still shows (#90). A stop's day is its plan's assignedFor,
+  // or the day it was finished if the plan is gone. The stop that matches the
+  // workout in the tracker is live: that's the one on screen.
+  let fetched = null;   // { plans: [{ docId, doc }], done: [{ docId, doc }] }
+  let timeline = [];    // [{ kind: 'done' | 'plan' | 'draft', key, docId, doc, live }], oldest first
+  let at = -1;          // index of the stop on screen
+
+  // YYYY-MM-DD in local time; a plain date passes through.
+  function dayOf(v) {
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  // Pure, tested in tests/fe/timeline_test.mjs. draft: { workoutId, finishDocId, key }.
+  // The stop that is the draft gets live: true; if none is, a 'draft' stop is
+  // added on the draft's day, so the editor is always on the timeline.
+  function buildTimeline(plans, done, draft) {
+    const planDay = new Map(plans.map(p => [p.doc.id, p.doc.assignedFor]));
+    const finished = done.filter(c => !c.doc.inProgress);
+    const doneIds = new Set(finished.map(c => c.doc.id));
+    const isDraft = s => !!draft.workoutId &&
+      (s.kind === 'done' ? s.docId === draft.finishDocId : s.doc.id === draft.workoutId);
+    const stops = [
+      ...finished.map(c => ({ kind: 'done', key: dayOf(planDay.get(c.doc.id) || c.doc.finishedAt), docId: c.docId, doc: c.doc })),
+      ...plans.filter(p => !doneIds.has(p.doc.id)).map(p => ({ kind: 'plan', key: dayOf(p.doc.assignedFor), docId: p.docId, doc: p.doc })),
+    ].map(s => ({ ...s, live: isDraft(s) }));
+    const liveAt = stops.findIndex(s => s.live);
+    stops.forEach((s, i) => { if (i !== liveAt) s.live = false; });
+    if (liveAt < 0) stops.push({ kind: 'draft', key: draft.key || '', docId: null, doc: null, live: true });
+    // Same day: done first (in the order finished), then the draft, then planned.
+    const rank = { done: 0, draft: 1, plan: 2 };
+    const fin = s => (s.doc && s.doc.finishedAt) || '';
+    const cmp = (x, y) => x < y ? -1 : x > y ? 1 : 0;
+    return stops.sort((x, y) => cmp(x.key, y.key) || rank[x.kind] - rank[y.kind] || cmp(fin(x), fin(y)));
+  }
+
+  // Rebuild from the last fetch and what's in the tracker now.
+  function rebuild() {
+    timeline = buildTimeline(fetched ? fetched.plans : [], fetched ? fetched.done : [], {
+      workoutId: state.workoutId,
+      finishDocId: state.finishDocId,
+      key: dayOf((loadedWorkout && loadedWorkout.assignedFor) || new Date().toISOString()),
+    });
+    at = timeline.findIndex(s => s.live);
+  }
+
+  async function fetchTimeline() {
     const a = window.__auth;
     if (!a || !a.currentUser()) throw new Error('not signed in');
+    // orderBy also leaves out plans with no assignedFor, as the tracker always has.
     const [assigned, completed] = await Promise.all([
       window.__getDocs(window.__query(a.userCol('assigned'), window.__orderBy('assignedFor', 'asc'))),
       window.__getDocs(a.userCol('completed')),
     ]);
-    const done = new Set(completed.docs.filter(d => !d.data().inProgress).map(d => d.data().id).filter(Boolean));
-    const next = assigned.docs.find(d => !done.has(d.data().id));
-    return next ? { data: next.data(), id: next.id } : null;
+    const rows = snap => snap.docs.map(d => ({ docId: d.id, doc: d.data() }));
+    fetched = { plans: rows(assigned), done: rows(completed) };
   }
 
-  document.getElementById('sessName').addEventListener('input', e => {
-    state.workoutName = e.target.value;
-  });
-
-  document.getElementById('loadBtn').addEventListener('click', async () => {
-    try {
-      note('Loading next workout…');
-      const next = await fetchNextAssigned();
-      if (!next) { note('No workout planned — ask your coach to plan one'); return; }
-      const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-      if (logged && next.data.id === state.workoutId) {
-        mergeWorkout(next.data);   // plan changed mid-workout: keep logged sets
-        last = 'merged ' + state.workoutId;
-        draw();
-        note(`Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}`, 'ok');
-        return;
-      }
-      if (logged && !confirm(`Discard ${logged} logged set${logged === 1 ? '' : 's'} of ${state.workoutName || 'this workout'} and load ${next.data.name || next.data.id}?`)) {
-        note('Kept your logged sets');
-        return;
-      }
-      loadWorkout(next.data);
-      last = 'loaded ' + (state.workoutId || next.id);
-      draw();
-      note('Loaded ' + (state.workoutName || next.id));
-    } catch (err) {
-      note("Couldn't load workout: " + (err && err.message ? err.message : err));
+  // Fetch, open the next workout if the tracker is empty, redraw. quiet: a
+  // background refresh (back in the app, coach saved), so no status message.
+  async function refresh(quiet) {
+    await fetchTimeline();
+    rebuild();
+    if (!state.exercises.length) {   // never replace sets in progress
+      const next = timeline.find(s => s.kind === 'plan');
+      if (next) {
+        openStop(next);
+        if (!quiet) note('Loaded ' + (state.workoutName || next.docId));
+      } else if (!quiet) note('No workout planned — ask your coach to plan one');
     }
+    // A draft saved before plans were kept in it: take the plan as it is now.
+    const live = timeline.find(s => s.live);
+    if (!loadedWorkout && live && live.kind === 'plan' && live.doc.id === state.workoutId) loadedWorkout = live.doc;
+    draw();
+  }
+
+  // The coach changed the workout in the tracker since it was opened (#68)?
+  // Returns the new plan, or null.
+  function changedPlan() {
+    const s = timeline[at];
+    if (!s || s.kind !== 'plan' || !loadedWorkout) return null;
+    const sig = w => JSON.stringify([w.name, w.exercises]);
+    return sig(s.doc) === sig(loadedWorkout) ? null : s.doc;
+  }
+
+  function updatePlan() {
+    const fresh = changedPlan();
+    if (!fresh) return draw();
+    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
+    mergeWorkout(fresh);   // logged sets stay, the rest comes from the new plan
+    last = 'merged ' + state.workoutId;
+    draw();
+    note(logged ? `Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}` : 'Updated plan', 'ok');
+  }
+
+  // Put a day's workout in the tracker. Done: its finished copy, and edits
+  // save back to it. Planned: its saved-as-you-go copy if it has one (so
+  // logged sets come back), else the plan.
+  function openStop(s) {
+    if (s.kind === 'draft') return;
+    const planOf = id => { const p = (fetched ? fetched.plans : []).find(x => x.doc.id === id); return p ? p.doc : null; };
+    let copy = s.kind === 'done' ? s : null;
+    if (s.kind === 'plan') {
+      copy = (fetched ? fetched.done : []).filter(c => c.doc.inProgress && c.doc.id === s.doc.id)
+        .sort((x, y) => (x.doc.finishedAt || '') < (y.doc.finishedAt || '') ? 1 : -1)[0] || null;
+      if (!copy) { loadWorkout(s.doc); savedSig = sig(); return; }
+    }
+    loadedWorkout = planOf(copy.doc.id);
+    state.workoutId = copy.doc.id;
+    state.workoutName = copy.doc.name || '';
+    state.finishDocId = copy.docId;
+    state.finished = s.kind === 'done';
+    state.finishedAt = state.finished ? copy.doc.finishedAt || null : null;
+    state.exercises = (copy.doc.exercises || []).map(makeExercise);
+    savedSig = sig();
+  }
+
+  // Before leaving a day: save its logged sets now (the quiet save, without
+  // the wait). If that fails, stay, so nothing logged is left behind.
+  async function saveBeforeLeaving() {
+    clearTimeout(cloudTimer);
+    if (sig() === savedSig || !state.exercises.some(x => x.sets.some(s => s.done))) return true;
+    if (!state.workoutId) return confirm("This workout isn't from a plan, so it isn't saved to WILO. Leave it?");
+    const stamp = new Date(), mark = sig();
+    try {
+      await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+      savedSig = mark;
+      return true;
+    } catch (err) {
+      note("Couldn't save this workout, so you're still on it (" + (err.code || err.message || err) + ')', 'err');
+      return false;
+    }
+  }
+
+  function dayLabel(key) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+    if (!m) return 'No date';
+    const d = new Date(+m[1], m[2] - 1, +m[3]);
+    const t = new Date();
+    const diff = Math.round((d - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 864e5);
+    const word = { '-1': 'Yesterday', 0: 'Today', 1: 'Tomorrow' }[diff];
+    const date = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    return word ? `${word} · ${date}` : date;
+  }
+
+  const tlPrev = document.getElementById('tlPrev');
+  const tlNext = document.getElementById('tlNext');
+  function drawNav() {
+    const s = timeline[at];
+    tlPrev.disabled = at <= 0;
+    tlNext.disabled = at < 0 || at >= timeline.length - 1;
+    document.getElementById('tlDay').textContent = dayLabel(s ? s.key : dayOf(new Date().toISOString()));
+    const logged = state.exercises.some(x => x.sets.some(x => x.done));
+    document.getElementById('tlWhat').textContent =
+      state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
+  }
+
+  let moving = false;
+  async function goTo(i) {
+    if (moving || i < 0 || i >= timeline.length || i === at) return;
+    moving = true;
+    try {
+      const s = timeline[i];
+      if (!(await saveBeforeLeaving())) return;
+      openStop(s);
+      last = 'opened ' + (state.workoutId || s.docId);
+      draw();
+      list.scrollTop = 0;
+    } finally { moving = false; }
+  }
+  tlPrev.addEventListener('click', () => goTo(at - 1));
+  tlNext.addEventListener('click', () => goTo(at + 1));
+
+  // Pick up the coach's changes: back in the app (from Claude), or the
+  // in-app coach saved a workout (chat.js).
+  function refreshQuietly() {
+    const a = window.__auth;
+    if (a && a.currentUser()) refresh(true).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshQuietly();
+  });
+  window.addEventListener('wilo-plan-saved', refreshQuietly);
+
+  const sessName = document.getElementById('sessName');
+  sessName.addEventListener('input', e => {
+    state.workoutName = e.target.value;
   });
 
   // ---- sign-in -------------------------------------------------------
@@ -810,15 +1014,6 @@
   const gateBtn = document.getElementById('gateBtn');
   let authSeen = false;
 
-  async function loadNextIfNoDraft() {
-    if (state.exercises.length) return;   // never replace sets in progress
-    const next = await fetchNextAssigned();
-    if (!next) { note('No workout planned \u2014 ask your coach to plan one'); return; }
-    loadWorkout(next.data);
-    draw();
-    note('Loaded ' + (state.workoutName || next.id));
-  }
-
   window.addEventListener('wilo-user', ev => {
     const user = ev.detail;
     gate.hidden = !!user;
@@ -829,8 +1024,9 @@
     // First event is just the restored session; don't clobber the status line.
     if (authSeen && user) note('Signed in as ' + user.email);
     authSeen = true;
-    if (user) loadNextIfNoDraft().catch(err =>
-      note("Couldn't load workout: " + (err.code || err.message || err), 'err'));
+    if (!user) { fetched = null; draw(); }   // no one else's workouts on the timeline
+    if (user) refresh(false).catch(err =>
+      note("Couldn't load workouts: " + (err.code || err.message || err), 'err'));
   });
   window.addEventListener('wilo-auth-error', ev => {
     gateMsg.textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';

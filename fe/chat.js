@@ -85,7 +85,8 @@ async function send(text) {
     wait.textContent = reply;
     // Its own bubble, so copying the coach's reply copies only the reply.
     if ((body.tools || []).some(t => t === "assign_workout" || t === "update_workout")) {
-      const tip = "If the coach saved a workout, tap Load to get it.";
+      window.dispatchEvent(new Event("wilo-plan-saved"));   // the tracker refetches its timeline
+      const tip = "If the coach saved a workout, close this to see it. A change to the one you're doing shows an Update button.";
       chat.messages.push({ role: "note", text: tip });
       bubble("note", tip);
     }
