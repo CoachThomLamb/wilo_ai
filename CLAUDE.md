@@ -11,6 +11,9 @@ needs to know must live in this repo.
 
 **Working on `wilo/` (data engine, MCP server, connector sign-in)?** Read `docs/mcp-server-and-connector-guide.md` first.
 **Infrastructure (what runs where, keys, rebuild, gaps):** `docs/infrastructure-and-rebuild.md`.
+**Stacked PRs (a PR built on another PR's branch):** follow GitHub's guide,
+https://docs.github.com/en/pull-requests/get-started/about-stacked-prs. When a base PR merges, retarget the next
+one to `main` right away and check `main` has the code.
 
 ## Session notes
 
