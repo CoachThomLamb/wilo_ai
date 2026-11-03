@@ -200,6 +200,16 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
+  /* PROTOTYPE #136: Train / Review. B = tab bar above the header, A = link in the header. */
+  .modebar { display: flex; gap: 6px; padding: 8px 12px 0; flex: none; align-items: center; }
+  .modebar button { flex: 1; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--field);
+    color: var(--dim); font-family: inherit; font-size: 15px; font-weight: 600; }
+  .modebar button.on { background: var(--accent); color: #000; border-color: var(--accent); }
+  .modebar .tag, .proto-tag { font-size: 10px; color: #ff9800; flex: none; }
+  .who.mode-link { color: var(--accent); border: 0; background: none; padding: 0 0 0 10px; font-size: inherit; }
+  body.train .tl { display: none; }
+  .no-today { padding: 48px 16px; text-align: center; color: var(--dim); font-size: 18px; }
+
   /* timeline: ‹ day › under the header */
   .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
   .tl-step {
@@ -298,7 +308,7 @@
   .chat-form .finish:disabled { opacity: .5; }
 </style>
 </head>
-<body>
+<body class="train">
 
 <div class="gate" id="gate">
   <h1>WILO</h1>
@@ -315,13 +325,20 @@
   <a class="ghost" href="today.html" style="text-decoration:none">Back to Today</a>
 </div>
 
+<div class="modebar" id="modeBar">
+  <span class="tag">B</span>
+  <button data-mode="train" class="on">Train</button>
+  <button data-mode="review">Review</button>
+</div>
+
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-02-timeline</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-03-modes-proto</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
     <a class="who" href="today.html" style="text-decoration:none">Today →</a>
+    <button class="who mode-link" id="modeLink"><span class="proto-tag">A </span>Review →</button>
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
@@ -335,6 +352,7 @@
   <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
 </nav>
 
+<div class="no-today" id="noToday" hidden>No workout today</div>
 <div class="list" id="list"></div>
 
 <button class="json-btn" id="jsonBtn">{ }</button>
@@ -886,6 +904,8 @@
         if (!quiet) note('Loaded ' + (state.workoutName || next.docId));
       } else if (!quiet) note('No workout planned — ask your coach to plan one');
     }
+    // PROTOTYPE #136: Train opens on today's workout (once, at startup).
+    if (mode === 'train' && !trainSynced && timeline.length) { trainSynced = true; await jumpToday(); }
     // A draft saved before plans were kept in it: take the plan as it is now.
     const live = timeline.find(s => s.live);
     if (!loadedWorkout && live && live.kind === 'plan' && live.doc.id === state.workoutId) loadedWorkout = live.doc;
@@ -971,6 +991,7 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
+    applyMode();
   }
 
   let moving = false;
@@ -988,6 +1009,34 @@
   }
   tlPrev.addEventListener('click', () => goTo(at - 1));
   tlNext.addEventListener('click', () => goTo(at + 1));
+
+  // ---- PROTOTYPE #136: Train / Review ---------------------------------
+  // Train (default): today's workout only, no ‹ ›. Review: the ‹ › timeline.
+  // Two switches (A: header link, B: tab bar) drive the same `mode`, to compare on a phone.
+  let mode = 'train', trainSynced = false;
+  const todayKey = () => dayOf(new Date().toISOString());
+  const todayIdx = () => timeline.findIndex(s => s.key === todayKey());
+  const midWorkout = () => !state.finished && state.exercises.some(x => x.sets.some(s => s.done));
+  async function jumpToday() {
+    if (midWorkout()) return;   // you're training: stay on this workout
+    const i = todayIdx();
+    if (i >= 0) await goTo(i);
+  }
+  function applyMode() {
+    document.body.classList.toggle('train', mode === 'train');
+    document.querySelectorAll('#modeBar button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    document.getElementById('modeLink').innerHTML = '<span class="proto-tag">A </span>' + (mode === 'train' ? 'Review →' : 'Train →');
+    const empty = mode === 'train' && !!fetched && todayIdx() < 0 && !midWorkout();
+    document.getElementById('noToday').hidden = !empty;
+    list.style.display = empty ? 'none' : '';
+  }
+  async function setMode(m) {
+    mode = m;
+    applyMode();
+    if (m === 'train') await jumpToday();
+  }
+  document.querySelectorAll('#modeBar button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  document.getElementById('modeLink').addEventListener('click', () => setMode(mode === 'train' ? 'review' : 'train'));
 
   // Pick up the coach's changes: back in the app (from Claude), or the
   // in-app coach saved a workout (chat.js).
