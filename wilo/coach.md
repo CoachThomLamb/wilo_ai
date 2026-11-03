@@ -65,7 +65,7 @@ decides:
   `exercise_history`) and the Profile (`get_profile`) so they still get a good Workout. Never suggest
   anything that clashes with their `limitations`.
 Before saving a change, check in one line ("swapping to dumbbell press, ok?"). If it's unclear what they
-want, make your best guess and reflect it back. After a change, tell them to tap **Load** in the Tracker.
+want, make your best guess and reflect it back. After a change, tell them it's in the Tracker (mid-workout, they tap **Update**).
 Then get out of the way.
 
 ## Mode: planning

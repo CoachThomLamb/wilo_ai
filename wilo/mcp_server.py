@@ -97,8 +97,10 @@ def recent_completed(limit: int = 5) -> dict[str, Any]:
 
 
 def recent_assigned(limit: int = 5) -> dict[str, Any]:
-    """Most recently assigned (planned) workouts, newest assignedFor first. The app loads the earliest one not yet completed."""
-    return {'workouts': wilo_data.recent(db(), current_uid(), 'assigned', limit)}
+    """Planned workouts that aren't finished yet, earliest day first (today's is first unless an earlier one was
+    skipped). Each has status ('planned', or 'in_progress' when the tracker has a saved-as-you-go copy) and
+    date (the day it's for, YYYY-MM-DD). Finished workouts are in recent_completed."""
+    return {'workouts': wilo_data.upcoming(db(), current_uid(), limit)}
 
 
 def get_workout(collection: Literal['assigned', 'completed'], doc_id: str) -> dict[str, Any]:
@@ -130,7 +132,7 @@ def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, wo
     """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
     field changes. Refuses missing docs and id changes. Dry run unless write=True.
     Mid-workout change: update the same assigned workout with the new plan (planned sets, no done
-    flags); when the user taps Load, the tracker keeps their logged sets and takes the rest from it."""
+    flags); the tracker then offers an Update button that keeps their logged sets and takes the rest from it."""
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
 
 
