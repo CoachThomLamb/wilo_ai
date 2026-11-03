@@ -196,6 +196,59 @@ class UpdateTest(unittest.TestCase):
                 self.assertEqual(self.db.store[self.key], self.old)
 
 
+class UpcomingTest(unittest.TestCase):
+    """recent_assigned (#138): the coach said "no workout today" because newest-first plus limit 3 never got past a
+    week of later plans."""
+
+    def plan(self, pid, day):
+        return {'id': pid, 'name': f'w-{pid}', 'assignedFor': day, 'exercises': MINIMAL['exercises']}
+
+    def setUp(self):
+        a = f'users/{UID}/assigned'
+        self.db = FakeDB({
+            f'{a}/d1': self.plan('p1', '2026-11-02'),   # finished
+            f'{a}/d3': self.plan('p3', '2026-11-03'),   # today
+            f'{a}/d4': self.plan('p4', '2026-11-04'),
+            f'{a}/d5': self.plan('p5', '2026-11-05'),
+            f'{a}/d6': self.plan('p6', '2026-11-06'),
+            f'{a}/d7': self.plan('p7', '2026-11-07'),
+            f'{COMPLETED}/c1': {'id': 'p1', 'inProgress': False, 'exercises': []},
+        })
+
+    def test_today_comes_first_even_with_a_week_planned_ahead_and_a_small_limit(self):
+        out = wilo_data.upcoming(self.db, UID, 3)
+        self.assertEqual([w['date'] for w in out], ['2026-11-03', '2026-11-04', '2026-11-05'])
+
+    def test_finished_workouts_are_left_out_and_the_rest_are_planned(self):
+        out = wilo_data.upcoming(self.db, UID, 10)
+        self.assertNotIn('p1', [w['id'] for w in out])
+        self.assertEqual({w['status'] for w in out}, {'planned'})
+
+    def test_a_saved_as_you_go_copy_is_in_progress_not_finished(self):
+        self.db.store[f'{COMPLETED}/c3'] = {'id': 'p3', 'inProgress': True, 'exercises': []}
+        first = wilo_data.upcoming(self.db, UID, 2)
+        self.assertEqual([(w['id'], w['status']) for w in first], [('p3', 'in_progress'), ('p4', 'planned')])
+
+    def test_rows_carry_doc_id_and_a_plain_date_even_from_a_timestamp(self):
+        self.db.store[f'users/{UID}/assigned/d3']['assignedFor'] = '2026-11-03T02:15:00.000Z'
+        row = wilo_data.upcoming(self.db, UID, 1)[0]
+        self.assertEqual((row['docId'], row['date']), ('d3', '2026-11-03'))
+
+    def test_other_users_workouts_are_not_included(self):
+        self.db.store[f'users/{OTHER}/assigned/x'] = self.plan('px', '2026-11-01')
+        self.assertNotIn('px', [w['id'] for w in wilo_data.upcoming(self.db, UID, 10)])
+
+    def test_a_row_copied_back_into_update_does_not_write_the_derived_fields(self):
+        row = wilo_data.upcoming(self.db, UID, 1)[0]
+        row['exercises'] = [{**row['exercises'][0], 'name': 'Squat'}]
+        out = wilo_data.update(self.db, UID, 'assigned', row['docId'], row, write=True)
+        self.assertTrue(out['ok'], out)
+        self.assertEqual(out['changes'], ['exercises/0/name: "squats" -> "Squat"'])
+        saved = self.db.store[f'users/{UID}/assigned/d3']
+        for k in ('docId', 'status', 'date'):
+            self.assertNotIn(k, saved)
+
+
 class IsolationTest(unittest.TestCase):
     """Each user only sees and writes their own data (the uid comes from the caller, never from the doc)."""
 

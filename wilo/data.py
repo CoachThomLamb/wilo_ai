@@ -76,6 +76,31 @@ def recent(db, uid, name, limit):
     return [{'docId': d.id, **d.to_dict()} for d in q.stream()]
 
 
+# Fields recent_assigned adds to a row. They are read-only: update() drops them, so a row the coach copies
+# back into update_workout doesn't write them into the workout.
+DERIVED = ('docId', 'status', 'date')
+
+
+def upcoming(db, uid, limit):
+    """Planned workouts that aren't finished, earliest day first (#138): what's next, not what was planned last.
+    Newest-first hid today behind a week of later plans. `status`: 'planned', or 'in_progress' when the tracker
+    has a saved-as-you-go copy. `date`: assignedFor as YYYY-MM-DD. Finished ones are in `completed`, so left out.
+    Reads both collections whole (a few dozen docs) and sorts here; #126's `status` field replaces the join."""
+    finished, going = set(), set()
+    for d in collection(db, uid, 'completed').stream():
+        w = d.to_dict()
+        (going if w.get('inProgress') else finished).add(w.get('id'))
+    rows = []
+    for d in collection(db, uid, 'assigned').stream():
+        w = d.to_dict()
+        if w.get('id') in finished:
+            continue
+        rows.append({'docId': d.id, **w, 'status': 'in_progress' if w.get('id') in going else 'planned',
+                     'date': str(w.get('assignedFor') or '')[:10]})
+    rows.sort(key=lambda w: (w['date'], w['docId']))
+    return rows[:limit]
+
+
 def _plain(word):
     return word[:-1] if len(word) > 3 and word.endswith('s') and not word.endswith('ss') else word
 
@@ -128,7 +153,7 @@ def diff(old, new, path=''):
 
 def update(db, uid, name, doc_id, doc, write):
     """Replace an existing workout with an edited version. Never creates; keeps the same id."""
-    doc = {k: v for k, v in doc.items() if k != 'docId'}  # `get` adds docId; it isn't part of the doc
+    doc = {k: v for k, v in doc.items() if k not in DERIVED}  # reads add these; they aren't part of the doc
     path = f"users/{uid}/{name}/{doc_id}"
     ref = collection(db, uid, name).document(doc_id)
     snap = ref.get()
