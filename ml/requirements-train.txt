@@ -1,0 +1,6 @@
+# Training libs (ml/train.py). torch and transformers come with the vLLM image; the pod installs the rest.
+transformers>=5
+trl
+peft
+datasets
+accelerate

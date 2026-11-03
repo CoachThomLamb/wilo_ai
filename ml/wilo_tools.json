@@ -1,0 +1,422 @@
+[
+ {
+  "type": "function",
+  "function": {
+   "name": "coaching_method",
+   "description": "How to coach with these tools: the principles and step-by-step workflows (plan, review, check in,\nchange a workout, update the profile). Call this first, before planning, reviewing or changing workouts.",
+   "parameters": {
+    "properties": {},
+    "title": "coaching_methodArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "get_profile",
+   "description": "The user's coaching profile: preferences (what they like and don't), limitations (injuries, pain, what to\navoid), plan (their current split, schedule, goals) and coach notes. Read it before planning or reviewing.\nIt overrides the general method, except on safety. A new user has none yet (exists=false): ask them.",
+   "parameters": {
+    "properties": {},
+    "title": "get_profileArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "update_profile",
+   "description": "Edit the user's coaching profile. Each section is free text; pass the full new text of the sections you\nchange (read get_profile first and keep what's still true), '' to empty one; sections left out stay as they\nare. Returns the changes. Dry run unless write=True: show the user the changes and save only once they\napprove. Use it when they tell you a preference, an injury changes, or a review teaches you something.",
+   "parameters": {
+    "properties": {
+     "preferences": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Preferences"
+     },
+     "limitations": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Limitations"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Plan"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Notes"
+     },
+     "write": {
+      "default": false,
+      "title": "Write",
+      "type": "boolean"
+     }
+    },
+    "title": "update_profileArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "workout_schema",
+   "description": "The JSON Schema every workout must match (workout \u2192 exercises \u2192 sets). Read it before writing a workout.",
+   "parameters": {
+    "properties": {},
+    "title": "workout_schemaArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "recent_completed",
+   "description": "The user's most recent completed workouts, newest first, with every set (lbs, reps, done, custom).\ninProgress: true = still going: the tracker saves as you go, so its done sets are what's\nlogged so far; Finish sets inProgress to false.",
+   "parameters": {
+    "properties": {
+     "limit": {
+      "default": 5,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "recent_completedArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "recent_assigned",
+   "description": "Most recently assigned (planned) workouts, newest assignedFor first. The app loads the earliest one not yet completed.",
+   "parameters": {
+    "properties": {
+     "limit": {
+      "default": 5,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "recent_assignedArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "get_workout",
+   "description": "One workout by its doc ID. Edit the result and pass it to update_workout to change it.",
+   "parameters": {
+    "properties": {
+     "collection": {
+      "enum": [
+       "assigned",
+       "completed"
+      ],
+      "title": "Collection",
+      "type": "string"
+     },
+     "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "collection",
+     "doc_id"
+    ],
+    "title": "get_workoutArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "exercise_history",
+   "description": "Past sets for an exercise, newest first. Loose match on the name (case, spacing, punctuation,\nplurals, word order), so 'push up' finds 'Pushups'. For synonyms, check exercise_names first.",
+   "parameters": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "limit": {
+      "default": 5,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "exercise_historyArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "exercise_names",
+   "description": "Every distinct exercise name Thom has logged, with how often and when last done.\nNames are free text: decide which ones mean the same exercise, and ask Thom when unsure.",
+   "parameters": {
+    "properties": {},
+    "title": "exercise_namesArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "assign_workout",
+   "description": "Post a new workout to Thom's assigned list. Fills id and assignedFor if missing (assignedFor = the date\nit's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True.\nFollow coaching_method when planning.",
+   "parameters": {
+    "properties": {
+     "workout": {
+      "additionalProperties": true,
+      "title": "Workout",
+      "type": "object"
+     },
+     "write": {
+      "default": false,
+      "title": "Write",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "workout"
+    ],
+    "title": "assign_workoutArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "update_workout",
+   "description": "Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of\nfield changes. Refuses missing docs and id changes. Dry run unless write=True.\nMid-workout change: update the same assigned workout with the new plan (planned sets, no done\nflags); when the user taps Load, the tracker keeps their logged sets and takes the rest from it.\nFollow coaching_method when planning.",
+   "parameters": {
+    "properties": {
+     "collection": {
+      "enum": [
+       "assigned",
+       "completed"
+      ],
+      "title": "Collection",
+      "type": "string"
+     },
+     "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+     },
+     "workout": {
+      "additionalProperties": true,
+      "title": "Workout",
+      "type": "object"
+     },
+     "write": {
+      "default": false,
+      "title": "Write",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "collection",
+     "doc_id",
+     "workout"
+    ],
+    "title": "update_workoutArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "list_todos",
+   "description": "The user's todos, open ones first: dated by due (earliest first), then undated. Each has a docId.",
+   "parameters": {
+    "properties": {
+     "include_done": {
+      "default": false,
+      "title": "Include Done",
+      "type": "boolean"
+     }
+    },
+    "title": "list_todosArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "add_todo",
+   "description": "Add a todo. due is free text, a date or a date and time (e.g. '2026-10-12' or '2026-10-12 19:00'),\nso timed todos double as a light agenda. Saves immediately (no dry run).",
+   "parameters": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Notes"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "add_todoArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "update_todo",
+   "description": "Change a todo: check it off (done=True), reopen it, edit text, due or notes. Leave a field out to keep it;\npass '' to clear due or notes. Saves immediately (no dry run).",
+   "parameters": {
+    "properties": {
+     "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Text"
+     },
+     "done": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Done"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Notes"
+     }
+    },
+    "required": [
+     "doc_id"
+    ],
+    "title": "update_todoArguments",
+    "type": "object"
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "delete_todo",
+   "description": "Delete a todo for good. Prefer done=True for finished ones; delete only what the user wants gone.",
+   "parameters": {
+    "properties": {
+     "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "doc_id"
+    ],
+    "title": "delete_todoArguments",
+    "type": "object"
+   }
+  }
+ }
+]
