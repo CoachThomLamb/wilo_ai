@@ -424,7 +424,13 @@
       used.add(old);
       const logged = old.sets.filter(s => s.done);
       // The coach's new cue comes from the plan; the user's own note stays (#100).
-      return { ...fresh, instanceId: old.instanceId, note: old.note || fresh.note, sets: [...logged, ...fresh.sets.slice(logged.length)] };
+      // A rename (or note / custom-field edit) is the user's own: it survives
+      // the merge instead of snapping back to the plan (#109). exId follows
+      // the kept name, or the match by exId would break on the next merge.
+      const kept = old.userEdited
+        ? { name: old.name, exId: old.exId, note: old.note, custom_name: old.custom_name, userEdited: true }
+        : { note: old.note || fresh.note };
+      return { ...fresh, instanceId: old.instanceId, ...kept, sets: [...logged, ...fresh.sets.slice(logged.length)] };
     });
     const dropped = current.filter(x => !used.has(x) && x.sets.some(s => s.done))
       .map(x => ({ ...x, sets: x.sets.filter(s => s.done) }));
@@ -524,6 +530,9 @@
     } else {
       ex[k] = el.value;
       if (k === 'name') ex.exId = deriveExId(el.value);
+      // Exercise-level edits are the user's own: a merge or reload must not
+      // hand them back to the plan (#109).
+      if (k === 'name' || k === 'note' || k === 'custom_name') ex.userEdited = true;
       last = `${ex.name}.${k}`;
       sync();
     }
