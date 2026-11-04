@@ -328,7 +328,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-04-modes</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-04-chat-greeting</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -1025,6 +1025,7 @@
     list.style.display = empty ? 'none' : '';
   }
   async function setMode(m) {
+    if (m !== mode) window.dispatchEvent(new Event('wilo-mode-changed'));
     mode = m;
     applyMode();
     if (m === 'train') await jumpToday();

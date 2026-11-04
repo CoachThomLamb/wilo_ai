@@ -6,7 +6,7 @@
 
   - Auth: the signed-in user's Firebase ID token, sent as a Bearer token.
     The server checks it and decides whose data the coach touches.
-  - One chat per local day: the server freezes the coach's context (date,
+  - One chat per local day (and a new one when the tracker switches Train/Review): the server freezes the coach's context (date,
     profile) when a chat starts, so a new day starts a new chat. "New"
     starts one sooner. The chat id and the transcript we show are kept in
     localStorage (this phone only; the server keeps the real history).
@@ -52,7 +52,7 @@ function bubble(role, text) {
 function draw() {
   log.replaceChildren();
   if (!chat.messages.length)
-    bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
+    bubble("hint", "What do you need?");   // canned, never sent to the server
   for (const m of chat.messages) bubble(m.role, m.text);
 }
 
@@ -162,12 +162,14 @@ $("chatBtn").addEventListener("click", () => {
   wake();
 });
 $("chatClose").addEventListener("click", () => sheet.classList.remove("open"));
-$("chatNew").addEventListener("click", () => {
+function startNew() {
   chat = { day: today(), chatId: null, messages: [] };
   save();
   draw();
-  input.focus();
-});
+}
+$("chatNew").addEventListener("click", () => { startNew(); input.focus(); });
+// Train <-> Review (index.html): a new chat, so the server freezes fresh context.
+window.addEventListener("wilo-mode-changed", startNew);
 
 let busy = false;
 form.addEventListener("submit", async ev => {
