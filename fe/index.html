@@ -200,14 +200,15 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
-  /* PROTOTYPE #136: Train / Review. B = tab bar above the header, A = link in the header. */
-  .modebar { display: flex; gap: 6px; padding: 8px 12px 0; flex: none; align-items: center; }
-  .modebar button { flex: 1; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--field);
-    color: var(--dim); font-family: inherit; font-size: 15px; font-weight: 600; }
-  .modebar button.on { background: var(--accent); color: #000; border-color: var(--accent); }
-  .modebar .tag, .proto-tag { font-size: 10px; color: #ff9800; flex: none; }
+  /* #136: Train / Review */
   .who.mode-link { color: var(--accent); border: 0; background: none; padding: 0 0 0 10px; font-size: inherit; }
   body.train .tl { display: none; }
+  .whoa { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+  .whoa[hidden] { display: none; }
+  .whoa .box { background: var(--card, #1e1e1e); border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: 340px; text-align: center; }
+  .whoa h3 { margin: 0 0 8px; font-size: 22px; }
+  .whoa p { margin: 0 0 18px; color: var(--dim); font-size: 16px; }
+  .whoa button { width: 100%; height: 46px; border-radius: 10px; border: 0; background: var(--accent); color: #000; font-weight: 700; font-size: 16px; font-family: inherit; }
   .no-today { padding: 48px 16px; text-align: center; color: var(--dim); font-size: 18px; }
 
   /* timeline: ‹ day › under the header */
@@ -325,20 +326,14 @@
   <a class="ghost" href="today.html" style="text-decoration:none">Back to Today</a>
 </div>
 
-<div class="modebar" id="modeBar">
-  <span class="tag">B</span>
-  <button data-mode="train" class="on">Train</button>
-  <button data-mode="review">Review</button>
-</div>
-
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-03-modes-proto</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-04-modes</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
     <a class="who" href="today.html" style="text-decoration:none">Today →</a>
-    <button class="who mode-link" id="modeLink"><span class="proto-tag">A </span>Review →</button>
+    <button class="who mode-link" id="modeLink">Review →</button>
   </div>
   <div class="hbtns">
     <button class="ghost" id="resetBtn">Reset</button>
@@ -352,6 +347,7 @@
   <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
 </nav>
 
+<div class="whoa" id="whoa" hidden><div class="box"><h3>Whoa 🛑</h3><p>Focus on your training — we'll review later. Go get those gains!</p><button id="whoaOk">Back to training</button></div></div>
 <div class="no-today" id="noToday" hidden>No workout today</div>
 <div class="list" id="list"></div>
 
@@ -1012,7 +1008,6 @@
 
   // ---- PROTOTYPE #136: Train / Review ---------------------------------
   // Train (default): today's workout only, no ‹ ›. Review: the ‹ › timeline.
-  // Two switches (A: header link, B: tab bar) drive the same `mode`, to compare on a phone.
   let mode = 'train', trainSynced = false;
   const todayKey = () => dayOf(new Date().toISOString());
   const todayIdx = () => timeline.findIndex(s => s.key === todayKey());
@@ -1024,8 +1019,7 @@
   }
   function applyMode() {
     document.body.classList.toggle('train', mode === 'train');
-    document.querySelectorAll('#modeBar button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    document.getElementById('modeLink').innerHTML = '<span class="proto-tag">A </span>' + (mode === 'train' ? 'Review →' : 'Train →');
+    document.getElementById('modeLink').innerHTML = (mode === 'train' ? 'Review →' : 'Train →');
     const empty = mode === 'train' && !!fetched && todayIdx() < 0 && !midWorkout();
     document.getElementById('noToday').hidden = !empty;
     list.style.display = empty ? 'none' : '';
@@ -1035,8 +1029,11 @@
     applyMode();
     if (m === 'train') await jumpToday();
   }
-  document.querySelectorAll('#modeBar button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-  document.getElementById('modeLink').addEventListener('click', () => setMode(mode === 'train' ? 'review' : 'train'));
+  document.getElementById('modeLink').addEventListener('click', () => {
+    if (mode === 'train' && midWorkout()) { document.getElementById('whoa').hidden = false; return; }
+    setMode(mode === 'train' ? 'review' : 'train');
+  });
+  document.getElementById('whoaOk').addEventListener('click', () => { document.getElementById('whoa').hidden = true; });
 
   // Pick up the coach's changes: back in the app (from Claude), or the
   // in-app coach saved a workout (chat.js).
