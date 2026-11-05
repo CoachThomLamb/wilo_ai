@@ -4,6 +4,7 @@ Move every user's assigned + completed workouts into one users/{uid}/workouts co
 
     .venv/bin/python migrate_to_workouts.py            # dry run: what it would write, per user
     .venv/bin/python migrate_to_workouts.py --write    # backs up first, then writes
+    .venv/bin/python migrate_to_workouts.py --user UID [--write]   # one user only
 
 - An assigned workout and its completed copy (same `id` field) become one doc, under the assigned
   doc's id: plan = the assigned exercises, log = the completed copy's, status from inProgress.
@@ -104,10 +105,15 @@ def read(db, uid, name):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     p.add_argument('--write', action='store_true', help='back up, then write (default is a dry run)')
+    p.add_argument('--user', metavar='UID', help='only this user (default: every user)')
     a = p.parse_args(argv)
 
     db = wilo_data.connect()
     uids = [ref.id for ref in db.collection('users').list_documents()]
+    if a.user:
+        if a.user not in uids:
+            p.error(f'no such user: {a.user}')
+        uids = [a.user]
     backup = ROOT / 'data' / f"backup-{datetime.now(timezone.utc):%Y-%m-%d}-pre-workouts"
     failed = False
     for uid in uids:
