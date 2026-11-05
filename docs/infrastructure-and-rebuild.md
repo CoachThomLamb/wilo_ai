@@ -81,8 +81,8 @@ sequenceDiagram
     participant W as Tracker (web)
 
     T->>C: "Plan today's pull day"
-    C->>S: coaching_method, get_profile, recent_completed, exercise_history
-    S->>F: read completed workouts
+    C->>S: coaching_method, get_profile, recent_workouts, exercise_history
+    S->>F: read done workouts
     F-->>S: history
     S-->>C: JSON
     C->>S: assign_workout(plan)  [dry run]
@@ -90,21 +90,22 @@ sequenceDiagram
     C-->>T: shows the plan
     T->>C: "post"
     C->>S: assign_workout(plan, write=True)
-    S->>F: write users/uid/assigned/doc
+    S->>F: write users/uid/workouts/doc (status planned)
     Note over T,W: at the gym
     T->>W: open
-    W->>F: next assigned (earliest by assignedFor, not yet completed)
-    T->>W: log sets, Finish
-    W->>F: write users/uid/completed
-    Note over C,F: next chat: Claude reads completed, reviews, plans again
+    W->>F: listens to users/uid/workouts, shows the next one not done
+    T->>W: log sets (saved as you go), Finish
+    W->>F: write the log + status to the same doc
+    Note over C,F: mid-workout, change_workout adds a diff to the plan and the tracker merges it in live
+    Note over C,F: next chat: Claude reads done workouts, reviews, plans again
 ```
 
 **Data layout (Firestore database `wilo`):**
 
 | Path | What | Written by |
 |---|---|---|
-| `users/{uid}/assigned/{docId}` | Planned workouts (`assignedFor` = the day) | Connector / CLI |
-| `users/{uid}/completed/{docId}` | Finished workouts (`finishedAt`) | Tracker Finish |
+| `users/{uid}/workouts/{docId}` | One doc per workout from plan to done (#126): `plan` (as first written), `diffs` (the coach's changes), `exercises` (plan with diffs applied), `log` (what was done), `status` planned / in progress / done | Plan: connector. Log, status: tracker (the rules allow it nothing else) |
+| `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py`; left in place as the backup until a cleanup (#53) | Nothing |
 | `users/{uid}/todos/{docId}` | Todos for the Today page | Connector, Today page |
 | `users/{uid}/coach/profile` | Coaching profile: `preferences`, `limitations`, `plan`, `notes` (free text) | Connector (`update_profile`) |
 | `oauth_clients`, `oauth_pending`, `oauth_codes`, `oauth_access`, `oauth_refresh` | Connector sign-in state, sha256-hashed | Connector |
@@ -137,7 +138,7 @@ flowchart TB
     CONN --> K2
 ```
 
-- **Browsers** go through the Firestore rules. `users/{uid}/**` is locked to that user; everything else is denied (#15, rules deployed 2026-10-12). The rules check only the owner, not the fields, so the schema is enforced by the connector (on its writes), not by the rules.
+- **Browsers** go through the Firestore rules. `users/{uid}/**` is locked to that user; everything else is denied (#15, rules deployed 2026-10-12). On `workouts` the rules also limit the tracker to the log, status and timestamps, and to creating workouts with no plan (#126); it can't delete them. Elsewhere they check only the owner, so the schema is enforced by the connector (on its writes), not by the rules.
 - **The connector** decides whose data a call touches from the OAuth token (`current_uid()`). The uid is never a tool argument. It refuses to listen publicly without sign-in (`--public-url` requires `--auth` and https).
 - **Service accounts bypass the rules**, so their keys are the crown jewels:
 
@@ -173,7 +174,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 ### 5.3 Connector on Render
 - Service `wilo-connector`: repo `wilo_ai`, branch `main`, Docker (`Dockerfile` at the root), Free instance, region Virginia, auto-deploy on every commit to `main`.
 - Env: `PUBLIC_URL=https://wilo-connector.onrender.com`, `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/wilo-connector-key.json`. Render sets `$PORT`.
-- Env for the coach chat (`/chat`, `wilo/chat.py`): `ANTHROPIC_API_KEY` (secret: our Claude API key; without it `/chat` answers 502 and the rest of the server is unaffected). Optional: `WILO_CHAT_MODEL` (default `claude-opus-5-5`), `WILO_CHAT_EFFORT` (default `medium`), `WILO_CHAT_UIDS` (who may chat; default the uid in `config/wilo.json`), `WILO_CHAT_DAILY_LIMIT` (default 100 messages per user per day), `WILO_TZ` (default `America/Toronto`). Every model call logs one `chat:` line to the Render log: model, stop reason, and tokens as `in` (uncached), `read` (cache hits, 0.05× input price on Opus 5.5), `write` (cache writes: 2× for the 1-hour fixed prefix, 1.25× for the 5-minute chat) and `out`. Total input = in + read + write.
+- Env for the coach chat (`/chat`, `wilo/chat.py`): `ANTHROPIC_API_KEY` (secret: our Claude API key; without it `/chat` answers 502 and the rest of the server is unaffected). Optional: `WILO_CHAT_MODEL` (default `claude-opus-5-5`), `WILO_CHAT_EFFORT` (default `medium`), `WILO_CHAT_UIDS` (who may chat; default the uid in `config/wilo.json`), `WILO_CHAT_DAILY_LIMIT` (default 100 messages per user per day), `WILO_TZ` (default `America/Toronto`). Every model call logs one `chat:` line to the Render log: model, stop reason, and tokens as `in` (uncached), `read` (cache hits, 0.05× input price on Opus 5.5), `write` (cache writes: 2×; both the fixed prefix and the chat are cached for 1 hour since #144) and `out`. Total input = in + read + write.
 - Secret file: `wilo-connector-key.json` (the `wilo-connector` key).
 - **All of this lives only in the Render dashboard.** There's no `render.yaml`.
 - Sleeps after 15 min idle. The first request takes ~1 min.
@@ -185,7 +186,7 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 - 100 tests, all with fakes, no Firestore or API key needed: `.venv/bin/python -m unittest discover tests`. `anthropic` is a dependency since the coach chat (2.2.0 on 2026-10-23).
 
 ### 5.5 Claude side
-- **claude.ai:** custom connector "wilo" → `https://wilo-connector.onrender.com/mcp`, Sign in now + Register automatically (DCR). Read tools always allowed; `assign_workout` / `update_workout` need approval. Works on web and phone.
+- **claude.ai:** custom connector "wilo" → `https://wilo-connector.onrender.com/mcp`, Sign in now + Register automatically (DCR). Read tools always allowed; `assign_workout` / `change_workout` need approval. Works on web and phone.
 - **Claude Code (laptop):** reaches the data through the same claude.ai connector (#87: one path to the data, like a user). The old local entry `claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server` (stdio, admin key, Thom's uid from `config/wilo.json`) is being removed.
 - **Instructions Claude reads (coaching):** `wilo/coach.md` through the `coaching_method` tool, the user's profile through `get_profile`, and the tool descriptions in `wilo/mcp_server.py`. claude.ai doesn't show the server's `INSTRUCTIONS` string to the model, which is why the method sits behind a tool (#48).
 - **Instructions for coding sessions:** `CLAUDE.md`, which loads `.claude/instructions.md` and `.claude/memory.md` (#88 proposes `docs/principles.md` in place of `memory.md`).
@@ -269,7 +270,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 | 1 | **No Firestore backups**: PITR off, delete protection off, no schedule (needs billing). The only copies are three hand-made dumps on the laptop (last 2026-10-10). No restore script | One bad write or deletion loses training history for good, now for more than one user | #49 |
 | 2 | **Infrastructure isn't in code**: Render settings exist only in its dashboard, deps are unpinned (MCP v2 is required), the base image is a moving tag, rules are deployed by hand | A rebuild may produce something different, or break on a new SDK | #50 |
 | 3 | **Keys and access**: a duplicate admin key on the laptop; the github-action account has broad roles; no rotation; one human owner everywhere; the Firebase browser key isn't restricted by referrer | A lost laptop or account locks out the project; a leaked key does a lot of damage | #51 |
-| 4 | **Data upkeep**: legacy top-level collections still hold data (locked, unused); re-finishing a workout leaves stray completed copies and moves `finishedAt`; stale plans pile up in `assigned`; **no delete through the connector**, so cleanup needs the Firebase console | Wrong "next workout", messy history, cleanup outside the one path to the data | #53 |
+| 4 | **Data upkeep**: legacy top-level collections still hold data (locked, unused); stale plans pile up in `workouts` (one doc per workout since #126, so there are no more stray completed copies), and the old `assigned` / `completed` collections stay as the pre-#126 backup; **no delete through the connector**, so cleanup needs the Firebase console | Wrong "next workout", messy history, cleanup outside the one path to the data | #53 |
 | 5 | **Stale docs**: README (dev mode, `tracker.html`), `data/README.md`, `migrate_firestore.py`, older design docs in `docs/` | Confusing for a new person or LLM | #53 |
 | 6 | **No tests in CI** | Broken code can merge and auto-deploy to Render | #46 |
 | 7 | **No billing account**: Cloud Run, backups and Blaze features are unavailable; the old budget sits on a closed credit account | Limits options; no alert if billing comes back | Part of #49 / #51 |
