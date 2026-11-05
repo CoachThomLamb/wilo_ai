@@ -20,13 +20,15 @@
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
   - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
-    writes users/{uid}/completed/{DD-mmm-HH:MM-slug-rand}; "Saved ✓" and a
-    "Workout complete" screen only after Firestore confirms, else
-    "Save failed — retry".
-    The doc id is kept per workout, so retries overwrite, never duplicate.
+    saves the log to the workout doc, users/{uid}/workouts/{id}, with
+    status "done"; "Saved ✓" and a "Workout complete" screen only after
+    Firestore confirms, else "Save failed — retry". Only the log, logBase,
+    status and timestamps are written: the plan is the coach's (#126).
+    A workout logged with no plan gets its own doc on the first save
+    (id kept per workout, so retries never duplicate).
     Save as you go: once a set is ticked, changes also save quietly to that
-    same doc with inProgress: true ("Synced to WILO"), so the coach sees them
-    mid-workout; Finish saves it with inProgress: false (#68).
+    doc with status "in progress" ("Synced to WILO"), so the coach sees them
+    mid-workout (#68).
 
   Coach chat: the Coach button opens chat.js's sheet, which talks to the
   connector server's /chat (wilo/chat.py).
@@ -41,7 +43,7 @@
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // authDomain = this page's own host on Firebase Hosting (live and PR
   // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
   // Safari's in-app browsers (Camera, Claude app): the handler on another
@@ -61,9 +63,8 @@
   // Only per-user paths: every read and write goes through auth.js's
   // userCol / userDoc (users/{uid}/...). No top-level collection access.
   window.__setDoc = setDoc;
+  window.__updateDoc = updateDoc;
   window.__getDocs = getDocs;
-  window.__query = query;
-  window.__orderBy = orderBy;
   // auth.js calls getApp() at load, so import it after initializeApp.
   import("./auth.js")
     .then(a => a.onUser(user =>
@@ -328,7 +329,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-04-modes</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-05-workouts-s2</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -417,7 +418,6 @@
     if (!w || !w.docId) throw new Error('invalid workout');
     loadedWorkout = w;
     state.docId = w.docId;
-    state.finishDocId = null;   // step 2 replaces the completed doc
     state.finished = w.status === 'done';
     state.finishedAt = state.finished ? w.finishedAt || null : null;
     state.workoutId = w.id || null;
@@ -459,7 +459,7 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finishDocId: null, finished: false, finishedAt: null, exercises: [] };
+  const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -702,7 +702,6 @@
       state.workoutName = saved.state.workoutName || '';
       state.docId = saved.state.docId || null;   // a draft from before #126 has none: found by workoutId
       state.logBase = saved.state.logBase || 0;
-      state.finishDocId = saved.state.finishDocId || null;
       state.finished = !!saved.state.finished;
       state.finishedAt = saved.state.finishedAt || null;
       loadedWorkout = saved.plan || null;
@@ -723,29 +722,19 @@
 
   const pad = n => String(n).padStart(2, '0');
 
-  // inProgress: saved as you go, not finished yet (#68). Finish saves the same
-  // doc with inProgress false.
-  function buildPayload(stamp, inProgress = false) {
-    return {
-      id: state.workoutId,
-      name: state.workoutName,
-      // Once finished, it keeps the time it was finished, so a later edit
-      // doesn't make an old workout look like the latest one.
-      finishedAt: (state.finished && state.finishedAt) || stamp.toISOString(),
-      inProgress,
-      exercises: state.exercises.map(ex => ({
-        instanceId: ex.instanceId,
-        exId: ex.exId,
-        name: ex.name,
-        cue: ex.cue || '',
-        note: ex.note || '',
-        custom_name: ex.custom_name || null,
-        timed: ex.timed,
-        swapped: ex.swapped,
-        fallback: ex.fallback || null,
-        sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
-      }))
-    };
+  // The log: what you did, as this page shows it. Only this page writes it (#126).
+  function buildLog() {
+    return state.exercises.map(ex => ({
+      exId: ex.exId,
+      name: ex.name,
+      cue: ex.cue || '',
+      note: ex.note || '',
+      custom_name: ex.custom_name || null,
+      timed: ex.timed,
+      swapped: ex.swapped,
+      fallback: ex.fallback || null,
+      sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    }));
   }
 
   // DD-mmm-HH:MM-slug-rand, e.g. 09-oct-06:30-chest-7qmb
@@ -756,15 +745,43 @@
     return `${pad(stamp.getDate())}-${month}-${pad(stamp.getHours())}:${pad(stamp.getMinutes())}-${nameSlug}-${rand}`;
   }
 
-  // Writes users/{uid}/completed/{id} and resolves only once Firestore confirms.
-  // The id is made once per workout and kept in state (and the draft), so a
-  // retry or a second Finish overwrites the same doc instead of duplicating it.
-  async function saveCompleted(payload, stamp) {
+  // Saves the log to the workout doc and resolves only once Firestore confirms.
+  // Only the log, status and timestamps: the plan is the coach's. A workout
+  // logged with no plan gets its doc on the first save; the id is kept in state
+  // (and the draft), so a retry or a second Finish never duplicates it.
+  // Once finished, it keeps the time it was finished, so a later edit doesn't
+  // make an old workout look like the latest one.
+  async function saveWorkout(status, stamp) {
     const a = window.__auth;
     if (!a || !a.currentUser()) throw new Error('not signed in');
-    if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
-    await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
-    return state.finishDocId;
+    const iso = stamp.toISOString();
+    const fields = { log: buildLog(), logBase: state.logBase, status, updatedAt: iso };
+    if (status === 'done') fields.finishedAt = state.finishedAt || iso;
+    let base = null;   // set when this save has to create the doc
+    if (state.docId) {
+      try {
+        await window.__updateDoc(a.userDoc('workouts', state.docId), fields);
+      } catch (err) {
+        if (err.code !== 'not-found') throw err;   // our own unplanned doc whose first save never landed
+        base = {};
+      }
+    } else {
+      state.docId = makeDocId(stamp);
+      persist();
+      base = {};
+    }
+    if (base) {
+      base = { id: state.workoutId || 'log_' + stamp.getTime(), name: state.workoutName || 'Workout',
+        assignedFor: iso, createdAt: iso, plan: [], diffs: [], exercises: [] };
+      await window.__setDoc(a.userDoc('workouts', state.docId), { ...base, ...fields });
+    }
+    // Keep the timeline's copy current, so coming back to this day shows what was saved.
+    if (fetched) {
+      const mine = fetched.workouts.find(w => w.docId === state.docId);
+      if (mine) Object.assign(mine.doc, fields);
+      else fetched.workouts.push({ docId: state.docId, doc: { ...base, ...fields } });
+    }
+    return state.docId;
   }
 
   // Save as you go (#68): a couple of seconds after any change, quietly save the
@@ -786,7 +803,7 @@
       if (mark === savedSig) return;
       const stamp = new Date();
       try {
-        await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+        await saveWorkout(state.finished ? 'done' : 'in progress', stamp);
         savedSig = mark;
         if (Date.now() < noteUntil) return;
         savedEl.textContent = 'Synced to WILO ' + stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -812,12 +829,11 @@
     persist();
     clearTimeout(cloudTimer);   // this save replaces any pending quiet one
     const stamp = new Date();
-    const payload = buildPayload(stamp, false);
     note('Saving…');
     try {
-      await saveCompleted(payload, stamp);
+      await saveWorkout('done', stamp);
       state.finished = true;
-      state.finishedAt = payload.finishedAt;
+      state.finishedAt = state.finishedAt || stamp.toISOString();
       persist();
       draw();   // it's on the done side of the timeline now
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -830,12 +846,11 @@
   });
 
   // ---- timeline: step through the stack -------------------------------
-  // Every workout by day. Done: users/{uid}/completed, finished (an inProgress
-  // copy, saved as you go, doesn't count). Planned: users/{uid}/assigned with
-  // no finished copy (a copy shares the plan's `id`). Past dates count, so a
-  // skipped workout still shows (#90). A stop's day is its plan's assignedFor,
-  // or the day it was finished if the plan is gone. The stop that matches the
-  // workout in the tracker is live: that's the one on screen.
+  // Every workout by day, from users/{uid}/workouts: done, or planned / in
+  // progress. Past dates count, so a skipped workout still shows (#90). A
+  // stop's day is its assignedFor, or the day it was finished if it has none.
+  // The stop that matches the workout in the tracker is live: that's the one
+  // on screen.
   let fetched = null;   // { plans: [{ docId, doc }], done: [{ docId, doc }] }
   let timeline = [];    // [{ kind: 'done' | 'plan' | 'draft', key, docId, doc, live }], oldest first
   let at = -1;          // index of the stop on screen
@@ -944,7 +959,7 @@
     if (!state.workoutId) return confirm("This workout isn't from a plan, so it isn't saved to WILO. Leave it?");
     const stamp = new Date(), mark = sig();
     try {
-      await saveCompleted(buildPayload(stamp, !state.finished), stamp);
+      await saveWorkout(state.finished ? 'done' : 'in progress', stamp);
       savedSig = mark;
       return true;
     } catch (err) {
