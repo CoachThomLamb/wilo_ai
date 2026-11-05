@@ -65,11 +65,9 @@ async function get(url) {
   return r.json();
 }
 
-// planned / in progress / done, from the fields each collection has today.
+// planned / in progress / done (#126: one doc per workout, with its status).
 function status(w) {
-  if (w.status) return w.status;
-  if (w.collection === 'assigned') return 'planned';
-  return w.inProgress ? 'in progress' : 'done';
+  return w.status || 'planned';
 }
 const chip = s => `<span class="chip ${s === 'in progress' ? 'progress' : s}">${esc(s)}</span>`;
 

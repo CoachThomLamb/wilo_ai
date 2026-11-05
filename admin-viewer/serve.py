@@ -20,7 +20,7 @@ sys.path.insert(0, str(HERE.parent))
 from wilo import data as wilo_data  # noqa: E402
 
 PORT = 8768
-WORKOUT_COLLECTIONS = ('workouts', 'assigned', 'completed')
+WORKOUT_COLLECTIONS = ('workouts',)   # assigned and completed stay as the pre-#126 backup
 _db = None
 
 

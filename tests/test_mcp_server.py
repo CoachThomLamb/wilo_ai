@@ -13,8 +13,8 @@ from test_wilo_data import FakeDB, MINIMAL, done
 from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
-TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'recent_completed', 'recent_assigned', 'get_workout',
-         'exercise_history', 'exercise_names', 'assign_workout', 'update_workout',
+TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'recent_workouts', 'get_workout',
+         'exercise_history', 'exercise_names', 'assign_workout', 'change_workout',
          'list_todos', 'add_todo', 'update_todo', 'delete_todo'}
 
 
@@ -29,8 +29,8 @@ def call(tool, **args):
 class ServerTest(unittest.TestCase):
     def setUp(self):
         self.db = FakeDB({
-            f'users/{ME}/completed/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
-            f'users/{OTHER}/completed/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
+            f'users/{ME}/workouts/a': done('Bench press', [{'lbs': 135, 'reps': 10, 'done': True}], '2026-10-01T00:00:00Z'),
+            f'users/{OTHER}/workouts/b': done('Bench press', [{'lbs': 225, 'reps': 5, 'done': True}], '2026-10-02T00:00:00Z'),
         })
         self.uid = ME
         self._saved = srv.db, srv.current_uid
@@ -69,36 +69,51 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([n['name'] for n in call('exercise_names')['names']], ['Bench press'])
 
     def test_get_workout_found_and_not_found(self):
-        self.assertEqual(call('get_workout', collection='completed', doc_id='a')['docId'], 'a')
-        self.assertFalse(call('get_workout', collection='completed', doc_id='b')['ok'])  # b is OTHER's
+        self.assertEqual(call('get_workout', doc_id='a')['docId'], 'a')
+        self.assertFalse(call('get_workout', doc_id='b')['ok'])  # b is OTHER's
+
+    def test_recent_workouts_by_status(self):
+        self.assertEqual([w['docId'] for w in call('recent_workouts', status='done')['workouts']], ['a'])
+        self.assertEqual(call('recent_workouts', status='planned')['workouts'], [])
 
     def test_assign_is_a_dry_run_by_default(self):
+        before = dict(self.db.store)
         out = call('assign_workout', workout=MINIMAL)
         self.assertTrue(out['ok'] and out['dryRun'])
-        self.assertFalse([k for k in self.db.store if '/assigned/' in k])
+        self.assertEqual(self.db.store, before)
 
     def test_assign_write_lands_under_current_user(self):
         self.uid = OTHER
+        before = set(self.db.store)
         self.assertTrue(call('assign_workout', workout=MINIMAL, write=True)['ok'])
-        written = [k for k in self.db.store if '/assigned/' in k]
+        written = [k for k in self.db.store if k not in before]
         self.assertEqual(len(written), 1)
-        self.assertTrue(written[0].startswith(f'users/{OTHER}/assigned/'))
+        self.assertTrue(written[0].startswith(f'users/{OTHER}/workouts/'))
 
     def test_assign_rejects_invalid_workout(self):
         out = call('assign_workout', workout={'name': 'x', 'exercises': [{'sets': []}]}, write=True)
         self.assertFalse(out['ok'])
         self.assertTrue(any('name' in e for e in out['errors']))
 
-    def test_update_is_a_dry_run_by_default(self):
-        edited = {**self.db.store[f'users/{ME}/completed/a'], 'name': 'renamed'}
-        out = call('update_workout', collection='completed', doc_id='a', workout=edited)
+    def test_change_is_a_dry_run_by_default_then_writes(self):
+        path = call('assign_workout', workout=MINIMAL, write=True)['path']
+        doc_id = path.rsplit('/', 1)[1]
+        ops = [{'op': 'set', 'exId': 'x1', 'fields': {'name': 'front squat'}}]
+        out = call('change_workout', doc_id=doc_id, ops=ops)
         self.assertTrue(out['ok'] and out['dryRun'])
-        self.assertEqual(out['changes'], ['name: "w" -> "renamed"'])
-        self.assertEqual(self.db.store[f'users/{ME}/completed/a']['name'], 'w')
+        self.assertEqual(out['exercises'], [{'exId': 'x1', 'name': 'front squat', 'sets': 1}])
+        self.assertEqual(self.db.store[path]['exercises'][0]['name'], 'squats')
+        self.assertTrue(call('change_workout', doc_id=doc_id, ops=ops, write=True)['ok'])
+        self.assertEqual(self.db.store[path]['exercises'][0]['name'], 'front squat')
 
-    def test_bad_collection_is_rejected_by_mcp(self):
+    def test_recent_workouts_is_capped_at_7(self):
+        for i in range(10):
+            self.db.store[f'users/{ME}/workouts/d{i}'] = done('x', [], f'2026-10-1{i}T00:00:00Z')
+        self.assertEqual(len(call('recent_workouts', status='done', limit=12)['workouts']), 7)
+
+    def test_bad_status_is_rejected_by_mcp(self):
         with self.assertRaises(ToolError):
-            asyncio.run(srv.server.call_tool('get_workout', {'collection': 'programs', 'doc_id': 'a'}))
+            asyncio.run(srv.server.call_tool('recent_workouts', {'status': 'completed'}))
 
     def test_todos_round_trip_for_current_user_only(self):
         tid = call('add_todo', text='stretch', due='2026-10-12 07:00')['docId']
@@ -124,7 +139,7 @@ class ServerTest(unittest.TestCase):
 
     def test_method_covers_profile_and_limitations(self):
         method = call('coaching_method')['method']
-        for needle in ('get_profile', 'update_profile', '`limitations`', 'tap **Update**'):
+        for needle in ('get_profile', 'update_profile', '`limitations`', 'it shows up by itself'):
             with self.subTest(needle):
                 self.assertIn(needle, method)
 

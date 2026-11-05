@@ -1,6 +1,6 @@
 """
 WILO MCP server (local, stdio). Exposes wilo.data as tools so Claude can
-read and write Thom's workouts in users/{uid}/assigned and completed.
+read and write the user's workouts in users/{uid}/workouts (#126).
 
 Registered in Claude Code as `wilo`:
     claude mcp add wilo -s local -- /home/thom/wilo/.venv/bin/python -m wilo.mcp_server
@@ -10,7 +10,7 @@ Over HTTP (local test of the remote transport; localhost only):
     .venv/bin/python -m wilo.mcp_server --http --auth [--port 8000]   → with sign-in (OAuth + Firebase login, wilo/auth.py)
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
-Workout and profile writes (assign_workout, update_workout, update_profile) are dry runs unless write=True.
+Workout and profile writes (assign_workout, change_workout, update_profile) are dry runs unless write=True.
 Todo writes save immediately.
 """
 
@@ -85,28 +85,24 @@ def update_profile(preferences: str | None = None, limitations: str | None = Non
 
 
 def workout_schema() -> dict[str, Any]:
-    """The JSON Schema every workout must match (workout → exercises → sets). Read it before writing a workout."""
+    """The JSON Schema for workouts: the stored doc (plan, diffs, exercises, log), plannedWorkout (what
+    assign_workout takes), exercises and sets, and the ops change_workout takes."""
     return wilo_data.SCHEMA
 
 
-def recent_completed(limit: int = 5) -> dict[str, Any]:
-    """The user's most recent completed workouts, newest first, with every set (lbs, reps, done, custom).
-    inProgress: true = still going: the tracker saves as you go, so its done sets are what's
-    logged so far; Finish sets inProgress to false."""
-    return {'workouts': wilo_data.recent(db(), current_uid(), 'completed', limit)}
+def recent_workouts(status: Literal['planned', 'in progress', 'done'] | None = None, limit: int = 5) -> dict[str, Any]:
+    """The user's workouts (at most 7), optionally only one status. planned: earliest day first (today's is first
+    unless an earlier one was skipped); otherwise newest first. Each has status, date (YYYY-MM-DD), the plan as it is
+    now (exercises, each with an exId; not for done ones) and the log (what the user did: sets with done are logged;
+    status 'in progress' while they train, 'done' after Finish). Trimmed: null, empty or false fields are left out
+    (a set without done wasn't done). get_workout returns the whole doc."""
+    return {'workouts': wilo_data.recent(db(), current_uid(), status, limit)}
 
 
-def recent_assigned(limit: int = 5) -> dict[str, Any]:
-    """Planned workouts that aren't finished yet, earliest day first (today's is first unless an earlier one was
-    skipped). Each has status ('planned', or 'in_progress' when the tracker has a saved-as-you-go copy) and
-    date (the day it's for, YYYY-MM-DD). Finished workouts are in recent_completed."""
-    return {'workouts': wilo_data.upcoming(db(), current_uid(), limit)}
-
-
-def get_workout(collection: Literal['assigned', 'completed'], doc_id: str) -> dict[str, Any]:
-    """One workout by its doc ID. Edit the result and pass it to update_workout to change it."""
-    snap = wilo_data.collection(db(), current_uid(), collection).document(doc_id).get()
-    return {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
+def get_workout(doc_id: str) -> dict[str, Any]:
+    """One whole workout by its doc ID: the plan as first written, the coach's diffs, the plan as it is now
+    (exercises, each with an exId), the log and the status."""
+    return wilo_data.get(db(), current_uid(), doc_id)
 
 
 def exercise_history(name: str, limit: int = 5) -> dict[str, Any]:
@@ -122,18 +118,19 @@ def exercise_names() -> dict[str, Any]:
 
 
 def assign_workout(workout: dict[str, Any], write: bool = False) -> dict[str, Any]:
-    """Post a new workout to the user's assigned list. Fills id and assignedFor if missing (assignedFor = the date
-    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True."""
+    """Plan a new workout: {name, assignedFor (the date it's for, e.g. '2026-10-08'), exercises}. Validated
+    against workout_schema (plannedWorkout). Each exercise gets an exId. Returns the docId and the exercises'
+    exIds and order, not the whole workout. Dry run unless write=True."""
     return wilo_data.assign(db(), current_uid(), workout, write, datetime.now(timezone.utc))
 
 
-def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, workout: dict[str, Any],
-                   write: bool = False) -> dict[str, Any]:
-    """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
-    field changes. Refuses missing docs and id changes. Dry run unless write=True.
-    Mid-workout change: update the same assigned workout with the new plan (planned sets, no done
-    flags); the tracker then offers an Update button that keeps their logged sets and takes the rest from it."""
-    return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
+def change_workout(doc_id: str, ops: list[dict[str, Any]], write: bool = False) -> dict[str, Any]:
+    """Change a planned or in-progress workout's plan with one diff: a list of ops, naming exercises by exId.
+    Ops: add (exercise, optional at), remove (exId), replace (exId, exercise), move (exId, to),
+    set (exId, fields: name/cue/timed/custom_name/sets), workout (name and/or assignedFor).
+    The user's logged sets are never touched; the tracker shows the change right away. Returns the plan's
+    exercises (exId, name, number of sets) after the diff. Dry run unless write=True."""
+    return wilo_data.change(db(), current_uid(), doc_id, ops, write, datetime.now(timezone.utc))
 
 
 def list_todos(include_done: bool = False) -> dict[str, Any]:
@@ -160,8 +157,8 @@ def delete_todo(doc_id: str) -> dict[str, Any]:
     return wilo_data.delete_todo(db(), current_uid(), doc_id)
 
 
-TOOLS = [coaching_method, get_profile, update_profile, workout_schema, recent_completed, recent_assigned, get_workout, exercise_history, exercise_names,
-         assign_workout, update_workout, list_todos, add_todo, update_todo, delete_todo]
+TOOLS = [coaching_method, get_profile, update_profile, workout_schema, recent_workouts, get_workout, exercise_history, exercise_names,
+         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo]
 
 
 def make_server(provider=None, issuer=None):
