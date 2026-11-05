@@ -411,16 +411,22 @@
     };
   }
 
-  function loadWorkout(assigned) {
-    if (!assigned || !assigned.id) throw new Error('invalid workout');
-    loadedWorkout = assigned;
-    state.finishDocId = null;   // a new workout gets a new completed doc
-    state.finished = false;
-    state.finishedAt = null;
-    state.workoutId = assigned.id;
-    state.workoutName = assigned.name;
-    state.exercises = (assigned.exercises || []).map(makeExercise);
-    document.getElementById('sessName').value = assigned.name || 'WILO';
+  // w: a doc from users/{uid}/workouts, plus its docId (#126).
+  // fresh: start from the plan even if the doc has a log (Reset).
+  function loadWorkout(w, fresh = false) {
+    if (!w || !w.docId) throw new Error('invalid workout');
+    loadedWorkout = w;
+    state.docId = w.docId;
+    state.finishDocId = null;   // step 2 replaces the completed doc
+    state.finished = w.status === 'done';
+    state.finishedAt = state.finished ? w.finishedAt || null : null;
+    state.workoutId = w.id || null;
+    state.workoutName = w.name;
+    state.logBase = (w.diffs || []).length;
+    // Picking up a workout started on another phone: carry on from its log.
+    const log = !fresh && (w.log || []).length ? w.log : null;
+    state.exercises = (log || w.exercises || []).map(makeExercise);
+    document.getElementById('sessName').value = w.name || 'WILO';
   }
 
   // Mid-workout plan change (#68): the coach updated the workout in progress.
@@ -453,7 +459,7 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
-  const state = { workoutId: null, workoutName: '', finishDocId: null, finished: false, finishedAt: null, exercises: [] };
+  const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finishDocId: null, finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
@@ -694,6 +700,8 @@
       state.exercises = saved.state.exercises;
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
+      state.docId = saved.state.docId || null;   // a draft from before #126 has none: found by workoutId
+      state.logBase = saved.state.logBase || 0;
       state.finishDocId = saved.state.finishDocId || null;
       state.finished = !!saved.state.finished;
       state.finishedAt = saved.state.finishedAt || null;
@@ -756,10 +764,7 @@
     if (!a || !a.currentUser()) throw new Error('not signed in');
     if (!state.finishDocId) { state.finishDocId = makeDocId(stamp); persist(); }
     await window.__setDoc(a.userDoc('completed', state.finishDocId), payload);
-    // Keep the timeline's copy current, so coming back to this day shows what was saved.
-    const id = state.finishDocId;
-    if (fetched) fetched.done = fetched.done.filter(c => c.docId !== id).concat({ docId: id, doc: payload });
-    return id;
+    return state.finishDocId;
   }
 
   // Save as you go (#68): a couple of seconds after any change, quietly save the
@@ -843,19 +848,20 @@
     return isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  // Pure, tested in tests/fe/timeline_test.mjs. draft: { workoutId, finishDocId, key }.
+  // Pure, tested in tests/fe/timeline_test.mjs. workouts: [{ docId, doc }] from
+  // users/{uid}/workouts, one doc per workout (#126). draft: { docId, workoutId, key }.
+  // Done (status 'done') or planned (planned / in progress). A stop's day is
+  // its assignedFor, or the day it was finished if it has none.
   // The stop that is the draft gets live: true; if none is, a 'draft' stop is
   // added on the draft's day, so the editor is always on the timeline.
-  function buildTimeline(plans, done, draft) {
-    const planDay = new Map(plans.map(p => [p.doc.id, p.doc.assignedFor]));
-    const finished = done.filter(c => !c.doc.inProgress);
-    const doneIds = new Set(finished.map(c => c.doc.id));
-    const isDraft = s => !!draft.workoutId &&
-      (s.kind === 'done' ? s.docId === draft.finishDocId : s.doc.id === draft.workoutId);
-    const stops = [
-      ...finished.map(c => ({ kind: 'done', key: dayOf(planDay.get(c.doc.id) || c.doc.finishedAt), docId: c.docId, doc: c.doc })),
-      ...plans.filter(p => !doneIds.has(p.doc.id)).map(p => ({ kind: 'plan', key: dayOf(p.doc.assignedFor), docId: p.docId, doc: p.doc })),
-    ].map(s => ({ ...s, live: isDraft(s) }));
+  function buildTimeline(workouts, draft) {
+    // A draft from before #126 knows its workout only by id.
+    const isDraft = s => draft.docId ? s.docId === draft.docId : !!draft.workoutId && s.doc.id === draft.workoutId;
+    const stops = workouts.map(w => ({
+      kind: w.doc.status === 'done' ? 'done' : 'plan',
+      key: dayOf(w.doc.assignedFor || w.doc.finishedAt),
+      docId: w.docId, doc: w.doc,
+    })).map(s => ({ ...s, live: isDraft(s) }));
     const liveAt = stops.findIndex(s => s.live);
     stops.forEach((s, i) => { if (i !== liveAt) s.live = false; });
     if (liveAt < 0) stops.push({ kind: 'draft', key: draft.key || '', docId: null, doc: null, live: true });
@@ -868,9 +874,9 @@
 
   // Rebuild from the last fetch and what's in the tracker now.
   function rebuild() {
-    timeline = buildTimeline(fetched ? fetched.plans : [], fetched ? fetched.done : [], {
+    timeline = buildTimeline(fetched ? fetched.workouts : [], {
+      docId: state.docId,
       workoutId: state.workoutId,
-      finishDocId: state.finishDocId,
       key: dayOf((loadedWorkout && loadedWorkout.assignedFor) || new Date().toISOString()),
     });
     at = timeline.findIndex(s => s.live);
@@ -879,13 +885,8 @@
   async function fetchTimeline() {
     const a = window.__auth;
     if (!a || !a.currentUser()) throw new Error('not signed in');
-    // orderBy also leaves out plans with no assignedFor, as the tracker always has.
-    const [assigned, completed] = await Promise.all([
-      window.__getDocs(window.__query(a.userCol('assigned'), window.__orderBy('assignedFor', 'asc'))),
-      window.__getDocs(a.userCol('completed')),
-    ]);
-    const rows = snap => snap.docs.map(d => ({ docId: d.id, doc: d.data() }));
-    fetched = { plans: rows(assigned), done: rows(completed) };
+    const snap = await window.__getDocs(a.userCol('workouts'));
+    fetched = { workouts: snap.docs.map(d => ({ docId: d.id, doc: d.data() })) };
   }
 
   // Fetch, open the next workout if the tracker is empty, redraw. quiet: a
@@ -904,7 +905,7 @@
     if (mode === 'train' && !trainSynced && timeline.length) { trainSynced = true; await jumpToday(); }
     // A draft saved before plans were kept in it: take the plan as it is now.
     const live = timeline.find(s => s.live);
-    if (!loadedWorkout && live && live.kind === 'plan' && live.doc.id === state.workoutId) loadedWorkout = live.doc;
+    if (!loadedWorkout && live && live.kind === 'plan' && live.doc.id === state.workoutId) loadedWorkout = { docId: live.docId, ...live.doc };
     draw();
   }
 
@@ -927,25 +928,11 @@
     note(logged ? `Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}` : 'Updated plan', 'ok');
   }
 
-  // Put a day's workout in the tracker. Done: its finished copy, and edits
-  // save back to it. Planned: its saved-as-you-go copy if it has one (so
-  // logged sets come back), else the plan.
+  // Put a day's workout in the tracker: its log if it has one (logged sets
+  // come back), else its plan.
   function openStop(s) {
     if (s.kind === 'draft') return;
-    const planOf = id => { const p = (fetched ? fetched.plans : []).find(x => x.doc.id === id); return p ? p.doc : null; };
-    let copy = s.kind === 'done' ? s : null;
-    if (s.kind === 'plan') {
-      copy = (fetched ? fetched.done : []).filter(c => c.doc.inProgress && c.doc.id === s.doc.id)
-        .sort((x, y) => (x.doc.finishedAt || '') < (y.doc.finishedAt || '') ? 1 : -1)[0] || null;
-      if (!copy) { loadWorkout(s.doc); savedSig = sig(); return; }
-    }
-    loadedWorkout = planOf(copy.doc.id);
-    state.workoutId = copy.doc.id;
-    state.workoutName = copy.doc.name || '';
-    state.finishDocId = copy.docId;
-    state.finished = s.kind === 'done';
-    state.finishedAt = state.finished ? copy.doc.finishedAt || null : null;
-    state.exercises = (copy.doc.exercises || []).map(makeExercise);
+    loadWorkout({ docId: s.docId, ...s.doc });
     savedSig = sig();
   }
 
