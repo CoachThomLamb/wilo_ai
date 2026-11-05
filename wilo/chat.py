@@ -35,6 +35,9 @@ import anthropic
 
 from wilo import data as wilo_data
 
+# The chat's cache lasts an hour, not the default 5 minutes (#143). A message after a rest longer than 5 minutes
+# rewrote the whole chat at 1.25x input price: 54% of the bill. A 1-hour write costs 2x, once; reads are 0.1x.
+CHAT_CACHE = {'type': 'ephemeral', 'ttl': '1h'}
 MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-opus-5-5')
 EFFORT = os.environ.get('WILO_CHAT_EFFORT', 'medium')
 DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
@@ -96,8 +99,7 @@ def context(db, uid, now):
 
 def system(ctx):
     """Tools + this first block are the same for every chat, so they're cached for an hour: rests between sets
-    outlast the default 5 minutes. The chat itself (from ctx on) changes every turn and keeps the 5-minute cache
-    set in turn(). The API wants 1-hour entries before 5-minute ones, which this order gives."""
+    outlast the default 5 minutes. The chat itself (from ctx on) is cached for an hour too, in turn() (#143)."""
     method = (srv.HERE / 'coach.md').read_text()
     return [{'type': 'text', 'text': f'{ROLE}\n\n# Coaching method\n\n{method}',
              'cache_control': {'type': 'ephemeral', 'ttl': '1h'}},
@@ -143,7 +145,7 @@ async def turn(ctx, history, message):
     for _ in range(MAX_STEPS):
         resp = await client().beta.messages.create(
             model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
-            output_config={'effort': EFFORT}, cache_control={'type': 'ephemeral'},
+            output_config={'effort': EFFORT}, cache_control=CHAT_CACHE,
             system=system(ctx), tools=await tools(), messages=history + new)
         u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
         print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '

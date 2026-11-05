@@ -90,17 +90,19 @@ def workout_schema() -> dict[str, Any]:
 
 
 def recent_completed(limit: int = 5) -> dict[str, Any]:
-    """The user's most recent completed workouts, newest first, with every set (lbs, reps, done, custom).
-    inProgress: true = still going: the tracker saves as you go, so its done sets are what's
-    logged so far; Finish sets inProgress to false."""
-    return {'workouts': wilo_data.recent(db(), current_uid(), 'completed', limit)}
+    """The user's most recent completed workouts (at most 7), newest first, with every set (lbs, reps, done, custom).
+    Trimmed: no tracker bookkeeping, and null, empty or false fields are left out (a set without done wasn't
+    done). get_workout returns the whole doc. inProgress: true = still going: the tracker saves as you go, so its
+    done sets are what's logged so far; Finish sets inProgress to false."""
+    rows = wilo_data.recent(db(), current_uid(), 'completed', min(limit, wilo_data.MAX_LIST))
+    return {'workouts': [wilo_data.slim(w) for w in rows]}
 
 
 def recent_assigned(limit: int = 5) -> dict[str, Any]:
-    """Planned workouts that aren't finished yet, earliest day first (today's is first unless an earlier one was
+    """Planned workouts (at most 7) that aren't finished yet, earliest day first (today's is first unless an earlier one was
     skipped). Each has status ('planned', or 'in_progress' when the tracker has a saved-as-you-go copy) and
     date (the day it's for, YYYY-MM-DD). Finished workouts are in recent_completed."""
-    return {'workouts': wilo_data.upcoming(db(), current_uid(), limit)}
+    return {'workouts': wilo_data.upcoming(db(), current_uid(), min(limit, wilo_data.MAX_LIST))}
 
 
 def get_workout(collection: Literal['assigned', 'completed'], doc_id: str) -> dict[str, Any]:
@@ -123,14 +125,15 @@ def exercise_names() -> dict[str, Any]:
 
 def assign_workout(workout: dict[str, Any], write: bool = False) -> dict[str, Any]:
     """Post a new workout to the user's assigned list. Fills id and assignedFor if missing (assignedFor = the date
-    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True."""
+    it's for, e.g. '2026-10-08'). Validates against workout_schema. Dry run unless write=True.
+    Returns the path, id, name, assignedFor and exercise count, not the whole workout."""
     return wilo_data.assign(db(), current_uid(), workout, write, datetime.now(timezone.utc))
 
 
 def update_workout(collection: Literal['assigned', 'completed'], doc_id: str, workout: dict[str, Any],
                    write: bool = False) -> dict[str, Any]:
     """Replace an existing workout with an edited version (e.g. rename an exercise). Returns the list of
-    field changes. Refuses missing docs and id changes. Dry run unless write=True.
+    field changes (the first 20, plus moreChanges = how many more). Refuses missing docs and id changes. Dry run unless write=True.
     Mid-workout change: update the same assigned workout with the new plan (planned sets, no done
     flags); the tracker then offers an Update button that keeps their logged sets and takes the rest from it."""
     return wilo_data.update(db(), current_uid(), collection, doc_id, workout, write)
