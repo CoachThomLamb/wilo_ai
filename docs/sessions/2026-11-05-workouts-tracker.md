@@ -1,7 +1,8 @@
-# 2026-11-05: #126 tracker rebuilt on `feat/126-workouts`
+# 2026-11-05: #126 tracker rebuilt and shipped (PR #146)
 
-Continues `2026-11-05-token-cost-and-workouts.md`. The whole of #126 is now on the branch (pushed up to the
-handover note; the commits after it are local until Thom says push). No PR yet.
+Continues `2026-11-05-token-cost-and-workouts.md`. #126 is **live**: #146 merged as `7fdf049`, rules deployed,
+all 4 users migrated, Hosting and Render on the new code. Thom confirmed on his phone that a coach change to
+today's cardio ("50 minutes") reached the tracker live. #126 and #145 are closed; #129 closed as superseded.
 
 ## Done
 
@@ -29,15 +30,30 @@ a coach change (`change_workout`, made by Claude with Thom's OK) arrived live an
 - Blueprint (#129's branch) was used for ideas, not applied as a diff: its doc diff would have deleted the
   "coach.md is the only place with coaching instructions" rule (it was cut from an older main).
 - No emulator for the rules (Thom: it's awful). The rules get deployed at rollout; on dev they weren't enforced.
+- **The dev link can't test the coach.** The dev/preview Hosting link talks to the Render connector, and Render
+  deploys only from `main` (auto-deploy on every commit to it). Until the merge, Render ran main's old code
+  (`update_workout` on `assigned`), so a coach change made from the dev link never reached `workouts`. Found when
+  Thom's "cardio to 50 min" landed in `assigned` (3000 s) while `workouts` still had 1500. A separate Render
+  service for a dev branch would fix that; not built (Thom: "we would need a dev branch for Render as well").
+- Claude updated the tool references in `wilo/coach.md` (`recent_workouts`, `change_workout`, no Update step) at
+  Thom's request; the coaching rules and wording are untouched. The test needle is now `'it shows up by itself'`.
+- Standing OK from Thom: commit and push on a working branch without asking (saved in memory). PRs, deploys,
+  Firestore writes and merges still need his OK.
 - Local chat: `fe/chat.js` posts to `localhost:8000` when the page is on localhost, so run the connector on 8000
   (`WILO_CHAT_MODEL=claude-sonnet-5-5 .venv/bin/python -m wilo.mcp_server --http --port 8000`) and serve `fe/` on
   8001. Serving `fe/` on 8000 makes chat answer HTTP 501.
 
 ## Outside the repo: test data in Thom's account (uid `iHi6…E3`)
 
-- 31 workouts migrated into `workouts` for his uid only (27 done, 4 planned). `assigned` / `completed` untouched.
-  The full `--write` skips docs that already exist, so these are not overwritten.
-- Backup of that run: `data/backup-2026-11-05-pre-workouts/` (git-ignored, laptop only).
+- **Migration done for all 4 users:** his 31 first (27 done, 4 planned), then the full `--write` added 28 more
+  (24 + 3 + 1) and skipped his. `assigned` / `completed` are untouched everywhere and are now only the pre-#126
+  backup (deleting them is #53, not urgent). The migration skips docs that already exist, so a change made on the
+  old path after migrating is **not** picked up by a re-run.
+- Backup: `data/backup-2026-11-05-pre-workouts/` (git-ignored, laptop only). The full run overwrote his uid's
+  files from the earlier one-user run, so his pre-test copy is gone from that folder.
+- **Drift never checked:** between the migration and the merge, changes on the old path (the live app and the old
+  coach wrote `assigned` / `completed`) were not compared with `workouts`. Only today's cardio (3000 s in
+  `assigned`, 1500 s in `workouts`) is known; Thom redid it through the coach after the merge.
 - Test workouts Nov 6 (`02-nov-13:32-chest`) and Nov 7 (`02-nov-13:32-back-`) were used for the manual tests and
   then reset to `planned` (empty log, `logBase` 0, no diffs, no `finishedAt`/`updatedAt`); nothing is left over.
   Their pre-reset copies were only in the temporary session scratchpad.
@@ -46,21 +62,14 @@ a coach change (`change_workout`, made by Claude with Thom's OK) arrived live an
 
 ## Where it stops / next
 
-**Rollout, each step with Thom's OK:** 1. Thom rewrites `wilo/coach.md` for the new tools (it still names
-`recent_completed`, `recent_assigned`, `update_workout`, "tap **Update**"); change the `'tap **Update**'` needle in
-`tests/test_mcp_server.py` with it. 2. Push and open the PR (say in it: `coaching-evals/` and `ml/` labels use the
-old tools, left alone). 3. `migrate_to_workouts.py --write` for everyone (backs up first). 4.
-`firebase deploy --only firestore:rules`. 5. Merge (Hosting + Render). Then swipe the app away and reopen.
+The rollout is finished (order that worked: coach.md tool references, PR, migrate all, deploy rules, merge,
+swipe the app away and reopen). Housekeeping done: #129 closed, `feat/126-workouts` deleted, #142's branch has
+`main` merged in (conflict was only the version tag; merged rather than rebased to avoid a force-push on the PR).
 
-**Risks to check at rollout:**
-- Thom's phone draft: it is remapped on first load, but finish or reset the in-progress workout first anyway.
-- Not run in a browser: the final `chat.js`/`today.html`/admin viewer edits (syntax-checked only).
-- The tracker's version tag (`v2026-11-05-workouts-s4`) is hand-set; bump it when merging.
-- Finish stays tappable on a done workout (pre-existing, not in this PR).
-
-## Open
-
-- #142 (chat greeting): touches `fe/chat.js`, so rebase whichever merges second.
-- #145: #126 fixes it; delete the empty `fix/145-update-forks-copy` branch.
-- #129: close once the new PR is up, pointing to it.
-- #143: re-measure ~2026-11-12.
+**Still open:**
+- **#142** (chat greeting): Thom reviews and merges; test the greeting on the new live-listener code first.
+- **#143:** re-measure the coach chat cost around 2026-11-12 (new Console CSV + `scripts/token-cost/carried_load.py`).
+- **#53:** deleting the old `assigned` / `completed` collections, whenever Thom decides.
+- Not run in a browser by Claude: `chat.js`, `today.html` and the admin viewer after #126 (syntax-checked only).
+- Finish stays tappable on a done workout (pre-existing, not part of #126).
+- `coaching-evals/` and `ml/` labels still use the old tools (left alone on purpose).
