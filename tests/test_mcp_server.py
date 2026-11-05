@@ -96,6 +96,19 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(out['changes'], ['name: "w" -> "renamed"'])
         self.assertEqual(self.db.store[f'users/{ME}/completed/a']['name'], 'w')
 
+    def test_recent_lists_are_capped_and_completed_is_trimmed(self):
+        from unittest import mock
+        seen = {}
+        def recent(db, uid, name, limit):
+            seen[name] = limit
+            return [{'docId': 'a', 'name': 'w', 'exercises': [{'name': 'x', 'instanceId': 'ex1', 'cue': 'c', 'sets': []}]}]
+        with mock.patch.object(srv.wilo_data, 'recent', recent), \
+             mock.patch.object(srv.wilo_data, 'upcoming', lambda db, uid, limit: seen.setdefault('assigned', limit) and []):
+            out = call('recent_completed', limit=12)
+            call('recent_assigned', limit=10)
+        self.assertEqual(seen, {'completed': 7, 'assigned': 7})
+        self.assertEqual(out['workouts'], [{'docId': 'a', 'name': 'w', 'exercises': [{'name': 'x'}]}])
+
     def test_bad_collection_is_rejected_by_mcp(self):
         with self.assertRaises(ToolError):
             asyncio.run(srv.server.call_tool('get_workout', {'collection': 'programs', 'doc_id': 'a'}))

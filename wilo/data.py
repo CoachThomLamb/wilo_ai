@@ -76,6 +76,23 @@ def recent(db, uid, name, limit):
     return [{'docId': d.id, **d.to_dict()} for d in q.stream()]
 
 
+# Reads for the coach are capped: every result stays in the chat and is resent on each later call (#143).
+MAX_LIST = 7
+# Tracker bookkeeping in a completed workout: the coach never needs it to judge training (#143: ~79% of the doc).
+BOOKKEEPING = ('instanceId', 'exId', 'cue', 'fallback')
+
+
+def slim(value):
+    """A completed workout as the coach needs it: no bookkeeping, and no null, empty or false fields
+    (a set without `done` wasn't done). get_workout still returns the whole doc for edits."""
+    if isinstance(value, dict):
+        out = {k: slim(v) for k, v in value.items() if k not in BOOKKEEPING}
+        return {k: v for k, v in out.items() if v is not False and v not in (None, '', [], {})}  # keeps 0
+    if isinstance(value, list):
+        return [slim(v) for v in value]
+    return value
+
+
 # Fields recent_assigned adds to a row. They are read-only: update() drops them, so a row the coach copies
 # back into update_workout doesn't write them into the workout.
 DERIVED = ('docId', 'status', 'date')
@@ -167,9 +184,19 @@ def update(db, uid, name, doc_id, doc, write):
         return {'ok': False, 'errors': errors}
     changes = diff(old, doc)
     if not write or not changes:
-        return {'ok': True, 'dryRun': not write, 'path': path, 'changes': changes}
+        return {'ok': True, 'dryRun': not write, 'path': path, **_changes(changes)}
     ref.set(doc)
-    return {'ok': ref.get().to_dict() == doc, 'path': path, 'changes': changes}
+    return {'ok': ref.get().to_dict() == doc, 'path': path, **_changes(changes)}
+
+
+MAX_CHANGES = 20
+
+
+def _changes(changes):
+    """An inserted exercise shifts every one after it, so the list can run to hundreds of lines (#143)."""
+    if len(changes) <= MAX_CHANGES:
+        return {'changes': changes}
+    return {'changes': changes[:MAX_CHANGES], 'moreChanges': len(changes) - MAX_CHANGES}
 
 
 def assign(db, uid, doc, write, now):
@@ -179,12 +206,18 @@ def assign(db, uid, doc, write, now):
     if errors:
         return {'ok': False, 'errors': errors}
     if not write:
-        return {'ok': True, 'dryRun': True, 'path': path, 'doc': doc}
+        return {'ok': True, 'dryRun': True, 'path': path, **_summary(doc)}
     ref = collection(db, uid, 'assigned').document(path.rsplit('/', 1)[1])
     if ref.get().exists:
         return {'ok': False, 'errors': [f'{path} already exists']}
     ref.set(doc)
-    return {'ok': ref.get().to_dict() == doc, 'path': path, 'doc': doc}
+    return {'ok': ref.get().to_dict() == doc, 'path': path, **_summary(doc)}
+
+
+def _summary(doc):
+    """What assign filled in, not the whole doc back: the coach just wrote it (#143)."""
+    return {'id': doc.get('id'), 'name': doc.get('name'), 'assignedFor': doc.get('assignedFor'),
+            'exercises': len(doc.get('exercises', []))}
 
 
 TODO_FIELDS = ('text', 'done', 'due', 'notes')  # loose on purpose: free text, due like '2026-10-12' or '2026-10-12 19:00'

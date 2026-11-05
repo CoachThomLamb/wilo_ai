@@ -196,6 +196,34 @@ class UpdateTest(unittest.TestCase):
                 self.assertEqual(self.db.store[self.key], self.old)
 
 
+class TrimTest(unittest.TestCase):
+    """#143: tool results stay in the chat and are resent on every later call, so they carry only what the coach uses."""
+
+    def test_slim_drops_bookkeeping_and_empty_fields_but_keeps_the_training(self):
+        self.assertEqual(wilo_data.slim({**TRACKER, 'docId': 'd1', 'inProgress': False}), {
+            'docId': 'd1', 'id': 'prog_1', 'name': 'legs-oct-6', 'finishedAt': '2026-10-06T13:16:29.498Z',
+            'exercises': [{'name': 'step up', 'note': 'felt good', 'custom_name': 'Risers',
+                           'sets': [{'reps': 8, 'done': True, 'custom': '3'}, {'lbs': 30, 'reps': 6, 'custom': '4'}]}]})
+
+    def test_slim_keeps_zero_and_in_progress(self):
+        out = wilo_data.slim({'inProgress': True, 'exercises': [{'name': 'plank', 'sets': [{'lbs': 0, 'reps': 0}]}]})
+        self.assertEqual(out, {'inProgress': True, 'exercises': [{'name': 'plank', 'sets': [{'lbs': 0, 'reps': 0}]}]})
+
+    def test_assign_returns_a_summary_not_the_whole_workout(self):
+        for write in (False, True):
+            with self.subTest(write=write):
+                out = wilo_data.assign(FakeDB(), UID, {**MINIMAL, 'assignedFor': '2026-10-08'}, write=write, now=NOW)
+                self.assertNotIn('doc', out)
+                self.assertEqual((out['id'], out['name'], out['assignedFor'], out['exercises']), ('w1', 'legs', '2026-10-08', 1))
+
+    def test_update_lists_at_most_20_changes_and_counts_the_rest(self):
+        old = {'id': 'w', 'name': 'w', 'exercises': [{'name': f'e{i}', 'sets': []} for i in range(30)]}
+        db = FakeDB({f'{COMPLETED}/w': old})
+        new = {**old, 'exercises': [{'name': 'inserted', 'sets': []}] + old['exercises']}  # shifts all 30
+        out = wilo_data.update(db, UID, 'completed', 'w', new, write=False)
+        self.assertEqual((len(out['changes']), out['moreChanges']), (20, 11))
+
+
 class UpcomingTest(unittest.TestCase):
     """recent_assigned (#138): the coach said "no workout today" because newest-first plus limit 3 never got past a
     week of later plans."""
