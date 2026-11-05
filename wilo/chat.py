@@ -18,6 +18,9 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
     chat_threads/{chatId}/turns/{0001}  messages: the turn's API messages as a JSON string (Firestore can't
                                         hold nested arrays). Append-only, so earlier turns, thinking blocks
                                         included, go back to the API byte for byte.
+    chat_threads/{chatId}/usage/{at}    uid, at, calls: one per model call (model, stop, usage as the API reports
+                                        it, tools called). Every request, refusals included (#143: the real
+                                        token counts; scripts/token-cost/usage_report.py adds them up).
     chat_usage/{uid}_{date}             count: requests today
 
 Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
@@ -138,10 +141,10 @@ def reply_text(content):
 
 
 async def turn(ctx, history, message):
-    """Run one user message through Claude and the tools. Returns (new messages to store, reply, tools used).
-    A refusal stores nothing, so the declined exchange never goes back to the API."""
+    """Run one user message through Claude and the tools. Returns (new messages to store, reply, tools used, calls:
+    each model call's usage). A refusal stores no messages, so the declined exchange never goes back to the API."""
     new = [{'role': 'user', 'content': message}]
-    used, replies = [], []
+    used, replies, calls = [], [], []
     for _ in range(MAX_STEPS):
         resp = await client().beta.messages.create(
             model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
@@ -150,8 +153,10 @@ async def turn(ctx, history, message):
         u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
         print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
               f'write={u.cache_creation_input_tokens or 0} out={u.output_tokens}', flush=True)
+        calls.append({'model': resp.model, 'stop': resp.stop_reason, 'usage': u.model_dump(mode='json', exclude_none=True),
+                      'tools': [b.name for b in resp.content if b.type == 'tool_use']})
         if resp.stop_reason == 'refusal':
-            return [], "Sorry, I can't help with that one.", used
+            return [], "Sorry, I can't help with that one.", used, calls
         content = [b.model_dump(mode='json', exclude_none=True) for b in resp.content]
         new.append({'role': 'assistant', 'content': content})
         replies.append(reply_text(content))
@@ -166,7 +171,7 @@ async def turn(ctx, history, message):
         new.append({'role': 'user', 'content': results})
     else:
         replies.append('(I stopped there: that took more steps than I allow myself. Ask me to carry on.)')
-    return new, '\n\n'.join(r for r in replies if r), used
+    return new, '\n\n'.join(r for r in replies if r), used, calls
 
 
 def add_chat_routes(s):
@@ -214,12 +219,13 @@ def add_chat_routes(s):
         chat_id, ref, ctx, history = thread
         reset = srv.CHAT_UID.set(uid)
         try:
-            new, reply, used = await turn(ctx, history, message.strip())
+            new, reply, used, calls = await turn(ctx, history, message.strip())
         except anthropic.APIError as err:
             print(f'chat: API error {err!r}', flush=True)
             return fail(502, 'the coach is unavailable right now; try again in a minute')
         finally:
             srv.CHAT_UID.reset(reset)
+        ref.collection('usage').document(now.isoformat()).set({'uid': uid, 'at': now.isoformat(), 'calls': calls})
         if new:
             n = len(list(ref.collection('turns').stream())) + 1
             ref.collection('turns').document(f'{n:04d}').set({'messages': json.dumps(new), 'at': now.isoformat()})
