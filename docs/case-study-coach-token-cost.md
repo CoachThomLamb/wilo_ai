@@ -68,5 +68,8 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 ## How we measured
 
 - Read-only scripts over `chat_threads/{id}/turns`: sum chars by block type and by tool, and the user message before each call.
-- chars ÷ 4 ≈ tokens (rough). Real token counts are in the Render logs (`chat: … in= read= write= out=`).
+- chars ÷ 4 ≈ tokens (rough). Real token counts were only in the Render logs (`chat: … in= read= write= out=`),
+  which we can't read and which aren't kept. Since #143's usage logging, every request saves the API's counts
+  next to its chat (`chat_threads/{id}/usage`); `scripts/token-cost/usage_report.py` turns them into $ per day,
+  per message and per chat.
 - Scripts: `scripts/token-cost/` (run `PYTHONPATH=. .venv/bin/python scripts/token-cost/<script>.py`). Read-only.

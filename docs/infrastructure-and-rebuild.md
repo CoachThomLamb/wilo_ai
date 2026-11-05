@@ -108,6 +108,7 @@ sequenceDiagram
 | `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py`; left in place as the backup until a cleanup (#53) | Nothing |
 | `users/{uid}/todos/{docId}` | Todos for the Today page | Connector, Today page |
 | `users/{uid}/coach/profile` | Coaching profile: `preferences`, `limitations`, `plan`, `notes` (free text) | Connector (`update_profile`) |
+| `chat_threads/{chatId}` (+ `turns`, `usage`), `chat_usage` | Coach chat: history, the API's token counts per request (#143; `scripts/token-cost/usage_report.py`), daily caps | Connector (`/chat`) |
 | `oauth_clients`, `oauth_pending`, `oauth_codes`, `oauth_access`, `oauth_refresh` | Connector sign-in state, sha256-hashed | Connector |
 | `assigned`, `completed`, `programs`, `sessions` (top level) | **Legacy, unused.** Locked since 2026-10-12: the rules deny all browser access (#15, #69). Still to delete (#53) | Nothing |
 

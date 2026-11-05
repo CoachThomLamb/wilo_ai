@@ -135,6 +135,22 @@ class ChatTest(unittest.TestCase):
         self.post({'message': 'y', 'chatId': chat_id})
         self.assertEqual(nxt.requests[0]['messages'], [{'role': 'user', 'content': 'y'}])
 
+    def test_usage_is_saved_per_request_refusals_too(self):
+        # #143: the real token counts, one doc per request with every model call, next to its chat
+        self.claude(message('tool_use', tool_use('exercise_history', {'name': 'bench'})), message('end_turn', text('ok')))
+        chat_id = self.post({'message': 'bench?'}).json()['chatId']
+        self.claude(message('refusal'))
+        self.post({'message': 'x', 'chatId': chat_id})
+        docs = sorted((k, v) for k, v in self.db.store.items() if k.startswith(f'chat_threads/{chat_id}/usage/'))
+        self.assertEqual(len(docs), 2)
+        first, refused = docs[0][1], docs[1][1]
+        self.assertEqual(first['uid'], ME)
+        self.assertEqual([c['stop'] for c in first['calls']], ['tool_use', 'end_turn'])
+        self.assertEqual(first['calls'][0]['tools'], ['exercise_history'])
+        self.assertEqual(first['calls'][0]['usage']['input_tokens'], 10)
+        self.assertEqual(first['calls'][0]['model'], chat.MODEL)
+        self.assertEqual([c['stop'] for c in refused['calls']], ['refusal'])
+
     def test_someone_elses_chat_is_not_found(self):
         self.claude(message('end_turn', text('hi')))
         chat_id = self.post({'message': 'hello'}).json()['chatId']
