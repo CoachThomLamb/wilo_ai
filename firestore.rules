@@ -4,8 +4,34 @@ service cloud.firestore {
     // Per-user data: each signed-in user can only touch their own subtree.
     // Everything else (legacy top-level collections, oauth_*) is denied to
     // browsers; the connector and scripts use service accounts, which bypass rules.
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Workouts (#126): the coach (server) writes the plan; the tracker writes only
+    // the log, status and timestamps. It may create a workout with no plan (one you
+    // log without the coach), and never deletes one.
+    match /users/{uid}/workouts/{workoutId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.plan.size() == 0
+        && request.resource.data.diffs.size() == 0
+        && request.resource.data.exercises.size() == 0
+        && request.resource.data.status in ['in progress', 'done'];
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['log', 'logBase', 'status', 'updatedAt', 'finishedAt'])
+        && request.resource.data.status in ['planned', 'in progress', 'done'];
+    }
+
+    // Everything else under the user (todos, coach profile, the old assigned and
+    // completed collections, ...).
+    match /users/{uid}/{collection}/{document=**} {
+      allow read, write: if isOwner(uid) && collection != 'workouts';
     }
   }
 }
