@@ -139,7 +139,7 @@ class ServerTest(unittest.TestCase):
 
     def test_method_covers_profile_and_limitations(self):
         method = call('coaching_method')['method']
-        for needle in ('get_profile', 'update_profile', '`limitations`', 'tap **Update**'):
+        for needle in ('get_profile', 'update_profile', '`limitations`', 'it shows up by itself'):
             with self.subTest(needle):
                 self.assertIn(needle, method)
 
