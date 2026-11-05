@@ -13,7 +13,8 @@ from test_wilo_data import FakeDB, MINIMAL, done
 from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
-TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'recent_workouts', 'get_workout',
+TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'current_workout', 'training_summary',
+         'recent_workouts', 'get_workout',
          'exercise_history', 'exercise_names', 'assign_workout', 'change_workout',
          'list_todos', 'add_todo', 'update_todo', 'delete_todo'}
 
@@ -67,6 +68,16 @@ class ServerTest(unittest.TestCase):
         self.uid = OTHER
         self.assertEqual([h['sets'][0]['lbs'] for h in call('exercise_history', name='bench')['history']], [225])
         self.assertEqual([n['name'] for n in call('exercise_names')['names']], ['Bench press'])
+
+    def test_short_answers_are_text_for_the_current_user(self):
+        saved, srv._today = srv._today, (lambda: '2026-10-05')
+        try:
+            self.assertIn('Bench press 10@135', call('training_summary')['summary'])
+            self.uid = OTHER
+            self.assertIn('Bench press 5@225', call('training_summary')['summary'])
+            self.assertEqual(call('current_workout')['workout'], 'nothing in progress or planned for 2026-10-05')
+        finally:
+            srv._today = saved
 
     def test_get_workout_found_and_not_found(self):
         self.assertEqual(call('get_workout', doc_id='a')['docId'], 'a')

@@ -290,6 +290,74 @@ class HistoryNamesTest(unittest.TestCase):
         self.assertEqual(len(wilo_data.recent(self.db, UID, 'done', 2)), 2)
 
 
+def real_shape():
+    """Shaped like the real docs (values made up): the log lists an exercise the user added first, so its order
+    isn't the plan's; only the plan says the treadmill is timed; weights change set to set; blank and 0 weights;
+    a custom column; a note."""
+    plan = [{'exId': 'x1', 'name': 'Treadmill', 'timed': True, 'sets': [{'lbs': 0, 'reps': 300, 'done': False}]},
+            {'exId': 'x2', 'name': 'Leg press', 'sets': [{'lbs': 90, 'reps': 10, 'done': False}] + [{'lbs': 200, 'reps': 10, 'done': False}] * 3},
+            {'exId': 'x3', 'name': 'crane-plane', 'custom_name': 'Side',
+             'sets': [{'lbs': 0, 'reps': 6, 'done': False, 'custom': 'R'}, {'lbs': 0, 'reps': 6, 'done': False, 'custom': 'L'}]}]
+    log = [{'exId': 'u-a1', 'name': 'Calf raises ', 'timed': False, 'note': '', 'sets': [
+                {'lbs': 60, 'reps': 10, 'done': True}, {'lbs': 60, 'reps': 10, 'done': True}, {'lbs': 50, 'reps': 10, 'done': False}]},
+           {'exId': 'x1', 'name': 'Treadmill', 'timed': False, 'note': '', 'sets': [{'lbs': 0, 'reps': 300, 'done': False}]},
+           {'exId': 'x2', 'name': 'Leg press', 'timed': False, 'note': 'knee ok', 'sets': [
+                {'lbs': 90, 'reps': 10, 'done': True}, {'lbs': 180, 'reps': 10, 'done': True},
+                {'lbs': 270, 'reps': 10, 'done': True}, {'lbs': 270, 'reps': 9, 'done': False}]},
+           {'exId': 'x3', 'name': 'crane-plane', 'custom_name': 'Side', 'note': '', 'sets': [
+                {'lbs': '', 'reps': 6, 'done': True, 'custom': 'R'}, {'lbs': '', 'reps': 6, 'done': False, 'custom': 'L'}]}]
+    return plan, log
+
+
+class ShortAnswersTest(unittest.TestCase):
+    """training_summary and current_workout (#143): text the coach can read cheaply."""
+
+    def setUp(self):
+        plan, log = real_shape()
+        base = {'plan': plan, 'diffs': [], 'exercises': plan}
+        self.db = FakeDB({
+            f'{WORKOUTS}/legs': {**base, 'id': 'w1', 'name': 'legs', 'status': 'done', 'assignedFor': '2026-11-04',
+                                 'finishedAt': '2026-11-04T23:00:00Z', 'log': log},
+            f'{WORKOUTS}/old': {**base, 'id': 'w0', 'name': 'old', 'status': 'done', 'assignedFor': '2026-10-01',
+                                'finishedAt': '2026-10-01T23:00:00Z', 'log': log},
+            f'{WORKOUTS}/next': {**base, 'id': 'w2', 'name': 'chest', 'status': 'planned', 'assignedFor': '2026-11-06', 'log': []},
+        })
+
+    def test_summary_lists_done_sets_by_line(self):
+        out = wilo_data.summary(self.db, UID, '2026-11-05', 14).splitlines()
+        self.assertEqual(out[0], '2026-11-04 legs: Calf raises 2×10@60 | Leg press 10@90 10@180 10@270 (note: knee ok)'
+                                 ' | crane-plane 6 R | not done: Treadmill')
+        self.assertEqual(out[1], 'planned: 2026-11-06 chest (3 exercises)')
+        self.assertEqual(len(out), 2, 'older than 14 days is left out')
+
+    def test_summary_days_are_capped(self):
+        self.assertIn('2026-10-01 old', wilo_data.summary(self.db, UID, '2026-10-20', 28))
+        self.assertNotIn('2026-10-01 old', wilo_data.summary(self.db, UID, '2026-11-05', 999))
+
+    def test_current_is_todays_plan_with_exids(self):
+        self.assertEqual(wilo_data.current(self.db, UID, '2026-11-06').splitlines(), [
+            'chest (docId next, 2026-11-06, planned)',
+            'x1 Treadmill: plan 300s',
+            'x2 Leg press: plan 10@90 3×10@200',
+            'x3 crane-plane: plan 6 R 6 L'])
+
+    def test_current_prefers_in_progress_and_matches_the_log_by_exid(self):
+        plan, log = real_shape()
+        log[3]['removed'] = True
+        self.db.store[f'{WORKOUTS}/now'] = {'id': 'w3', 'name': 'legs again', 'status': 'in progress', 'plan': plan,
+                                             'diffs': [], 'exercises': plan, 'assignedFor': '2026-11-01', 'log': log}
+        self.assertEqual(wilo_data.current(self.db, UID, '2026-11-06').splitlines(), [
+            'legs again (docId now, 2026-11-01, in progress)',
+            'x1 Treadmill: plan 300s | done none',            # the plan's timed wins over the log's
+            'x2 Leg press: plan 10@90 3×10@200 | done 10@90 10@180 10@270 (note: knee ok)',
+            'x3 crane-plane: plan 6 R 6 L | removed by the user',
+            'u-a1 Calf raises (added by the user): done 2×10@60'])
+
+    def test_current_with_nothing_today_says_whats_next(self):
+        self.assertEqual(wilo_data.current(self.db, UID, '2026-11-05'),
+                         'nothing in progress or planned for 2026-11-05; next planned: 2026-11-06 chest (docId next)')
+
+
 class IsolationTest(unittest.TestCase):
     """Each user only sees and writes their own data (the uid comes from the caller, never from the doc)."""
 

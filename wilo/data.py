@@ -30,7 +30,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -246,6 +246,106 @@ def recent(db, uid, status, limit):
 def get(db, uid, doc_id):
     snap = collection(db, uid, WORKOUTS).document(doc_id).get()
     return {'docId': snap.id, **snap.to_dict()} if snap.exists else {'ok': False, 'errors': ['not found']}
+
+
+# ---- short answers for the coach (#143) -------------------------------------
+# Python picks the workout and shapes it; the coach gets one line per exercise instead of JSON (JSON repeats
+# "lbs", "reps", "done" on every set, and every result is resent on each later call of a chat).
+# Shaped by the real data: the log's order isn't the plan's (exercises the user adds come first), so plan and
+# log are matched by exId; the log's `timed` is unreliable (#85), so the plan's wins; weights change set to set,
+# so each done set is listed; blank, 0 and missing weights are left out.
+
+def _set(s, timed):
+    reps = s.get('reps')
+    out = (f'{reps}s' if timed else str(reps)) if reps not in (None, '') else '?'
+    if s.get('lbs') not in (None, '', 0):
+        out += f'@{s["lbs"]}'
+    if s.get('custom'):
+        out += f' {s["custom"]}'
+    return out
+
+
+def _sets(sets, timed):
+    """'10@90 2×10@270 9@360': each set, repeats in a row grouped."""
+    parts = []
+    for s in sets:
+        one = _set(s, timed)
+        if parts and parts[-1][1] == one:
+            parts[-1][0] += 1
+        else:
+            parts.append([1, one])
+    return ' '.join(one if n == 1 else f'{n}×{one}' for n, one in parts)
+
+
+def _note(e):
+    return f' (note: {e["note"].strip()})' if (e.get('note') or '').strip() else ''
+
+
+def _done_line(e, timed):
+    done = [s for s in e.get('sets', []) if s.get('done')]
+    return f'{e["name"].strip()} {_sets(done, timed)}{_note(e)}' if done else None
+
+
+def summary(db, uid, today, days=14):
+    """Recent training as text, for planning: one line per workout done in the last `days` (newest first) with
+    the sets that were done, then the workouts planned from today on."""
+    days = max(1, min(int(days), 28))
+    since = (datetime.fromisoformat(today) - timedelta(days=days)).date().isoformat()
+    lines = []
+    for w in workouts(db, uid):
+        day = str(w.get('assignedFor') or w.get('finishedAt') or '')[:10]
+        if w.get('status') == 'planned' or day < since:
+            continue
+        timed = {e.get('exId'): e.get('timed') for e in w.get('exercises', [])}
+        done, skipped = [], []
+        for e in w.get('log', []):
+            if e.get('removed'):
+                continue
+            line = _done_line(e, timed.get(e.get('exId'), e.get('timed')))
+            (done.append(line) if line else skipped.append(e['name'].strip()))
+        status = '' if w.get('status') == 'done' else f' [{w.get("status")}]'
+        rest = f' | not done: {", ".join(skipped)}' if skipped else ''
+        lines.append(f'{day} {w["name"]}{status}: {" | ".join(done) or "nothing logged"}{rest}')
+    if not lines:
+        lines.append(f'nothing done since {since}')
+    planned = sorted((w for w in workouts(db, uid, 'planned') if str(w.get('assignedFor') or '')[:10] >= today),
+                     key=lambda w: str(w.get('assignedFor') or ''))
+    if planned:
+        lines.append('planned: ' + ', '.join(f'{str(w.get("assignedFor"))[:10]} {w["name"]} ({len(w.get("exercises", []))} exercises)'
+                                              for w in planned))
+    return '\n'.join(lines)
+
+
+def current(db, uid, today):
+    """The workout the user is on, as text: the one in progress, else today's plan. One line per exercise:
+    exId, name, the plan as it is now and the sets logged so far. Exercises the user added are marked."""
+    ws = workouts(db, uid)
+    w = next((x for x in ws if x.get('status') == 'in progress'), None) or next(
+        (x for x in ws if x.get('status') == 'planned' and str(x.get('assignedFor') or '')[:10] == today), None)
+    if not w:
+        nxt = min((x for x in ws if x.get('status') == 'planned' and str(x.get('assignedFor') or '')[:10] > today),
+                  key=lambda x: str(x.get('assignedFor')), default=None)
+        return f'nothing in progress or planned for {today}' + (
+            f'; next planned: {str(nxt["assignedFor"])[:10]} {nxt["name"]} (docId {nxt["docId"]})' if nxt else '')
+    log = {e.get('exId'): e for e in w.get('log', [])}
+    lines = [f'{w["name"]} (docId {w["docId"]}, {str(w.get("assignedFor") or "")[:10]}, {w.get("status")})']
+    for e in w.get('exercises', []):
+        timed = e.get('timed')
+        mine = log.pop(e.get('exId'), None)
+        name = (mine or e)['name'].strip()
+        line = f'{e.get("exId")} {name}: plan {_sets(e.get("sets", []), timed)}'
+        if mine and mine.get('removed'):
+            line += ' | removed by the user'
+        elif mine:
+            done = [s for s in mine.get('sets', []) if s.get('done')]
+            line += f' | done {_sets(done, timed) if done else "none"}{_note(mine)}'
+        lines.append(line)
+    for e in log.values():   # what's left: exercises the user added in the tracker
+        if not e.get('removed'):
+            done = [s for s in e.get('sets', []) if s.get('done')]
+            lines.append(f'{e.get("exId")} {e["name"].strip()} (added by the user): done '
+                         f'{_sets(done, e.get("timed")) if done else "none"}{_note(e)}')
+    return '\n'.join(lines)
 
 
 def _logged(db, uid):
