@@ -4,16 +4,16 @@
 
   - Sign-in required (Google, via auth.js). Signed out, a gate covers the
     app. All data is users/{uid}/...; no top-level collections (#15).
-  - Boot: restores the draft; once signed in, loads the next workout:
-    the earliest of users/{uid}/assigned (by assignedFor) with no completed
-    copy, unless a draft is in progress.
+  - Boot: restores the draft; once signed in, a listener on
+    users/{uid}/workouts (#126) loads the next workout: the earliest by
+    assignedFor that isn't done, unless a draft is in progress.
   - Timeline: ‹ › under the header step through every workout by day: done
     ones back in time, planned ones ahead. Every day is the normal tracker:
     log sets on whichever one is on screen. Leaving a day saves its logged
-    sets first. If the coach changed the workout on screen, an Update bar
-    appears; Update merges: logged sets stay, the rest comes from the new
-    plan (#68). The timeline refetches on sign-in, on returning to the app,
-    and after the in-app coach saves a workout.
+    sets first. If the coach changes the workout on screen, the listener
+    merges the new plan in by itself: logged sets, renames, deletions and
+    your own exercises stay, the rest comes from the new plan (#68, #145).
+    The timeline is live: no refetching, no Update bar.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
   - Swap: exercises with a `fallback` get a button to switch to the easier
@@ -225,11 +225,6 @@
   }
   .tl-mid strong { font-size: 16px; font-weight: 600; }
   .tl-mid span { font-size: 12px; color: var(--dim); }
-  /* the Update bar when the coach changed the workout */
-  .view-bar {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--dim); font-size: 15px;
-  }
 
   /* JSON sheet */
   .json-btn {
@@ -329,7 +324,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-05-workouts-s3</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-05-workouts-s4</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -490,8 +485,6 @@
 
   function drawDraft() {
     list.innerHTML = '';
-    if (changedPlan()) list.insertAdjacentHTML('beforeend',
-      '<div class="view-bar"><span>Your coach changed this workout</span><button class="finish" id="updateBtn">Update</button></div>');
     state.exercises.filter(ex => !ex.removed).forEach(ex => {
       const unit = ex.timed ? 'secs' : 'reps';
       const el = document.createElement('div');
@@ -565,7 +558,6 @@
   });
 
   list.addEventListener('click', e => {
-    if (e.target.id === 'updateBtn') return updatePlan();
     const chk = e.target.closest('.check');
     if (chk) {
       const id = chk.dataset.id, i = +chk.dataset.i;
@@ -966,25 +958,6 @@
     unlisten = window.__onSnapshot(window.__auth.userCol('workouts'),
       snap => onWorkouts(snap).catch(err => note('Error: ' + (err.code || err.message || err), 'err')),
       err => note("Couldn't load workouts: " + (err.code || err.message || err), 'err'));
-  }
-
-  // The coach changed the workout in the tracker since it was opened (#68)?
-  // Returns the new plan, or null.
-  function changedPlan() {
-    const s = timeline[at];
-    if (!s || s.kind !== 'plan' || !loadedWorkout) return null;
-    const sig = w => JSON.stringify([w.name, w.exercises]);
-    return sig(s.doc) === sig(loadedWorkout) ? null : s.doc;
-  }
-
-  function updatePlan() {
-    const fresh = changedPlan();
-    if (!fresh) return draw();
-    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-    mergeWorkout(fresh);   // logged sets stay, the rest comes from the new plan
-    last = 'merged ' + state.workoutId;
-    draw();
-    note(logged ? `Updated plan, kept ${logged} logged set${logged === 1 ? '' : 's'}` : 'Updated plan', 'ok');
   }
 
   // Put a day's workout in the tracker: its log if it has one (logged sets
