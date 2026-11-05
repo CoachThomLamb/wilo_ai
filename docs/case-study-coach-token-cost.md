@@ -42,7 +42,18 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 
 ## The fix
 
-- TODO: decided in #143.
+- **The real bill** (Anthropic Console CSV, Oct 24 – Nov 5): $9.83 total. The chat moved from Opus to Sonnet 5.5 on Oct 26; since then about $10/month for 4 users, ~$7–8 of it Thom. Target: $1–2 per person per month (to charge ~$10 and profit).
+  - Since Oct 27: **5-minute cache writes 54%**, output 20%, 1-hour cache writes 17%, cache reads 9%.
+  - So the biggest cost was rewriting the chat into the cache after more than 5 minutes between messages (rests between sets), not output.
+- **Step 1, shipped in #144 (cheap, no quality risk):**
+  - The chat's cache lasts 1 hour instead of 5 minutes.
+  - `recent_completed` trimmed: no tracker bookkeeping or empty fields (~45% of the size on real data).
+  - Both list tools capped at 7 (the coach had asked for up to 12).
+  - `assign_workout` returns a summary, not the whole workout; `update_workout` lists at most 20 changes.
+- **Found while fixing:** the coach writes the *whole workout* to change one thing. `update_workout` input averages 2.4k chars, 54% of the coach's visible output.
+- **Step 2: #126 / PR #129.** The coach sends small diffs instead of whole workouts, one doc per workout, one list tool. Also fixes #145 (a mid-workout change forked a copy and lost logged sets).
+- Parked: embeddings (workout data is structured, so exact filters do the job; maybe later for free-text notes), model/effort changes (quality risk, needs evals).
+- TODO Thom: how the decision felt (why tools first, why not just switch to Haiku).
 
 ## Result
 
