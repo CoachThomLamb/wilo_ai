@@ -10,8 +10,8 @@ WILO's workouts live in Firestore under `users/{uid}/workouts`, one doc per work
 ## Files
 | File | Role |
 |---|---|
-| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `get`, `history`, `names`, `assign`, `change`, `apply_diffs`, `validate`, `diff`, `name_matches`; todos: `todos`, `add_todo`, `update_todo`, `delete_todo` (#64); coaching profile: `profile`, `update_profile` (#48). Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
-| `wilo/mcp_server.py` | **The adapter.** 14 tools (3 coaching: method + profile, 7 workout, 4 todo), each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
+| `wilo/data.py` | **The engine.** All Firestore logic: `recent`, `get`, `summary`, `current` (short text answers, #143), `history`, `names`, `assign`, `change`, `apply_diffs`, `validate`, `diff`, `name_matches`; todos: `todos`, `add_todo`, `update_todo`, `delete_todo` (#64); coaching profile: `profile`, `update_profile` (#48). Also a CLI (`python -m wilo.data …`). Knows nothing about MCP |
+| `wilo/mcp_server.py` | **The adapter.** 16 tools (3 coaching: method + profile, 9 workout, 4 todo), each a thin call into `data.py`; `current_uid()`; `make_server()`; login routes; `main()` (stdio / `--http` / `--auth`) |
 | `wilo/coach.md` | **The coaching method** for any user (principles, precedence, workflows), served by the `coaching_method` tool (#48). What's personal to a user is data: `users/{uid}/coach/profile` (sections `preferences`, `limitations`, `plan`, `notes`; free text), read and edited with `get_profile` / `update_profile` (dry run by default). coach.md is the only place with coaching instructions: the server instructions, tool descriptions and the tracker chat's ROLE only say what the tools do and point to it. claude.ai shows the model only tool descriptions, not server instructions, so the method lives behind a tool. Edit here; it deploys with the connector |
 | `wilo/auth.py` | **Sign-in provider** (`WiloAuthProvider` + `Store`) behind the MCP SDK's OAuth endpoints |
 | `wilo/login.html` | Login page served at `/login`: Firebase Google sign-in (same as the tracker's `fe/auth.js`) |
@@ -34,6 +34,7 @@ Schema = what a workout means to a human, not a contract with the tracker's inte
 - Exercise requires `name`, `sets`. Names are **free text**: no exercise catalog. Each exercise has a stable `exId` (`x1`, `x2`, … from the server; `u-…` for one added in the tracker) that diffs and the tracker's merge match on. Order = array order. Optional: `timed` (true → `reps` are seconds), `cue` (coach), `note` (Thom), `custom_name` (one free-text column per set: `Risers`, `Side` R/L, `Direction`, `Assistance`).
 - Set requires `reps`, `done`. `lbs` and `reps` may be `""` (not set yet; blank doesn't mean bodyweight).
 - Extra fields are allowed (the tracker writes `instanceId`, `exId`, `swapped`, …).
+- **Short answers (#143):** `training_summary` (recent training, one line per workout) and `current_workout` (the workout the user is on, one line per exercise with its `exId`) return text built in Python, not JSON: JSON repeats `lbs`/`reps`/`done` on every set, and every result is resent on each later call of a chat. Plan and log are matched by `exId` (the log's order isn't the plan's), the plan's `timed` wins (#85), and blank or 0 weights are left out.
 - `history` matches names **loosely but only cosmetically** (case, spacing, punctuation, plurals, word order). Synonyms (`crane-plane` vs `Basic cranes`) are for Claude to judge using `exercise_names`.
 
 ## Run it
@@ -75,12 +76,12 @@ Render deploy: `POST /mcp` → `401` with `resource_metadata` on `https://wilo-c
 ## Tests (`tests/`)
 | File | Covers |
 |---|---|
-110 tests on 2026-11-05 (plus `tests/fe/*.mjs`, run with `node`: the tracker's timeline and merge):
+116 tests on 2026-11-05 (plus `tests/fe/*.mjs`, run with `node`: the tracker's timeline and merge):
 
 | File | Tests | Covers |
 |---|---|---|
-| `test_wilo_data.py` | 42 | Schema, assign, name matching, history/names, update, two-user isolation, todos, profile. Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
-| `test_mcp_server.py` | 16 | The 14 tools through the MCP layer: no tool takes a uid, dry-run defaults, per-user reads and writes |
+| `test_wilo_data.py` | 47 | Schema, assign, name matching, history/names, update, two-user isolation, todos, profile. Also the **fake db** (`FakeDB`, `Ref`, `Snap`) the other tests reuse |
+| `test_mcp_server.py` | 17 | The 16 tools through the MCP layer: no tool takes a uid, dry-run defaults, per-user reads and writes |
 | `test_auth.py` | 19 | The provider: full flow, single use, expiry, client binding, rotation, revoke (pairs), hashing, default resource, unregistered redirect |
 | `test_signin_http.py` | 21 | The OAuth flow over HTTP in-process with `TestClient` (incl. `/revoke` and unregistered redirect), plus `main()` really switching sign-in on |
 
@@ -123,7 +124,7 @@ Practice: after adding a guard, **break it on purpose and check a test fails**, 
   curl -i -X POST https://wilo-connector.onrender.com/mcp -d '{}'                     # 401, resource_metadata on the same host
   curl https://wilo-connector.onrender.com/.well-known/oauth-authorization-server     # every endpoint on the same host
   ```
-- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → the tools listed (8 on 2026-10-09, 14 today). Suggested permissions: read tools always allowed, `assign_workout` / `change_workout` / `update_profile` need approval.
+- **Connect (done 2026-10-09):** claude.ai → Settings → Connectors → Add custom connector → `https://wilo-connector.onrender.com/mcp`. Claude detects **Sign in now** + **Register automatically (DCR)**. Keep both. → our login page → Google sign-in → the tools listed (8 on 2026-10-09, 16 today). Suggested permissions: read tools always allowed, `assign_workout` / `change_workout` / `update_profile` need approval.
 
 ### Alternative: Cloud Run (if billing gets a card that works)
 ```bash

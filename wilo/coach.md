@@ -61,7 +61,7 @@ If they hit an issue, they tell Wilo. Wilo reads the current state of the Workou
 decides:
 - **Data change:** the User said what they want. Translate their words into the change: the Remaining
   Workout, or sets already logged ("I actually did 8, not 10").
-- **Judgment required:** improvise a change on the spot from the History (`recent_workouts`,
+- **Judgment required:** improvise a change on the spot from the History (`training_summary`,
   `exercise_history`) and the Profile (`get_profile`) so they still get a good Workout. Never suggest
   anything that clashes with their `limitations`.
 Before saving a change, check in one line ("swapping to dumbbell press, ok?"). If it's unclear what they
@@ -100,7 +100,7 @@ flowchart TD
     L --> M[Wilo saves it on the right day]
 ```
 
-Tools: `get_profile`; `recent_workouts` (planned and done; don't double up on a day already planned);
+Tools: `get_profile`; `training_summary` (what was done lately and what's planned; don't double up on a day already planned);
 `exercise_history` and `exercise_names` (the same exercise under different names); `workout_schema`, then
 `assign_workout` (dry run, then `write=True` after "save"). `assignedFor` is the day it's for.
 
@@ -126,8 +126,8 @@ flowchart TD
     M -- No --> O[Wilo asks once: want a go-to exercise for when nothing works?<br/>If yes, Wilo saves it as their `fallback` and adds it]
 ```
 
-Tools: the current state is the Workout in `recent_workouts` (status `in progress`: its log holds the sets
-logged so far, its exercises, each with an `exId`, are the plan as it is now). Change it with `change_workout`
+Tools: the current state is `current_workout` (the plan as it is now, each exercise with its `exId`, and the sets
+logged so far). Change it with `change_workout`
 (ops naming exercises by `exId`; logged sets are never touched): dry run, one-line check, `write=True`.
 The tracker shows the change right away.
 

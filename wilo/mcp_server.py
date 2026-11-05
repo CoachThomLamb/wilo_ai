@@ -22,6 +22,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.mcpserver import MCPServer
@@ -41,6 +42,11 @@ INSTRUCTIONS = "The user's WILO workout data. Call coaching_method first: it ret
 AUTH = False  # set when serving with sign-in; then current_uid() comes only from the token
 CHAT_UID = ContextVar('chat_uid', default=None)  # set by /chat (wilo/chat.py) after it verifies the Firebase ID token
 _db = None
+TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))  # the user's day, same as the chat's (wilo/chat.py)
+
+
+def _today():
+    return datetime.now(TZ).date().isoformat()
 
 
 def db():
@@ -97,6 +103,20 @@ def recent_workouts(status: Literal['planned', 'in progress', 'done'] | None = N
     status 'in progress' while they train, 'done' after Finish). Trimmed: null, empty or false fields are left out
     (a set without done wasn't done). get_workout returns the whole doc."""
     return {'workouts': wilo_data.recent(db(), current_uid(), status, limit)}
+
+
+def current_workout() -> dict[str, Any]:
+    """The workout the user is on: the one in progress, else today's plan (else it says what's planned next). Text, one
+    line per exercise: exId, name, the plan as it is now and the sets done so far (reps@lbs; s = seconds; 3×10 = three
+    sets of 10; a blank weight is left out). The exIds are the ones change_workout takes."""
+    return {'workout': wilo_data.current(db(), current_uid(), _today())}
+
+
+def training_summary(days: int = 14) -> dict[str, Any]:
+    """Recent training as text, at most 28 days: one line per workout, newest first, with the sets done (reps@lbs;
+    s = seconds; 3×10 = three sets of 10; a blank weight is left out), the user's notes and what wasn't done; then the
+    workouts planned from today on. recent_workouts and get_workout have the full detail."""
+    return {'summary': wilo_data.summary(db(), current_uid(), _today(), days)}
 
 
 def get_workout(doc_id: str) -> dict[str, Any]:
@@ -157,7 +177,7 @@ def delete_todo(doc_id: str) -> dict[str, Any]:
     return wilo_data.delete_todo(db(), current_uid(), doc_id)
 
 
-TOOLS = [coaching_method, get_profile, update_profile, workout_schema, recent_workouts, get_workout, exercise_history, exercise_names,
+TOOLS = [coaching_method, get_profile, update_profile, workout_schema, current_workout, training_summary, recent_workouts, get_workout, exercise_history, exercise_names,
          assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo]
 
 
