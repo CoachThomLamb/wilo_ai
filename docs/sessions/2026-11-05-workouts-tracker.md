@@ -38,9 +38,9 @@ a coach change (`change_workout`, made by Claude with Thom's OK) arrived live an
 - 31 workouts migrated into `workouts` for his uid only (27 done, 4 planned). `assigned` / `completed` untouched.
   The full `--write` skips docs that already exist, so these are not overwritten.
 - Backup of that run: `data/backup-2026-11-05-pre-workouts/` (git-ignored, laptop only).
-- Test leftovers in `workouts`: **Nov 7 (`02-nov-13:32-back-`)** finished as a test, one set logged;
-  **Nov 6 (`02-nov-13:32-chest`)** in progress: one Dead hang set done, exercise renamed "Dead hangssss", and one
-  coach diff (Serratus shrug 3 → 4 sets). Reset or delete them before relying on those days.
+- Test workouts Nov 6 (`02-nov-13:32-chest`) and Nov 7 (`02-nov-13:32-back-`) were used for the manual tests and
+  then reset to `planned` (empty log, `logBase` 0, no diffs, no `finishedAt`/`updatedAt`); nothing is left over.
+  Their pre-reset copies were only in the temporary session scratchpad.
 - One stray `completed` doc (from a test tick on the old path) was deleted; a copy is in the session scratchpad
   (temporary). `04-nov-10:28-legs--ee7e` (a real in-progress copy) was left alone.
 
