@@ -31,7 +31,7 @@ import json
 import os
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import anthropic
@@ -47,6 +47,10 @@ DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
 MAX_STEPS = 12  # model calls per message: enough for a read-heavy plan, a stop for a runaway loop
 MAX_MESSAGE = 4000
+# After an hour with no message the chat's cache has expired, so carrying the chat on would rewrite all of it at 2x
+# (#143: a chat kept all day cost more after each gap than the rest of it). Start a fresh one instead; the coach
+# reads the user's data through the tools anyway.
+IDLE = timedelta(hours=1)
 BETAS = ['server-side-fallback-2026-07-01']  # with fallbacks='default': a declined request reruns on another model
 
 # The tracker's own hosts (live and PR previews) and local testing.
@@ -121,7 +125,8 @@ def use_quota(db, uid, now):
 
 
 def load_thread(db, uid, chat_id, now):
-    """(chat_id, ref, context, history), a new thread when chat_id is None. None if it isn't this user's."""
+    """(chat_id, ref, context, history), a new thread when chat_id is None or the chat has been idle for over IDLE.
+    None if it isn't this user's."""
     if chat_id is None:
         chat_id = secrets.token_urlsafe(12)
         ref = db.collection('chat_threads').document(chat_id)
@@ -133,6 +138,9 @@ def load_thread(db, uid, chat_id, now):
     if not snap.exists or snap.to_dict().get('uid') != uid:
         return None
     turns = sorted(ref.collection('turns').stream(), key=lambda s: s.id)
+    last = (turns[-1].to_dict().get('at') if turns else None) or snap.to_dict().get('createdAt')
+    if last and now - datetime.fromisoformat(last) > IDLE:
+        return load_thread(db, uid, None, now)
     return chat_id, ref, snap.to_dict()['context'], [m for t in turns for m in json.loads(t.to_dict()['messages'])]
 
 

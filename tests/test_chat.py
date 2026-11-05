@@ -128,6 +128,19 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(after['messages'][4], {'role': 'user', 'content': 'thanks'})
         self.assertEqual(after['messages'][1]['content'][0], {'type': 'thinking', 'thinking': '', 'signature': 'sig'})
 
+    def test_an_idle_chat_starts_fresh(self):
+        # #143: after an hour the cache has expired, so carrying the chat would rewrite it all at 2x
+        self.claude(message('end_turn', text('Hi.')))
+        old = self.post({'message': 'hello'}).json()['chatId']
+        for k, v in self.db.store.items():
+            if k.startswith(f'chat_threads/{old}/turns/'):
+                v['at'] = '2026-01-01T09:00:00+00:00'
+        nxt = self.claude(message('end_turn', text('Hi again.')))
+        new = self.post({'message': 'back', 'chatId': old}).json()['chatId']
+        self.assertNotEqual(new, old)
+        self.assertEqual(nxt.requests[0]['messages'], [{'role': 'user', 'content': 'back'}])
+        self.assertEqual(self.db.store[f'chat_threads/{new}']['uid'], ME)
+
     def test_refusal_stores_nothing(self):
         self.claude(message('refusal'))
         chat_id = self.post({'message': 'x'}).json()['chatId']

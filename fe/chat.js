@@ -8,8 +8,10 @@
   - Auth: the signed-in user's Firebase ID token, sent as a Bearer token.
     The server checks it and decides whose data the coach touches.
   - One chat per local day: the server freezes the coach's context (date,
-    profile) when a chat starts, so a new day starts a new chat. "New"
-    starts one sooner. The chat id and the transcript we show are kept in
+    profile) when a chat starts, so a new day starts a new chat. An hour
+    with no message starts one too (#143: the server's cache has expired by
+    then, and the server starts a fresh chat itself). "New" starts one
+    sooner. The chat id and the transcript we show are kept in
     localStorage (this phone only; the server keeps the real history).
   - Wake-up: Render's free tier sleeps after 15 min, so opening the sheet
     pings /chat first and the first reply isn't stuck behind a cold start.
@@ -26,11 +28,13 @@ const KEEP = 60;   // messages kept for display
 const $ = id => document.getElementById(id);
 const sheet = $("chatSheet"), log = $("chatLog"), form = $("chatForm"), input = $("chatInput");
 const today = () => new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD, local
+const IDLE_MS = 60 * 60 * 1000;   // same as IDLE in wilo/chat.py
+const current = c => !!c && c.day === today() && (!c.lastAt || Date.now() - c.lastAt < IDLE_MS);
 
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved && saved.day === today()) return saved;
+    if (current(saved)) return saved;
   } catch {}
   return { day: today(), chatId: null, messages: [] };
 }
@@ -65,6 +69,7 @@ async function send(text) {
   const user = window.__auth && window.__auth.currentUser();
   if (!user) { bubble("err", "Sign in first."); return; }
   chat.messages.push({ role: "me", text });
+  chat.lastAt = Date.now();
   log.querySelectorAll(".hint").forEach(el => el.remove());
   bubble("me", text);
   save();
@@ -150,7 +155,7 @@ log.addEventListener("pointerup", async () => {
 log.addEventListener("contextmenu", ev => { if (ev.target.closest(".msg")) ev.preventDefault(); });
 
 $("chatBtn").addEventListener("click", () => {
-  if (chat.day !== today()) chat = load();
+  if (!current(chat)) chat = load();
   draw();
   sheet.classList.add("open");
   wake();
@@ -168,6 +173,7 @@ form.addEventListener("submit", async ev => {
   ev.preventDefault();
   const text = input.value.trim();
   if (!text || busy) return;
+  if (!current(chat)) { chat = load(); draw(); }   // idle: the server starts a fresh chat too
   busy = true;
   input.value = "";
   form.querySelector("button").disabled = true;
