@@ -48,10 +48,10 @@ curl https://wilo-connector.onrender.com/.well-known/oauth-authorization-server 
 ```
 Env vars and the secret file live only in the Render dashboard (no `render.yaml`, #50).
 
-**Data upkeep** (#53): stray completed copies, stale `assigned` plans, legacy top-level collections.
+**Data upkeep** (#53): stale plans in `workouts`, the pre-#126 `assigned` / `completed` copies (kept as the backup until Thom says to delete them), legacy top-level collections.
 Find them with the connector's read tools, list the doc IDs for Thom, and he deletes them in the console.
-A test Finish marks a workout done: deleting its completed copy (or setting `inProgress: true`) brings it
-back in the tracker.
+A test Finish marks a workout done: set its `status` back to `planned` (and clear `log` / `finishedAt`) to bring
+it back in the tracker.
 
 **Backups** (#49): none automated (Spark plan, no PITR). The only copies are hand-made dumps in
 `~/wilo/data/backup-*` on the laptop, and there's no restore script. Before any risky data change,

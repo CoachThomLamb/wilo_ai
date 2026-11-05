@@ -210,7 +210,7 @@
 
   async function loadWorkout() {
     const { getDocs, query, orderBy, limit } = window.__fs;
-    const snap = await getDocs(query(window.__auth.userCol('assigned'), orderBy('assignedFor', 'desc'), limit(1)));
+    const snap = await getDocs(query(window.__auth.userCol('workouts'), orderBy('assignedFor', 'desc'), limit(1)));
     $('workoutName').textContent = snap.empty ? 'None planned yet' : (snap.docs[0].data().name || snap.docs[0].id);
   }
 

@@ -18,52 +18,51 @@ const pad = n => String(n).padStart(2, '0')
 const dayOf = eval(`(${extract('dayOf')})`)
 const buildTimeline = eval(`(${extract('buildTimeline')})`)
 
-const plan = (docId, id, assignedFor) => ({ docId, doc: { id, name: id, assignedFor, exercises: [] } })
-const done = (docId, id, finishedAt, inProgress = false) => ({ docId, doc: { id, name: id, finishedAt, inProgress, exercises: [] } })
+const w = (docId, id, status, assignedFor, finishedAt) => ({ docId, doc: { id, name: id, status, assignedFor, finishedAt, exercises: [] } })
 const show = t => t.map(s => `${s.kind}:${s.docId}${s.live ? '*' : ''}`)
 
 assert.equal(dayOf('2026-11-02'), '2026-11-02')
 assert.equal(dayOf(''), '')
 assert.equal(dayOf('nonsense'), '')
 
-const plans = [
-  plan('a-oct20', 'p-oct20', '2026-10-20'),   // skipped: never done
-  plan('a-oct29', 'p-oct29', '2026-10-29'),
-  plan('a-oct31', 'p-oct31', '2026-10-31'),
-  plan('a-nov2', 'p-nov2', '2026-11-02'),
-  plan('a-nov3', 'p-nov3', '2026-11-03'),
-]
-const completed = [
+const workouts = [
+  w('oct20', 'p-oct20', 'planned', '2026-10-20'),   // skipped: never done
+  w('oct29', 'p-oct29', 'done', '2026-10-29', '2026-10-30T16:23:19.028Z'),
   // Finished the day after its plan's day: sits on the plan's day.
-  done('c-oct31', 'p-oct31', '2026-11-01T18:42:34.953Z'),
-  done('c-oct29', 'p-oct29', '2026-10-30T16:23:19.028Z'),
-  // No plan left: sits on the day it was finished.
-  done('c-oct23', 'cardio', '2026-10-23T10:53:34.770Z'),
-  // Saved as you go, not finished: doesn't count as done.
-  done('c-nov2', 'p-nov2', '2026-11-02T15:00:00.000Z', true),
+  w('oct31', 'p-oct31', 'done', '2026-10-31', '2026-11-01T18:42:34.953Z'),
+  // Logged with no plan date: sits on the day it was finished.
+  w('oct23', 'cardio', 'done', undefined, '2026-10-23T10:53:34.770Z'),
+  // Started but not finished: still planned.
+  w('nov2', 'p-nov2', 'in progress', '2026-11-02'),
+  w('nov3', 'p-nov3', 'planned', '2026-11-03'),
 ]
 
-// Mid-workout on Nov 2's plan: it is the live stop; everything else is in day order.
-let t = buildTimeline(plans, completed, { workoutId: 'p-nov2', finishDocId: 'c-nov2', key: '2026-11-02' })
-assert.deepEqual(show(t), ['plan:a-oct20', 'done:c-oct23', 'done:c-oct29', 'done:c-oct31', 'plan:a-nov2*', 'plan:a-nov3'])
-assert.equal(t.find(s => s.docId === 'c-oct31').key, '2026-10-31', "a done workout sits on its plan's day")
+// Mid-workout on Nov 2: it is the live stop; everything else is in day order.
+let t = buildTimeline(workouts, { docId: 'nov2', workoutId: 'p-nov2', key: '2026-11-02' })
+assert.deepEqual(show(t), ['plan:oct20', 'done:oct23', 'done:oct29', 'done:oct31', 'plan:nov2*', 'plan:nov3'])
+assert.equal(t.find(s => s.docId === 'oct31').key, '2026-10-31', "a done workout sits on its plan's day")
+assert.equal(t.find(s => s.docId === 'oct23').key, '2026-10-23', 'no plan date: the day it was finished')
 
-// The next workout to open is the earliest unfinished plan, skipped ones included (#90).
-assert.equal(buildTimeline(plans, completed, {}).find(s => s.kind === 'plan').docId, 'a-oct20')
+// The next workout to open is the earliest not done, skipped ones included (#90).
+assert.equal(buildTimeline(workouts, {}).find(s => s.kind === 'plan').docId, 'oct20')
 
-// Finished on this phone: the done copy is live and the plan drops off.
-const finished = completed.map(c => c.docId === 'c-nov2' ? { ...c, doc: { ...c.doc, inProgress: false } } : c)
-t = buildTimeline(plans, finished, { workoutId: 'p-nov2', finishDocId: 'c-nov2', key: '2026-11-02' })
-assert.deepEqual(show(t).slice(-2), ['done:c-nov2*', 'plan:a-nov3'])
+// Finished on this phone: the same doc, now done, still live.
+const finished = workouts.map(x => x.docId === 'nov2' ? w('nov2', 'p-nov2', 'done', '2026-11-02', '2026-11-02T17:00:00.000Z') : x)
+t = buildTimeline(finished, { docId: 'nov2', workoutId: 'p-nov2', key: '2026-11-02' })
+assert.deepEqual(show(t).slice(-2), ['done:nov2*', 'plan:nov3'])
 
-// Finished elsewhere (another doc), or a draft with no plan: a 'draft' stop on the draft's day.
-t = buildTimeline(plans, finished, { workoutId: 'p-nov2', finishDocId: 'c-other', key: '2026-11-02' })
-assert.deepEqual(show(t).slice(-3), ['done:c-nov2', 'draft:null*', 'plan:a-nov3'])
-t = buildTimeline([], [], { workoutId: null, finishDocId: null, key: '2026-11-02' })
+// A draft from before #126 has no docId: found by the workout's id.
+t = buildTimeline(workouts, { docId: null, workoutId: 'p-nov3', key: '2026-11-03' })
+assert.equal(t.find(s => s.live).docId, 'nov3')
+
+// A draft that matches nothing, or has no plan: a 'draft' stop on the draft's day.
+t = buildTimeline(workouts, { docId: 'gone', workoutId: 'p-nov2', key: '2026-11-02' })
+assert.deepEqual(show(t).slice(-3), ['draft:null*', 'plan:nov2', 'plan:nov3'])
+t = buildTimeline([], { docId: null, workoutId: null, key: '2026-11-02' })
 assert.deepEqual(show(t), ['draft:null*'])
 
-// Exactly one live stop, even if two plans share an id.
-t = buildTimeline([plan('x1', 'same', '2026-11-04'), plan('x2', 'same', '2026-11-05')], [], { workoutId: 'same', key: '2026-11-02' })
+// Exactly one live stop, even if two workouts share an id.
+t = buildTimeline([w('x1', 'same', 'planned', '2026-11-04'), w('x2', 'same', 'planned', '2026-11-05')], { docId: null, workoutId: 'same', key: '2026-11-02' })
 assert.equal(t.filter(s => s.live).length, 1)
 
 console.log('timeline_test: all assertions passed')

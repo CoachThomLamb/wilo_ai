@@ -27,12 +27,12 @@ The loop: conversation → plan → calendar → workout → review → adjust (
 
 ## How it works now (2026-10-03)
 
-- **Data:** Firestore, `wilo` database. `assigned` = workouts to do, `completed` = finished workouts.
+- **Data:** Firestore, `wilo` database. `users/{uid}/workouts` = one doc per workout from plan to done (#126): the coach's plan and its changes, plus the tracker's log. (`assigned` / `completed` are the pre-#126 copies, kept as a backup.)
 - **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
   - `wilo/data.py`: read and write workouts (CLI: `.venv/bin/python -m wilo.data history bench`).
   - `wilo/mcp_server.py`: the same functions as MCP tools. Claude Code runs it as `wilo` (`.venv/bin/python -m wilo.mcp_server`).
-- **Tracker:** `fe/index.html` (plain HTML, not a PWA) reads the latest `assigned` workout, logs sets, and writes to `completed` on Finish.
-- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads completed workouts and sends the next workout JSON to `assigned`.
+- **Tracker:** `fe/index.html` (plain HTML, not a PWA) listens to `workouts`, logs sets into the workout's `log` (saved as you go, `status` done on Finish), and merges the coach's plan changes in live.
+- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads done workouts and sends the next workout to `workouts` (`assign_workout`, then `change_workout` for changes).
 - **Auth:** optional Google sign-in (`fe/auth.js`). When signed in, saves also go to `users/{uid}/...`.
 
 ## What we're working on

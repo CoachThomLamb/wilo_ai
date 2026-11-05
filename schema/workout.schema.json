@@ -1,18 +1,37 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "WILO workout",
-  "description": "A workout in users/{uid}/assigned or users/{uid}/completed: what a workout, exercise and set need to mean something to a human. Extra fields are allowed.",
+  "description": "A workout in users/{uid}/workouts (#126): one doc from plan to done. The plan as first written, the coach's diffs to it, the plan as it is now (exercises), and what the user logged. Extra fields are allowed.",
   "$ref": "#/$defs/workout",
 
   "$defs": {
     "workout": {
       "type": "object",
-      "required": ["id", "name", "exercises"],
+      "required": ["id", "name", "status", "plan", "diffs", "exercises", "log"],
       "properties": {
-        "id": { "type": "string", "description": "Shared by an assigned workout and its completed copy." },
+        "id": { "type": "string" },
         "name": { "type": "string" },
         "assignedFor": { "type": "string", "description": "The date this workout is for. Lets the coach lay out several workouts on specific dates." },
-        "finishedAt": { "type": "string", "format": "date-time", "description": "completed: set by Finish." },
+        "status": { "enum": ["planned", "in progress", "done"], "description": "planned until the first set is logged, done at Finish." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last time the tracker saved the log." },
+        "finishedAt": { "type": "string", "format": "date-time", "description": "Set by Finish." },
+        "plan": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "The exercises as first planned. Never changes; empty for a workout logged without a plan." },
+        "diffs": { "type": "array", "items": { "$ref": "#/$defs/diff" }, "description": "The coach's changes to the plan, oldest first." },
+        "exercises": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "The plan as it is now: plan with every diff applied. Written by the server with each diff, never by hand." },
+        "nextExId": { "type": "integer", "description": "The next exercise id the server hands out (x1, x2, ...)." },
+        "log": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "What the user did, written only by the tracker: its exercise list with logged sets. Empty until the first save." },
+        "logBase": { "type": "integer", "description": "How many diffs the log has seen. Fewer than diffs.length: the tracker merges the new plan in (logged sets stay)." }
+      }
+    },
+
+    "plannedWorkout": {
+      "type": "object",
+      "description": "What the coach sends to assign_workout. The server adds the ids, status and the rest.",
+      "required": ["name", "exercises"],
+      "properties": {
+        "name": { "type": "string" },
+        "assignedFor": { "type": "string" },
         "exercises": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "In the order they're done." }
       }
     },
@@ -21,11 +40,13 @@
       "type": "object",
       "required": ["name", "sets"],
       "properties": {
+        "exId": { "type": "string", "description": "Stable id given by the server (x1, x2, ...), or by the tracker for one the user added (u-...). Diffs and the log match exercises by it." },
         "name": { "type": "string", "description": "Whatever the user calls it. No catalog, no linking." },
         "timed": { "type": "boolean", "default": false, "description": "true: reps are seconds." },
         "cue": { "type": "string", "description": "Advice from the coach." },
         "note": { "type": "string", "description": "Feedback from the client." },
         "custom_name": { "type": ["string", "null"], "description": "Header for one free-text column per set (e.g. Risers, Side)." },
+        "removed": { "type": "boolean", "description": "log only: the user deleted it, or the coach removed it after sets were logged on it." },
         "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
       }
     },
@@ -39,6 +60,34 @@
         "done": { "type": "boolean" },
         "custom": { "type": ["string", "null"] }
       }
+    },
+
+    "diff": {
+      "type": "object",
+      "required": ["at", "ops"],
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "ops": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/op" } }
+      }
+    },
+
+    "op": {
+      "description": "One change to the plan. Exercises are named by exId.",
+      "oneOf": [
+        { "type": "object", "required": ["op", "exercise"], "additionalProperties": false, "description": "Add an exercise, at a position (0 = first) or at the end.",
+          "properties": { "op": { "const": "add" }, "exercise": { "$ref": "#/$defs/exercise" }, "at": { "type": "integer", "minimum": 0 } } },
+        { "type": "object", "required": ["op", "exId"], "additionalProperties": false, "description": "Remove an exercise.",
+          "properties": { "op": { "const": "remove" }, "exId": { "type": "string" } } },
+        { "type": "object", "required": ["op", "exId", "exercise"], "additionalProperties": false, "description": "Swap an exercise for a different one, in the same place. The new one gets a new exId.",
+          "properties": { "op": { "const": "replace" }, "exId": { "type": "string" }, "exercise": { "$ref": "#/$defs/exercise" } } },
+        { "type": "object", "required": ["op", "exId", "to"], "additionalProperties": false, "description": "Move an exercise to a position (0 = first).",
+          "properties": { "op": { "const": "move" }, "exId": { "type": "string" }, "to": { "type": "integer", "minimum": 0 } } },
+        { "type": "object", "required": ["op", "exId", "fields"], "additionalProperties": false, "description": "Change fields of the same exercise: name, cue, timed, custom_name, or sets (the full new list of planned sets).",
+          "properties": { "op": { "const": "set" }, "exId": { "type": "string" },
+                          "fields": { "type": "object", "minProperties": 1, "propertyNames": { "enum": ["name", "cue", "timed", "custom_name", "sets"] } } } },
+        { "type": "object", "required": ["op"], "additionalProperties": false, "description": "Rename the workout or move it to another date.",
+          "properties": { "op": { "const": "workout" }, "name": { "type": "string" }, "assignedFor": { "type": "string" } } }
+      ]
     }
   }
 }
