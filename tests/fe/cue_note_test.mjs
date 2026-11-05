@@ -16,18 +16,18 @@ function extract(name) {
 }
 let n = 0
 const uid = () => 'ex' + (n++)
-const deriveExId = name => (name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+const userExId = () => 'u-' + (n++)
 const makeExercise = eval(`(${extract('makeExercise')})`)
 const mergePlan = eval(`(${extract('mergePlan')})`)
 
 // Loading a plan: the cue is the coach's, the note starts empty.
-const ex = makeExercise({ instanceId: 'ex-1', name: 'Dumbbell RDL', cue: 'slow on the way down', sets: 3, target: { reps: 8 } })
+const ex = makeExercise({ exId: 'x1', name: 'Dumbbell RDL', cue: 'slow on the way down', sets: 3, target: { reps: 8 } })
 assert.equal(ex.cue, 'slow on the way down')
 assert.equal(ex.note, '')
 
-// Mid-workout: the user typed a note, then the coach swaps the exercise with a new cue.
+// Mid-workout: the user typed a note, then the coach renames the exercise (same exId) with a new cue.
 const current = [{ ...ex, note: 'left hamstring tight' }]
-const [merged] = mergePlan(current, [{ instanceId: 'ex-1', name: 'Back Squat', cue: 'brace first', sets: 3, target: { reps: 5 } }])
+const [merged] = mergePlan(current, [{ exId: 'x1', name: 'Back Squat', cue: 'brace first', sets: 3, target: { reps: 5 } }], [{ exId: 'x1', name: 'Dumbbell RDL' }])
 assert.equal(merged.name, 'Back Squat', "the coach's swap wins")
 assert.equal(merged.cue, 'brace first', "the coach's new cue")
 assert.equal(merged.note, 'left hamstring tight', "the user's note stays")
