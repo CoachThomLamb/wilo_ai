@@ -68,3 +68,11 @@ const once = mergePlan(log2, [def('x2', 'Row'), def('x3', 'Squat')], plan1)
 assert.deepEqual(view(mergePlan(once, [def('x2', 'Row'), def('x3', 'Squat')], plan1)), view(once))
 
 console.log('merge_test: all assertions passed')
+
+// Form videos (#152) stay on the exercise when the coach changes the plan.
+const withVideo = plan1.map(makeExercise)
+withVideo[0].media = [{ key: 'users/u/d/x1/a.mp4', type: 'video', at: 't' }]
+m = mergePlan(withVideo, [def('x1', 'Bench', 4), def('x2', 'Row')], plan1)
+assert.deepEqual(m[0].media, withVideo[0].media)
+assert.deepEqual(m[1].media, [])
+console.log('media ok')

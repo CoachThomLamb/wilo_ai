@@ -125,6 +125,26 @@
     color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
     margin-top: 10px;
   }
+  /* exercise videos and photos (#152) */
+  .ex-media { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .ex-media:empty { display: none; }
+  .demo-slot:empty { display: none; }
+  .chip {
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); font-family: inherit; font-size: 13px; padding: 5px 12px;
+  }
+  .chip.demo { color: var(--accent); border-color: var(--accent); }
+  .chip.coach { border-style: dashed; }
+  .chip:disabled { opacity: .6; }
+  .media-view {
+    position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.94);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .media-view video, .media-view img { max-width: 100%; max-height: 100%; border-radius: 12px; }
+  .media-close {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px; background: none; border: 0;
+    color: #fff; font-size: 34px; line-height: 1; padding: 4px 8px;
+  }
   .swap.on { color: var(--done-line); border-color: var(--done-line); }
   /* sign-in gate: covers the app until a user is signed in */
   .gate {
@@ -324,7 +344,7 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-05-workouts</div>
+    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-06-media</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -405,6 +425,7 @@
       swapped: def.swapped || false,
       original: def.original || null,
       removed: !!def.removed,
+      media: def.media || [],   // your form videos/photos (#152): [{key, type, at}]
       sets
     };
   }
@@ -452,7 +473,7 @@
       const name = before && before.name !== fresh.name ? fresh.name : old.name;
       // The coach's plan sets the cue; your note and your deletion stay (#100).
       return { ...fresh, instanceId: old.instanceId, name, note: old.note || fresh.note, removed: old.removed,
-               sets: [...logged, ...fresh.sets.slice(logged.length)] };
+               media: old.media || [], sets: [...logged, ...fresh.sets.slice(logged.length)] };
     });
     const rest = current.filter(x => !used.has(x));
     const dropped = rest.filter(x => !x.exId.startsWith('u-') && !x.removed && x.sets.some(s => s.done))
@@ -470,6 +491,8 @@
     document.getElementById('sessName').value = state.workoutName || 'WILO';
   }
 
+  // Exercise videos (#152). media.demos: exercise name -> {key, type, url} (or null: none), asked once per name.
+  const media = { coach: false, demos: {}, asked: false };
   const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
@@ -512,6 +535,12 @@
             </tr>`).join('')}</tbody>
         </table>
         <button class="add" data-add="${ex.instanceId}">+ Add Set</button>
+        <div class="ex-media">
+          <span class="demo-slot" data-demo-name="${esc(ex.name)}"></span>
+          ${(ex.media || []).map((m, i) => `<button class="chip" data-view="${ex.instanceId}" data-mi="${i}">${m.type === 'video' ? '▶ Video' : '▣ Photo'} ${i + 1}</button>`).join('')}
+          <button class="chip" data-upload="form" data-ex="${ex.instanceId}">+ Video / photo</button>
+          ${media.coach && ex.name ? `<button class="chip coach" data-upload="demo" data-ex="${ex.instanceId}">Upload demo</button>` : ''}
+        </div>
         ${ex.fallback || ex.swapped
           ? `<button class="swap ${ex.swapped ? 'on' : ''}" data-swap="${ex.instanceId}">${ex.swapped ? '\u21a9 Back to full range' : '\u21c4 Swap to easier version'}</button>`
           : ''}`;
@@ -522,7 +551,83 @@
     wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
     list.appendChild(wrap);
     sync();
+    showDemos();
   }
+
+  // ---- exercise videos and photos (#152, fe/media.js) ------------------
+  const picker = Object.assign(document.createElement('input'), { type: 'file', accept: 'video/*,image/*', hidden: true });
+  document.body.appendChild(picker);
+
+  function fillDemos() {
+    list.querySelectorAll('.demo-slot').forEach(slot => {
+      const d = media.demos[slot.dataset.demoName];
+      slot.innerHTML = d ? `<button class="chip demo" data-demo="${esc(slot.dataset.demoName)}">▶ Coach demo</button>` : '';
+    });
+  }
+
+  async function showDemos() {
+    fillDemos();
+    const names = [...new Set(state.exercises.map(x => x.name).filter(n => n && !(n in media.demos)))];
+    if (!window.__media || !window.__auth || !window.__auth.currentUser() || (!names.length && media.asked)) return;
+    try {
+      const out = await window.__media.urls({ demos: names });
+      names.forEach(n => { media.demos[n] = out.demos[n] || null; });
+      if (out.coach !== media.coach) { media.coach = out.coach; media.asked = true; return drawDraft(); }
+      media.asked = true;
+      fillDemos();
+    } catch (err) { console.warn('demos:', err.message); }
+  }
+
+  let pending = null;   // {kind, ex} the picker is choosing a file for
+  picker.addEventListener('change', async () => {
+    const file = picker.files[0], job = pending;
+    picker.value = '';
+    if (!file || !job) return;
+    const btn = list.querySelector(`[data-upload="${job.kind}"][data-ex="${job.ex.instanceId}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+    try {
+      const up = await window.__media.upload(file, { kind: job.kind, docId: state.docId || 'draft', exId: job.ex.exId, exercise: job.ex.name });
+      if (job.kind === 'demo') {
+        delete media.demos[job.ex.name];
+        last = `${job.ex.name}: demo uploaded`;
+      } else {
+        job.ex.media = [...(job.ex.media || []), { key: up.key, type: up.type, at: new Date().toISOString() }];
+        last = `${job.ex.name}.media += ${up.type}`;
+      }
+      drawDraft();   // saves the log, so the coach can see the new video
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+      note(err.message, 'err');
+    }
+  });
+
+  async function openMedia(key, type) {
+    try {
+      const out = await window.__media.urls({ keys: [key] });
+      if (out.urls[key]) window.__media.show(out.urls[key], type);
+    } catch (err) { note(err.message, 'err'); }
+  }
+
+  list.addEventListener('click', e => {
+    const up = e.target.closest('[data-upload]');
+    if (up) {
+      const ex = state.exercises.find(x => x.instanceId === up.dataset.ex);
+      if (!ex || !window.__media) return;
+      pending = { kind: up.dataset.upload, ex };
+      return picker.click();
+    }
+    const view = e.target.closest('[data-view]');
+    if (view) {
+      const ex = state.exercises.find(x => x.instanceId === view.dataset.view);
+      const m = ex && ex.media[+view.dataset.mi];
+      return m && openMedia(m.key, m.type);
+    }
+    const demo = e.target.closest('[data-demo]');
+    if (demo) {
+      const d = media.demos[demo.dataset.demo];
+      return d && window.__media.show(d.url, d.type);
+    }
+  });
 
   function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -743,6 +848,7 @@
       swapped: ex.swapped,
       fallback: ex.fallback || null,
       removed: !!ex.removed,
+      media: ex.media || [],
       sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
     }));
   }
@@ -1122,6 +1228,7 @@
   draw();
 </script>
 <script type="module" src="./chat.js"></script>
+<script type="module" src="./media.js"></script>
 
 </body>
 </html>

@@ -64,9 +64,10 @@ flowchart LR
 | **claude.ai connector** | "wilo" custom connector (DCR + sign-in) | Each user's claude.ai account | claude.ai → Settings → Connectors | Manual, once per user | Claude plan |
 | **Coach** `wilo/coach.md` + per-user profile | The coaching method (any user), served by the `coaching_method` tool; what's personal is data at `users/{uid}/coach/profile` (`get_profile` / `update_profile`) | Repo + Firestore | `wilo/coach.md` | With the connector | — |
 | **Service accounts** (GCP) | Machine identities with keys | GCP IAM | See [§4](#4-security-model) | `gcloud` / console | $0 |
+| **Backblaze B2** | Exercise videos and photos (#152) | bucket `wilo-media-thom` (private, `us-east-005`) | `B2_*` env on Render and in `.env` | Backblaze web console | $0 (10 GB free) |
 | **Laptop** | Keys, venv, local backups | `~/wilo`, `~/wilo-claude/`, `~/wilo/data/` | — | — | — |
 
-**Accounts that own things:** GitHub `CoachThomLamb`; Google `thomlamb74@gmail.com` (the only **owner** of the GCP/Firebase project); Render (signed in with GitHub); claude.ai. **Billing:** none. The project has no active billing account (Spark plan), so Cloud Run, scheduled backups and anything else that needs Blaze are unavailable.
+**Accounts that own things:** GitHub `CoachThomLamb`; Google `thomlamb74@gmail.com` (the only **owner** of the GCP/Firebase project); Render (signed in with GitHub); claude.ai. **Billing:** none. The project has no active billing account (Spark plan), so Cloud Run, scheduled backups and anything else that needs Blaze are unavailable. Checked 2026-11-06: a billing account is linked but `billingEnabled` is false, and Google rejects Thom's card, so Firebase Storage is out; files go to Backblaze B2 instead. Backblaze account: Thom's (password in his password manager).
 
 ---
 
@@ -180,6 +181,14 @@ The code-level guide for the connector is [`mcp-server-and-connector-guide.md`](
 - **All of this lives only in the Render dashboard.** There's no `render.yaml`.
 - Sleeps after 15 min idle. The first request takes ~1 min.
 - Why Render: Google billing rejected the prepaid card, so Cloud Run wasn't possible. Details and the Cloud Run alternative are in the connector guide.
+
+### 5.3b Exercise media in Backblaze B2 (#152)
+
+- Bucket `wilo-media-thom`, **private**, endpoint `https://s3.us-east-005.backblazeb2.com`. Application key `wilo-render` (this bucket only, read+write).
+- Env (Render and `.env`): `B2_KEY_ID`, `B2_APP_KEY`, `B2_BUCKET`, `B2_ENDPOINT`; `WILO_COACH_UIDS` (default: config uid) may upload demos and see everyone's files.
+- The phone uploads straight to B2 with a 10-minute signed PUT from `/media/upload`; `/media/done` checks the size (deletes oversized files); `/media/urls` signs 1-hour links to watch. See `wilo/media.py`.
+- CORS is a **B2 native** rule (`wiloApp`): GET/HEAD/PUT from `wilo2-1ee44.web.app`, `.firebaseapp.com`, `wilo2-1ee44--*.web.app` and `localhost:8001`. The S3 API can't change it while native rules exist; use `b2_update_bucket`.
+- Rebuild: create the bucket and key in the Backblaze console, set the CORS rule, set the env. Files are not backed up.
 
 ### 5.4 Python package `wilo/`
 - `pyproject.toml`: Python ≥ 3.12; dependencies `firebase-admin`, `jsonschema`, `mcp` are **unpinned**. **The code needs MCP SDK v2** (`MCPServer`). Working versions on 2026-10-09: Python 3.14.7, `mcp` 2.3.0, `firebase-admin` 7.7.0, `google-cloud-firestore` 2.31.0, `jsonschema` 4.26.0, `starlette` 1.7.0, `uvicorn` 0.54.0, `pydantic` 2.13.5.

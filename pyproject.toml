@@ -5,6 +5,7 @@ description = "WILO: workout data in Firestore, exposed to Claude as an MCP serv
 requires-python = ">=3.12"
 dependencies = [
     "anthropic",
+    "boto3",
     "firebase-admin",
     "jsonschema",
     "mcp",
