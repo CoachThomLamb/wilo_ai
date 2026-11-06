@@ -198,6 +198,8 @@ def make_server(provider=None, issuer=None):
         add_login_routes(s, provider)
     from wilo.chat import add_chat_routes
     add_chat_routes(s)
+    from wilo.media import add_media_routes
+    add_media_routes(s)
     return s
 
 

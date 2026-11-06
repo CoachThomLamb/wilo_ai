@@ -281,9 +281,16 @@ def _note(e):
     return f' (note: {e["note"].strip()})' if (e.get('note') or '').strip() else ''
 
 
+def _media(e):
+    """' [1 video, 2 photos]' when the user attached form videos/photos to the exercise (#152)."""
+    kinds = [m.get('type') for m in e.get('media') or []]
+    parts = [f'{n} {k}{"s" if n > 1 else ""}' for k in ('video', 'photo') if (n := kinds.count('image' if k == 'photo' else k))]
+    return f' [{", ".join(parts)}]' if parts else ''
+
+
 def _done_line(e, timed):
     done = [s for s in e.get('sets', []) if s.get('done')]
-    return f'{e["name"].strip()} {_sets(done, timed)}{_note(e)}' if done else None
+    return f'{e["name"].strip()} {_sets(done, timed)}{_note(e)}{_media(e)}' if done else None
 
 
 def summary(db, uid, today, days=14):
