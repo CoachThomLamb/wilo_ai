@@ -182,16 +182,18 @@ async def turn(ctx, history, message):
     return new, '\n\n'.join(r for r in replies if r), used, calls
 
 
+def cors(request):
+    """CORS headers for the tracker's own hosts (also used by wilo/media.py)."""
+    origin = request.headers.get('origin', '')
+    if not ORIGIN.fullmatch(origin):
+        return {}
+    return {'Access-Control-Allow-Origin': origin, 'Vary': 'Origin',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600'}
+
+
 def add_chat_routes(s):
     from starlette.responses import JSONResponse, Response
-
-    def cors(request):
-        origin = request.headers.get('origin', '')
-        if not ORIGIN.fullmatch(origin):
-            return {}
-        return {'Access-Control-Allow-Origin': origin, 'Vary': 'Origin',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600'}
 
     @s.custom_route('/chat', methods=['POST', 'OPTIONS'])
     async def chat(request):
