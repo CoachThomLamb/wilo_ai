@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<!--
+  WILO Calendar (experiment, #45): one week of workouts and todos, drag to move.
+
+  - Separate page, like today.html. Sign-in required (auth.js).
+  - Data (live, onSnapshot): users/{uid}/workouts and users/{uid}/todos. Nothing new is stored.
+      a workout sits on its assignedFor day (or the day it was finished if it has none);
+      a todo sits on the date in its due ("2026-11-09" or "2026-11-09 19:00"). Open todos with no
+      date (or a free-text due like "friday") wait in "No date".
+  - Drag (hold ~0.3 s on a phone, or just drag with a mouse):
+      a planned / in-progress workout onto a day   → assignedFor = that day ("YYYY-MM-DD")
+      a todo onto a day                            → due's date changes, its time stays
+      a todo onto "No date"                        → due is removed
+      hover over ‹ or › while dragging             → flips the week
+    Done workouts and done todos don't move: they're history.
+    Moving a workout needs firestore.rules to allow assignedFor in the tracker's updates.
+  - Tap a workout to open the tracker; tap the circle to check a todo off.
+  - Every write shows "Saved ✓" only after Firestore confirms; on failure the item jumps back.
+-->
+<html lang="en">
+<head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // Same config as index.html; see the authDomain note there.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  getFirestore(app, "wilo");
+  window.__fs = { setDoc, onSnapshot, deleteField };
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Calendar</title>
+<style>
+  :root {
+    --bg: #000;
+    --panel: #0e0e0f;
+    --field: #1c1c1e;
+    --line: #262628;
+    --text: #f2f2f7;
+    --dim: #7c7c82;
+    --accent: #0a84ff;
+    --workout: #2b2141;
+    --workout-line: #bf5af2;
+    --done: #1f4a2c;
+    --done-line: #34c759;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    font: 400 16px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  body.dragging { cursor: grabbing; -webkit-user-select: none; user-select: none; }
+
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 12px 16px 8px; border-bottom: 1px solid var(--line);
+  }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .top a { color: var(--accent); font-size: 15px; text-decoration: none; }
+  .nav { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .nav button {
+    height: 36px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 10px;
+    background: var(--field); color: var(--text); font: inherit; font-size: 18px;
+  }
+  .nav button.hot { background: var(--accent); }
+  .nav #todayBtn { font-size: 15px; }
+  .nav .label { flex: 1; text-align: center; color: var(--dim); font-size: 15px; }
+  .saved { margin: 4px 0 0; font-size: 12px; color: var(--dim); min-height: 15px; }
+  .saved.ok { color: var(--done-line); }
+  .saved.err { color: #ff453a; }
+
+  /* Phone: days stacked. Wide screens: 7 columns, "No date" underneath. */
+  .week { display: flex; flex-direction: column; }
+  .day { border-bottom: 1px solid var(--line); padding: 8px 12px 10px; min-height: 64px; transition: background .1s; }
+  .day h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+  .day.today h2 { color: var(--accent); }
+  .day.over, .tray.over { background: #0a84ff22; outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .items { display: flex; flex-direction: column; gap: 6px; }
+  .empty { color: #3a3a3e; font-size: 13px; }
+  @media (min-width: 900px) {
+    .week { flex-direction: row; align-items: stretch; min-height: 60vh; }
+    .day { flex: 1 1 0; min-width: 0; border-bottom: 0; border-right: 1px solid var(--line); }
+  }
+
+  .item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+    background: var(--field); touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .item.movable { cursor: grab; }
+  .item.workout { background: var(--workout); border-left: 3px solid var(--workout-line); }
+  .item.workout.done { background: var(--done); border-left-color: var(--done-line); }
+  .item.todo.done .text { color: var(--dim); text-decoration: line-through; }
+  .item.lifted { opacity: .3; }
+  .item .body { min-width: 0; flex: 1; }
+  .item .text { overflow-wrap: anywhere; font-size: 15px; }
+  .item .meta { color: var(--dim); font-size: 12px; margin-top: 1px; }
+  .check {
+    flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--dim);
+    background: none; color: transparent; font-size: 13px; line-height: 1; padding: 0;
+  }
+  .item.done .check { background: var(--done); border-color: var(--done-line); color: var(--done-line); }
+
+  .ghost {
+    position: fixed; z-index: 20; pointer-events: none; margin: 0;
+    box-shadow: 0 8px 24px #000a; transform: rotate(-2deg) scale(1.03); opacity: .95;
+  }
+
+  .tray { margin-top: 16px; padding: 8px 12px 12px; border-top: 1px solid var(--line); min-height: 72px; }
+  .tray h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+  .hint { color: var(--dim); font-size: 12px; padding: 0 12px; margin-top: 12px; }
+
+  .gate {
+    position: fixed; inset: 0; z-index: 30; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate[hidden] { display: none; }
+  .gate h1 { font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
+  .gate button {
+    height: 42px; padding: 0 20px; border: 0; border-radius: 999px;
+    background: var(--accent); color: #fff; font: inherit; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<header>
+  <div class="top"><h1>Calendar</h1><a href="today.html">Today</a></div>
+  <div class="nav">
+    <button id="prevBtn" aria-label="Previous week">‹</button>
+    <button id="todayBtn">This week</button>
+    <span class="label" id="weekLabel"></span>
+    <button id="nextBtn" aria-label="Next week">›</button>
+  </div>
+  <p class="saved" id="saved"></p>
+</header>
+
+<div class="week" id="week"></div>
+<div class="tray" id="tray" data-day="">
+  <h2>No date</h2>
+  <div class="items" id="trayItems"></div>
+</div>
+<p class="hint">Hold and drag to move a workout or todo. Drop on “No date” to unschedule a todo.</p>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+
+  // ---- dates (local days as "YYYY-MM-DD"; noon avoids DST edges) -------
+  function localDay(d) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function addDays(day, n) {
+    const d = new Date(day + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return localDay(d);
+  }
+  // Monday of the week that holds day.
+  function weekStart(day) {
+    const dow = (new Date(day + 'T12:00:00').getDay() + 6) % 7;
+    return addDays(day, -dow);
+  }
+  // Same as dayOf in index.html: a bare date stays; a timestamp becomes its local day.
+  function dayOf(v) {
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return isNaN(d) ? '' : localDay(d);
+  }
+  // A todo's day: the date at the start of due, or '' (free text or none).
+  function todoDay(due) {
+    const m = /^(\d{4}-\d{2}-\d{2})\b/.exec(due || '');
+    return m ? m[1] : '';
+  }
+  // The due after dropping a todo on day: keep its time, drop free text; '' day means no date.
+  function movedDue(due, day) {
+    if (!day) return '';
+    const m = /^\d{4}-\d{2}-\d{2}(.*)$/.exec(due || '');
+    return day + (m ? m[1] : '');
+  }
+
+  // ---- state ----------------------------------------------------------
+  let workouts = [], todos = [];
+  let week = weekStart(localDay(new Date()));
+  const unsub = [];
+
+  function note(msg, kind) {
+    $('saved').textContent = msg;
+    $('saved').className = 'saved' + (kind ? ' ' + kind : '');
+  }
+
+  // Everything that goes on the calendar, as {kind, id, day, ...}.
+  function entries() {
+    const out = [];
+    for (const w of workouts) {
+      const day = dayOf(w.assignedFor || w.finishedAt);
+      if (!day) continue;
+      out.push({ kind: 'workout', id: w.docId, day, text: w.name || w.docId, done: w.status === 'done',
+                 meta: w.status === 'done' ? 'Done' : w.status === 'in progress' ? 'In progress' : `${(w.exercises || []).length} exercises`,
+                 sort: '0' });
+    }
+    for (const t of todos) {
+      const day = todoDay(t.due);
+      if (!day && t.done) continue;   // done with no date: gone from the calendar
+      const time = (t.due || '').slice(11, 16);
+      out.push({ kind: 'todo', id: t.docId, day, text: t.text, done: !!t.done,
+                 meta: day ? time : (t.due || ''), sort: '1' + (time || '99') + (t.createdAt || '') });
+    }
+    return out.sort((a, b) => a.sort.localeCompare(b.sort));
+  }
+
+  // ---- draw -----------------------------------------------------------
+  function draw() {
+    const today = localDay(new Date());
+    const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+    const fmt = (d, o) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, o);
+    $('weekLabel').textContent = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days[6], { month: 'short', day: 'numeric' })}`;
+    const all = entries();
+    $('week').innerHTML = '';
+    for (const day of days) {
+      const box = document.createElement('section');
+      box.className = 'day' + (day === today ? ' today' : '');
+      box.dataset.day = day;
+      const h = document.createElement('h2');
+      h.textContent = fmt(day, { weekday: 'short', month: 'short', day: 'numeric' }) + (day === today ? ' · Today' : '');
+      const list = document.createElement('div');
+      list.className = 'items';
+      const here = all.filter(e => e.day === day);
+      if (!here.length) list.innerHTML = '<span class="empty">—</span>';
+      here.forEach(e => list.appendChild(card(e)));
+      box.append(h, list);
+      $('week').appendChild(box);
+    }
+    const loose = all.filter(e => !e.day);
+    $('trayItems').innerHTML = loose.length ? '' : '<span class="empty">Nothing without a date.</span>';
+    loose.forEach(e => $('trayItems').appendChild(card(e)));
+  }
+
+  function card(e) {
+    const el = document.createElement('div');
+    el.className = `item ${e.kind}` + (e.done ? ' done' : '') + (e.done ? '' : ' movable');
+    el.dataset.kind = e.kind;
+    el.dataset.id = e.id;
+    if (e.kind === 'todo') {
+      const c = document.createElement('button');
+      c.className = 'check';
+      c.textContent = '✓';
+      c.setAttribute('aria-label', e.done ? 'Mark not done' : 'Mark done');
+      el.appendChild(c);
+    }
+    const body = document.createElement('div');
+    body.className = 'body';
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = e.text;
+    body.appendChild(text);
+    if (e.meta) {
+      const m = document.createElement('div');
+      m.className = 'meta';
+      m.textContent = e.meta;
+      body.appendChild(m);
+    }
+    el.appendChild(body);
+    return el;
+  }
+
+  // ---- writes (shown at once; Firestore's listener confirms, failure rolls back) ----
+  async function save(col, id, fields, rollback) {
+    note('Saving…');
+    try {
+      await window.__fs.setDoc(window.__auth.userDoc(col, id), fields, { merge: true });
+      note('Saved ✓', 'ok');
+    } catch (err) {
+      rollback();
+      draw();
+      note('Save failed: ' + (err.code || err.message) + '. Try again.', 'err');
+    }
+  }
+
+  function move(kind, id, day) {
+    if (kind === 'workout') {
+      const w = workouts.find(x => x.docId === id);
+      if (!w || !day || w.status === 'done' || dayOf(w.assignedFor) === day) return;
+      const before = w.assignedFor;
+      w.assignedFor = day;
+      draw();
+      save('workouts', id, { assignedFor: day }, () => { w.assignedFor = before; });
+    } else {
+      const t = todos.find(x => x.docId === id);
+      if (!t || t.done || (todoDay(t.due) === day && (day || !t.due))) return;
+      const before = t.due;
+      const due = movedDue(t.due, day);
+      if (due) t.due = due; else delete t.due;
+      draw();
+      save('todos', id, { due: due || window.__fs.deleteField() }, () => { if (before) t.due = before; else delete t.due; });
+    }
+  }
+
+  function toggle(id) {
+    const t = todos.find(x => x.docId === id);
+    if (!t) return;
+    const before = { done: t.done, doneAt: t.doneAt };
+    t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : undefined;
+    draw();
+    save('todos', id, { done: t.done, doneAt: t.done ? t.doneAt : window.__fs.deleteField() }, () => Object.assign(t, before));
+  }
+
+  // ---- drag: a mouse drags at once; a finger holds ~0.3 s first, so a swipe still scrolls ----
+  // Touch uses touch events, not pointer events: the browser cancels a pointer as soon as it starts
+  // scrolling, but a non-passive touchmove can stop the scroll once the drag has begun.
+  const HOLD_MS = 300, SLOP = 8, EDGE = 70, FLIP_MS = 600;
+  let press = null;   // {el, x, y, mouse, timer}
+  let drag = null;    // {el, ghost, dx, dy, kind, id, target, x, y, flip:{btn, at}}
+
+  function down(target, x, y, mouse) {
+    const el = target.closest('.item.movable');
+    if (!el || target.closest('.check')) return;
+    press = { el, x, y, mouse };
+    if (!mouse) press.timer = setTimeout(() => startDrag(press.x, press.y), HOLD_MS);
+  }
+  function moveTo(x, y) {
+    if (drag) { follow(x, y); return; }
+    if (!press) return;
+    if (Math.hypot(x - press.x, y - press.y) <= SLOP) return;
+    if (press.mouse) startDrag(x, y);
+    else cancelPress();   // finger moved before the hold: it's a scroll
+  }
+  function up() {
+    if (drag) { endDrag(true); return; }
+    if (!press) return;
+    const el = press.el;
+    cancelPress();
+    if (el.dataset.kind === 'workout') location.href = 'index.html';   // tap: open the tracker
+  }
+
+  document.addEventListener('mousedown', ev => { if (ev.button === 0) down(ev.target, ev.clientX, ev.clientY, true); });
+  document.addEventListener('mousemove', ev => moveTo(ev.clientX, ev.clientY));
+  document.addEventListener('mouseup', up);
+
+  document.addEventListener('touchstart', ev => {
+    if (ev.touches.length > 1) { cancelPress(); if (drag) endDrag(false); return; }
+    const t = ev.touches[0];
+    down(ev.target, t.clientX, t.clientY, false);
+  }, { passive: true });
+  document.addEventListener('touchmove', ev => {
+    const t = ev.touches[0];
+    if (drag) ev.preventDefault();   // the page must not scroll under a drag
+    moveTo(t.clientX, t.clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', ev => {
+    if (drag || press) ev.preventDefault();   // no ghost mouse events after a touch
+    up();
+  }, { passive: false });
+  document.addEventListener('touchcancel', () => { cancelPress(); if (drag) endDrag(false); });
+  document.addEventListener('contextmenu', ev => { if (drag || press) ev.preventDefault(); });
+
+  document.addEventListener('click', ev => {
+    const c = ev.target.closest('.check');
+    if (c) toggle(c.closest('.item').dataset.id);
+  });
+
+  function cancelPress() {
+    if (press) clearTimeout(press.timer);
+    press = null;
+  }
+
+  function startDrag(x, y) {
+    if (!press) return;
+    const el = press.el, r = el.getBoundingClientRect();
+    clearTimeout(press.timer);
+    press = null;
+    const ghost = el.cloneNode(true);
+    ghost.classList.add('ghost');
+    ghost.style.width = r.width + 'px';
+    document.body.appendChild(ghost);
+    el.classList.add('lifted');
+    document.body.classList.add('dragging');
+    if (navigator.vibrate) navigator.vibrate(15);
+    drag = { el, ghost, dx: x - r.left, dy: y - r.top, kind: el.dataset.kind, id: el.dataset.id, target: null, x, y, flip: null };
+    follow(x, y);
+    drag.tick = setInterval(autoScroll, 16);
+  }
+
+  function follow(x, y) {
+    drag.x = x; drag.y = y;
+    drag.ghost.style.left = (x - drag.dx) + 'px';
+    drag.ghost.style.top = (y - drag.dy) + 'px';
+    const under = document.elementFromPoint(x, y);
+    const target = under && under.closest('.day, .tray');
+    if (target !== drag.target) {
+      if (drag.target) drag.target.classList.remove('over');
+      // A workout can't go to "No date".
+      drag.target = target && !(drag.kind === 'workout' && target.classList.contains('tray')) ? target : null;
+      if (drag.target) drag.target.classList.add('over');
+    }
+    // Hovering ‹ or › flips the week after a moment.
+    const btn = under && under.closest('#prevBtn, #nextBtn');
+    if (!btn) { if (drag.flip) drag.flip.btn.classList.remove('hot'); drag.flip = null; }
+    else if (!drag.flip || drag.flip.btn !== btn) { drag.flip = { btn, at: performance.now() }; btn.classList.add('hot'); }
+  }
+
+  // Near the top or bottom of the screen the page scrolls; a held ‹ › flips the week.
+  function autoScroll() {
+    const h = window.innerHeight;
+    const headerBottom = document.querySelector('header').getBoundingClientRect().bottom;
+    if (drag.y < headerBottom + EDGE && drag.y > headerBottom) window.scrollBy(0, -12);
+    else if (drag.y > h - EDGE) window.scrollBy(0, 12);
+    if (drag.flip && performance.now() - drag.flip.at > FLIP_MS) {
+      week = addDays(week, drag.flip.btn.id === 'prevBtn' ? -7 : 7);
+      drag.flip.at = performance.now();
+      redrawWhileDragging();
+    }
+  }
+
+  // A redraw replaces the cards; keep the lifted look on the one being dragged.
+  function redrawWhileDragging() {
+    draw();
+    drag.target = null;
+    const el = document.querySelector(`.item[data-kind="${drag.kind}"][data-id="${CSS.escape(drag.id)}"]`);
+    if (el) el.classList.add('lifted');
+    follow(drag.x, drag.y);
+  }
+
+  function endDrag(drop) {
+    const d = drag;
+    drag = null;
+    clearInterval(d.tick);
+    d.ghost.remove();
+    document.body.classList.remove('dragging');
+    if (d.flip) d.flip.btn.classList.remove('hot');
+    if (d.target) d.target.classList.remove('over');
+    document.querySelectorAll('.item.lifted').forEach(e => e.classList.remove('lifted'));
+    if (drop && d.target) move(d.kind, d.id, d.target.dataset.day);
+  }
+
+  // ---- week nav ---------------------------------------------------------
+  $('prevBtn').addEventListener('click', () => { week = addDays(week, -7); draw(); });
+  $('nextBtn').addEventListener('click', () => { week = addDays(week, 7); draw(); });
+  $('todayBtn').addEventListener('click', () => { week = weekStart(localDay(new Date())); draw(); });
+
+  // ---- sign-in and live data ---------------------------------------------
+  function listen() {
+    const { onSnapshot } = window.__fs;
+    const fail = what => err => note(`Couldn't load ${what}: ` + (err.code || err.message), 'err');
+    const redraw = () => { if (drag) redrawWhileDragging(); else draw(); };
+    unsub.push(onSnapshot(window.__auth.userCol('workouts'), snap => {
+      workouts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      redraw();
+    }, fail('workouts')));
+    unsub.push(onSnapshot(window.__auth.userCol('todos'), snap => {
+      todos = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      redraw();
+    }, fail('todos')));
+  }
+
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    $('gate').hidden = !!user;
+    $('gateBtn').hidden = !!user;
+    $('gateMsg').textContent = 'Sign in to see your week.';
+    unsub.splice(0).forEach(u => u());
+    if (user) listen();
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+  $('gateBtn').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { $('gateMsg').textContent = 'Sign-in failed: ' + (err.code || err.message); }
+  });
+
+  draw();
+</script>
+</body>
+</html>

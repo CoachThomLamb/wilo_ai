@@ -13,7 +13,8 @@ service cloud.firestore {
     }
 
     // Workouts (#126): the coach (server) writes the plan; the tracker writes only
-    // the log, status and timestamps. It may create a workout with no plan (one you
+    // the log, status and timestamps, and the calendar (calendar.html) moves a
+    // workout to another day (assignedFor). It may create a workout with no plan (one you
     // log without the coach), and never deletes one.
     match /users/{uid}/workouts/{workoutId} {
       allow read: if isOwner(uid);
@@ -24,7 +25,7 @@ service cloud.firestore {
         && request.resource.data.status in ['in progress', 'done'];
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['log', 'logBase', 'status', 'updatedAt', 'finishedAt'])
+             .hasOnly(['log', 'logBase', 'status', 'updatedAt', 'finishedAt', 'assignedFor'])
         && request.resource.data.status in ['planned', 'in progress', 'done'];
     }
 
