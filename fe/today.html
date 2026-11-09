@@ -126,6 +126,7 @@
 
 <header>
   <h1>Today</h1>
+  <a class="who" href="calendar.html">Calendar →</a>
   <p class="date" id="date"></p>
   <p class="saved" id="saved"></p>
   <button class="who" id="authBtn" hidden></button>
@@ -140,7 +141,7 @@
 <ul id="open"></ul>
 <form id="addForm" autocomplete="off">
   <input id="newText" placeholder="Add a todo" enterkeyhint="done">
-  <input id="newDue" placeholder="When? e.g. 19:00 or 2026-10-14">
+  <input id="newDue" placeholder="When? Empty = next hour. e.g. 19:00 or 2026-10-14">
   <button class="add" type="submit">Add</button>
 </form>
 
@@ -231,9 +232,15 @@
     }
   }
 
-  // "19:00" alone means today at 19:00, so it sorts with dated todos.
+  // "19:00" alone means today at 19:00, so it sorts with dated todos. Left empty, a todo gets the
+  // next full hour, so it lands on the calendar's day grid (calendar.html), where you drag it to a time.
   function normalizeDue(s) {
     s = s.trim();
+    if (!s) {
+      const d = new Date();
+      d.setHours(d.getHours() + 1, 0, 0, 0);
+      return `${localDate(d)} ${pad(d.getHours())}:00`;
+    }
     return /^\d{1,2}:\d{2}$/.test(s) ? `${localDate(new Date())} ${s.padStart(5, '0')}` : s;
   }
 
