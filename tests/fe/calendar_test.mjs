@@ -21,6 +21,10 @@ const weekStart = eval(`(${extract('weekStart')})`)
 const dayOf = eval(`(${extract('dayOf')})`)
 const todoDay = eval(`(${extract('todoDay')})`)
 const movedDue = eval(`(${extract('movedDue')})`)
+const todoTime = eval(`(${extract('todoTime')})`)
+const START_H = 6, SNAP = 15, LEN = 30, PX_PER_MIN = 1
+const slotTime = eval(`(${extract('slotTime')})`)
+const layout = eval(`(${extract('layout')})`)
 
 assert.equal(addDays('2026-11-09', 1), '2026-11-10')
 assert.equal(addDays('2026-10-31', 1), '2026-11-01')   // DST weekend
@@ -44,5 +48,27 @@ assert.equal(movedDue('2026-11-09', '2026-11-12'), '2026-11-12')
 assert.equal(movedDue('friday', '2026-11-13'), '2026-11-13')                   // free text gives way to a date
 assert.equal(movedDue(undefined, '2026-11-13'), '2026-11-13')
 assert.equal(movedDue('2026-11-09 19:00', ''), '')                             // "No date"
+
+// Day view: a todo's time, dropping on a time, and overlapping items side by side.
+assert.equal(todoTime('2026-11-09 19:00'), '19:00')
+assert.equal(todoTime('2026-11-09 9:05'), '09:05')
+assert.equal(todoTime('2026-11-09'), '')
+assert.equal(todoTime('friday 9:00'), '')
+
+assert.equal(movedDue('2026-11-09 19:00', '2026-11-09', '17:30'), '2026-11-09 17:30')   // dropped on the grid
+assert.equal(movedDue('2026-11-09', '2026-11-10', '08:00'), '2026-11-10 08:00')
+assert.equal(movedDue('2026-11-09 19:00', '2026-11-09', ''), '2026-11-09')               // dropped on Anytime
+
+assert.equal(slotTime(0), '06:00')
+assert.equal(slotTime(7), '06:00')       // snaps to 15 min
+assert.equal(slotTime(8), '06:15')
+assert.equal(slotTime(690), '17:30')
+assert.equal(slotTime(-500), '00:00')    // above the grid: clamped
+assert.equal(slotTime(5000), '23:45')    // below it
+
+assert.deepEqual(layout([480, 600]), [{ col: 0, cols: 1 }, { col: 0, cols: 1 }])                  // apart
+assert.deepEqual(layout([480, 495]), [{ col: 0, cols: 2 }, { col: 1, cols: 2 }])                  // overlap
+assert.deepEqual(layout([480, 495, 510, 600]),
+  [{ col: 0, cols: 2 }, { col: 1, cols: 2 }, { col: 0, cols: 2 }, { col: 0, cols: 1 }])             // 3rd reuses col 0
 
 console.log('calendar ok')
