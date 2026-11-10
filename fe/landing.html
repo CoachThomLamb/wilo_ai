@@ -124,13 +124,22 @@
   ul.ticks li::before { content: "✓"; position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%; background: #0a84ff26; color: var(--accent); font-size: 11px; display: grid; place-items: center; font-weight: 700; }
 
   /* ---- the loop ---- */
-  .loop { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 36px; }
-  .loop div { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px; }
-  .loop b { display: block; font-size: 15px; margin-bottom: 4px; }
-  .loop span { color: var(--dim); font-size: 14px; line-height: 1.4; display: block; }
-  .loop i { font-style: normal; color: var(--accent); font-weight: 800; font-size: 13px; display: block; margin-bottom: 10px; }
-  @media (max-width: 860px) { .loop { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 480px) { .loop { grid-template-columns: 1fr; } }
+  .steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 14px; }
+  .steps li { padding: 14px 16px 14px 18px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid; border-radius: 14px; }
+  .steps li.s-train { border-left-color: var(--accent); }
+  .steps li.s-track { border-left-color: var(--coach); }
+  .steps li.s-progress { border-left-color: var(--ok); }
+  .steps b { display: block; font-size: 17px; margin-bottom: 2px; }
+  .steps span { color: var(--dim); font-size: 15px; line-height: 1.4; }
+  .cycle { width: 100%; max-width: 420px; margin: 0 auto; display: block; overflow: visible; }
+  .cycle .arc { fill: none; stroke: #8e8e96; stroke-width: 2.5; stroke-linecap: round; }
+  .cycle .node circle { fill: var(--panel); stroke-width: 3; }
+  .cycle .node text { fill: var(--text); font: 700 17px Inter, sans-serif; text-anchor: middle; }
+  .cycle .hub { fill: var(--text); font: 800 30px Inter, sans-serif; letter-spacing: .06em; text-anchor: middle; }
+  .cycle .hub-sub { fill: var(--dim); font: 500 15px Inter, sans-serif; text-anchor: middle; }
+  .cycle .orbit { transform-origin: 200px 200px; animation: orbit 9s linear infinite; }
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cycle .orbit { animation: none; } }
 
   /* ---- closing panels, articles ---- */
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -216,16 +225,36 @@
   <!-- The loop -->
   <section class="block" id="how">
     <div class="wrap">
-      <p class="kicker">How it works</p>
-      <h2>One loop, every day.</h2>
-      <p>Most apps log what you did. Wilo closes the loop: what you did feeds what you do next.</p>
-      <div class="loop">
-        <div><i>01</i><b>Talk</b><span>Tell the coach your goals, your week and what hurts.</span></div>
-        <div><i>02</i><b>Plan</b><span>It writes the workouts and puts them on your days.</span></div>
-        <div><i>03</i><b>Train</b><span>Your phone shows today's workout. Log sets as you go.</span></div>
-        <div><i>04</i><b>Review</b><span>The coach reads every set, note and video you logged.</span></div>
-        <div><i>05</i><b>Adjust</b><span>Next workout gets heavier, lighter or different, for a reason.</span></div>
+     <div class="split">
+      <div>
+        <p class="kicker">How it works</p>
+        <h2>Train. Track. Progress.<br>Repeat.</h2>
+        <p>Most apps log what you did. Wilo closes the loop: what you did shapes what you do next.</p>
+        <ol class="steps">
+          <li class="s-train"><b>Train</b><span>Today's workout is on your phone. Do the work.</span></li>
+          <li class="s-track"><b>Track</b><span>Log every set as you go: reps, weight, notes, a form video.</span></li>
+          <li class="s-progress"><b>Progress</b><span>Wilo reads it all and sets up the next one: heavier, lighter or different, for a reason.</span></li>
+        </ol>
       </div>
+      <!-- The loop: three steps on a circle, arrows clockwise, a dot going round. -->
+      <svg class="cycle" viewBox="0 0 400 400" role="img" aria-label="A loop: Train, then Track, then Progress, then back to Train">
+        <defs>
+          <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#8e8e96"/>
+          </marker>
+        </defs>
+        <circle cx="200" cy="200" r="150" fill="none" stroke="#1c1c1e" stroke-width="22"/>
+        <path d="M256.2 60.9 A150 150 0 0 1 348.5 220.9" class="arc" marker-end="url(#head)"/>
+        <path d="M292.4 318.2 A150 150 0 0 1 107.6 318.2" class="arc" marker-end="url(#head)"/>
+        <path d="M51.5 220.9 A150 150 0 0 1 143.8 60.9" class="arc" marker-end="url(#head)"/>
+        <g class="orbit"><circle cx="200" cy="50" r="6" fill="#f2f2f7"/></g>
+        <g class="node"><circle cx="200" cy="50" r="46" stroke="#0a84ff"/><text x="200" y="56">Train</text></g>
+        <g class="node"><circle cx="329.9" cy="275" r="46" stroke="#bf5af2"/><text x="329.9" y="281">Track</text></g>
+        <g class="node"><circle cx="70.1" cy="275" r="46" stroke="#34c759"/><text x="70.1" y="281">Progress</text></g>
+        <text x="200" y="198" class="hub">WILO</text>
+        <text x="200" y="224" class="hub-sub">↻ repeat</text>
+      </svg>
+     </div>
     </div>
   </section>
 
