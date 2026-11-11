@@ -51,6 +51,9 @@
   .grat .k { color: var(--done-line); }
   .strive .k { color: var(--accent); }
   .watch .k { color: var(--warn); }
+  .wilo .k { color: var(--night); }
+  .pinned .o b { color: var(--night); }
+  .sub { margin: 14px 14px 4px; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
 
   /* compact pinned intentions in Day / Night */
   .pinned { margin: 10px 16px 0; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; }
@@ -108,11 +111,14 @@
   <h2>Grateful for</h2>
   <div class="card grat" id="grat"></div>
 
-  <h2>Strive for <span>what would make today a win</span></h2>
+  <h2>Strive for <span>who I want to be today</span></h2>
   <div class="card strive" id="strive"></div>
 
   <h2>Watch out for</h2>
   <div class="card watch" id="watch"></div>
+
+  <h2>Wilos <span>what we get done today</span></h2>
+  <div class="card wilo" id="wilos"></div>
 
   <h2>From last night</h2>
   <div class="card tomorrow"><div class="row"><span class="k">↳</span><span class="v">Do the hard email before 10, not after lunch.</span></div></div>
@@ -161,14 +167,15 @@
   // Fake day.
   const day = {
     grat: ['Slept 7 hours', 'Coffee with M before work', ''],
-    strive: ['Train: Upper A', 'Send the hard email before 10', 'Call Mum'],
+    strive: ['Patient, even when it\'s slow', 'Present in conversations', ''],
     watch: ['Phone in bed after 22:00', ''],
+    wilos: ['Train: Upper A', 'Send the hard email before 10', 'Call Mum', ''],
     notes: [
       { at: '08:42', text: 'Felt flat this morning, the walk fixed it.' },
       { at: '11:15', text: 'Idea: landing page needs the real tracker screens, not drawings.' },
       { at: '14:10', text: 'Phone in the other room helped. Do that again.' },
     ],
-    score: { 0: 'y', 2: 'y', 1: 'n' },
+    score: { 'Wilos:Train: Upper A': 'y', 'Wilos:Call Mum': 'y', 'Wilos:Send the hard email before 10': 'n', 'Strive for:Present in conversations': 'm' },
     tomorrow: ['Email first thing, before opening anything else', ''],
   };
 
@@ -202,33 +209,40 @@
   }
 
   function draw() {
-    const strive = day.strive.filter(Boolean), watch = day.watch.filter(Boolean);
+    const strive = day.strive.filter(Boolean), watch = day.watch.filter(Boolean), wilos = day.wilos.filter(Boolean);
     $('pinned').innerHTML = '';
-    strive.forEach(s => $('pinned').insertAdjacentHTML('beforeend', `<div class="s"><b>Strive</b></div>`));
-    [...$('pinned').children].forEach((d, i) => d.append(strive[i]));
-    watch.forEach(w => { const d = document.createElement('div'); d.className = 'w'; d.innerHTML = '<b>Watch</b>'; d.append(w); $('pinned').appendChild(d); });
+    const pin = (cls, label, s) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = `<b>${label}</b>`; d.append(s); $('pinned').appendChild(d); };
+    strive.forEach(s => pin('s', 'Strive', s));
+    watch.forEach(s => pin('w', 'Watch', s));
+    wilos.forEach(s => pin('o', 'Wilo', s));
 
     noteList($('notes')); noteList($('notes2'));
     $('count').textContent = $('count2').textContent = day.notes.length ? day.notes.length : '';
 
     $('review').innerHTML = '';
-    strive.forEach((s, i) => {
-      const r = document.createElement('div');
-      r.className = 'row';
-      r.innerHTML = `<span class="v"></span><span class="score">
-        <button class="y" aria-label="Yes">✓</button><button class="m" aria-label="Partly">~</button><button class="n" aria-label="No">✕</button></span>`;
-      r.querySelector('.v').textContent = s;
-      r.querySelectorAll('.score button').forEach(b => {
-        if (day.score[i] === b.className) b.classList.add('on');
-        b.addEventListener('click', () => { day.score[i] = day.score[i] === b.classList[0] ? undefined : b.classList[0]; draw(); });
+    [['Wilos', wilos], ['Strive for', strive]].forEach(([label, list]) => {
+      if (!list.length) return;
+      $('review').insertAdjacentHTML('beforeend', `<div class="sub">${label}</div>`);
+      list.forEach(s => {
+        const key = label + ':' + s;
+        const r = document.createElement('div');
+        r.className = 'row';
+        r.innerHTML = `<span class="v"></span><span class="score">
+          <button class="y" aria-label="Yes">✓</button><button class="m" aria-label="Partly">~</button><button class="n" aria-label="No">✕</button></span>`;
+        r.querySelector('.v').textContent = s;
+        r.querySelectorAll('.score button').forEach(b => {
+          if (day.score[key] === b.className) b.classList.add('on');
+          b.addEventListener('click', () => { day.score[key] = day.score[key] === b.classList[0] ? undefined : b.classList[0]; draw(); });
+        });
+        $('review').appendChild(r);
       });
-      $('review').appendChild(r);
     });
   }
 
   lines($('grat'), day.grat, 'Something you\'re grateful for', '•');
   lines($('strive'), day.strive, 'Something to strive for', '→');
   lines($('watch'), day.watch, 'Something to watch out for', '!');
+  lines($('wilos'), day.wilos, 'Something to get done today', '○');
   lines($('tomorrow'), day.tomorrow, 'Carry into tomorrow', '↳');
   draw();
 
