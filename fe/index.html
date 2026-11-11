@@ -1176,6 +1176,12 @@
 
   window.addEventListener('wilo-user', ev => {
     const user = ev.detail;
+    // Not signed in on this phone: new visitors get the landing page, not a sign-in wall.
+    // /?signin (the landing page's "Open the app") shows the sign-in screen instead.
+    if (!user && !authSeen && !new URLSearchParams(location.search).has('signin')) {
+      location.replace('landing.html');
+      return;
+    }
     gate.hidden = !!user;
     gateBtn.hidden = !!user;
     gateMsg.textContent = 'Sign in to see your workouts.';

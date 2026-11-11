@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<!--
+  WILO landing page: what Wilo is, why it works, and the way in.
+
+  - Laid out like a fitness-app landing page (hero with a phone, feature blocks with screens, a "for coaches"
+    panel, articles, closing call to action), in Wilo's own words and look. No outside images: the phone
+    screens are drawn in HTML/CSS from the real tracker's look, so they can be swapped for real
+    screenshots or the flow video later.
+  - Proof is only what's true (daily use, first client, built in the open). No made-up ratings or quotes.
+  - Static page on Firebase Hosting next to the app: /landing.html. "Open the app" goes to the tracker (/).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WILO Coach</title>
+<meta name="description" content="You set the goal. Wilo plans, tracks and adjusts. You train.">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000;
+    --panel: #0e0e10;
+    --field: #1c1c1e;
+    --line: #26262a;
+    --text: #f2f2f7;
+    --dim: #8e8e96;
+    --accent: #0a84ff;
+    --coach: #bf5af2;
+    --ok: #34c759;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 400 17px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---- header ---- */
+  .bar {
+    position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: #000c; border-bottom: 1px solid var(--line);
+  }
+  .bar .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
+  .logo { font-weight: 800; font-size: 22px; letter-spacing: .04em; text-decoration: none; }
+  .logo span { color: var(--accent); }
+  .bar nav { display: flex; gap: 22px; flex: 1; }
+  .bar nav a { color: var(--dim); text-decoration: none; font-size: 15px; font-weight: 500; }
+  .bar nav a:hover { color: var(--text); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 46px; padding: 0 22px; border-radius: 999px; border: 0;
+    background: var(--accent); color: #fff; font: 600 16px/1 Inter, sans-serif; text-decoration: none; white-space: nowrap;
+  }
+  .btn.small { height: 38px; padding: 0 16px; font-size: 14px; }
+  .btn.ghost { background: var(--field); color: var(--text); }
+  @media (max-width: 720px) { .bar nav { display: none; } .bar .wrap { justify-content: space-between; } }
+
+  /* ---- hero ---- */
+  .hero { padding: 72px 0 56px; }
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+  .hero h1 { margin: 0; font-size: clamp(40px, 6vw, 68px); line-height: 1.02; font-weight: 800; letter-spacing: -.02em; }
+  .hero h1 em { font-style: normal; color: var(--dim); }
+  .hero h1 b { color: var(--accent); font-weight: 800; }
+  .hero p.lede { margin: 22px 0 28px; font-size: 19px; color: var(--dim); max-width: 520px; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 28px; color: var(--dim); font-size: 14px; }
+  .facts span::before { content: "●"; color: var(--ok); margin-right: 8px; font-size: 10px; vertical-align: 2px; }
+  @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } .hero { padding-top: 40px; } }
+
+  /* ---- phone mockups (drawn like the real tracker) ---- */
+  .phone {
+    width: 300px; max-width: 100%; margin: 0 auto; aspect-ratio: 9 / 19; border-radius: 44px;
+    background: #050505; border: 10px solid #1d1d20; box-shadow: 0 30px 80px #0a84ff22, 0 0 0 1px #333 inset;
+    padding: 34px 14px 14px; position: relative; overflow: hidden; font-size: 13px;
+  }
+  .phone::before { content: ""; position: absolute; top: 10px; left: 50%; width: 90px; height: 24px; margin-left: -45px; border-radius: 12px; background: #1d1d20; }
+  .scr-h { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 4px 10px; }
+  .scr-h b { font-size: 20px; }
+  .scr-h small { color: var(--dim); }
+  .saved { color: var(--ok); font-size: 11px; margin: -6px 4px 10px; }
+  .ex { background: var(--field); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; }
+  .ex .name { font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+  .ex .cue { color: var(--dim); font-size: 11px; margin: 2px 0 8px; }
+  .sets { display: grid; grid-template-columns: 22px 1fr 1fr 26px; gap: 5px 8px; align-items: center; font-size: 12px; }
+  .sets .hd { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .sets .v { background: #2a2a2e; border-radius: 7px; padding: 4px 8px; }
+  .sets .v.empty { color: #55555c; }
+  .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #55555c; display: grid; place-items: center; font-size: 11px; color: transparent; }
+  .tick.on { background: #1f4a2c; border-color: var(--ok); color: var(--ok); }
+  .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); white-space: nowrap; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 11px; padding: 4px 9px; border-radius: 999px; background: #2a2a2e; color: var(--text); }
+  .chip.blue { background: #0a84ff33; color: #6cb6ff; }
+  .msg { max-width: 85%; padding: 8px 11px; border-radius: 16px; margin-bottom: 8px; font-size: 12.5px; line-height: 1.35; }
+  .msg.me { margin-left: auto; background: var(--accent); border-bottom-right-radius: 5px; }
+  .msg.coach { background: var(--field); border-bottom-left-radius: 5px; }
+  .msg.coach b { color: var(--coach); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+  .plan { border-left: 3px solid var(--coach); background: #2b2141; border-radius: 10px; padding: 7px 10px; margin: 6px 0; font-size: 12px; }
+  .plan small { color: var(--dim); display: block; }
+  .struck { text-decoration: line-through; color: var(--dim); }
+  .video { height: 92px; border-radius: 10px; margin-top: 8px; background: linear-gradient(135deg, #2a2a2e, #141416); display: grid; place-items: center; color: var(--dim); font-size: 11px; position: relative; }
+  .video::before { content: "▶"; width: 34px; height: 34px; border-radius: 50%; background: #fff2; display: grid; place-items: center; color: #fff; font-size: 13px; position: absolute; top: 18px; }
+  .video span { position: absolute; bottom: 8px; }
+
+  /* ---- hero phone: the tracker's own look, scaled down (fe/index.html .exercise, table, .check, .chip) ---- */
+  .t-ex { padding: 12px 6px 10px; border-bottom: 1px solid var(--line); }
+  .t-name { color: var(--accent); font-size: 15px; font-weight: 600; line-height: 1.25; padding-bottom: 3px; }
+  .t-cue { color: #b5b5bd; font-size: 11.5px; line-height: 1.35; padding-bottom: 8px; }
+  .t-cue b { color: var(--accent); font-weight: 400; }
+  .t-sets { display: grid; grid-template-columns: 26px 1fr 1fr 34px; gap: 4px 8px; align-items: center; justify-items: center; }
+  .t-field { display: inline-flex; gap: 6px; align-items: baseline; margin: -2px 0 9px; padding-bottom: 2px; border-bottom: 1px solid var(--accent); color: var(--text); font-size: 11.5px; }
+  .t-field span { color: var(--dim); font-size: 10px; }
+  /* hero loop: tap Coach → chat → the change lands in the workout (script at the bottom) */
+  .t-coach::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid #fff; opacity: 0; transform: scale(.7); }
+  .phone.tap .t-coach { transform: scale(.92); transition: transform .12s; }
+  .phone.tap .t-coach::after { animation: t-ring .6s ease-out; }
+  @keyframes t-ring { 0% { opacity: .9; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.35); } }
+  .t-chat {
+    position: absolute; inset: 0; z-index: 2; background: #000; padding: 34px 0 0; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform .45s cubic-bezier(.3,.8,.4,1);
+  }
+  .phone.chat .t-chat { transform: none; }
+  .t-chat-h { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .t-chat-h span { color: var(--accent); } .t-chat-h b { font-size: 13px; }
+  .t-log { flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 12px 12px; }
+  .t-msg { display: none; max-width: 82%; padding: 7px 11px; border-radius: 14px; font-size: 12px; line-height: 1.35; }
+  .t-msg.on { display: block; animation: t-in .25s ease-out; }
+  @keyframes t-in { from { opacity: 0; transform: translateY(6px); } }
+  .t-msg.me { align-self: flex-end; background: var(--accent); color: #fff; }
+  .t-msg.coach { align-self: flex-start; background: var(--field); }
+  .t-typing { order: 9; align-self: flex-start; display: none; gap: 3px; padding: 9px 11px; border-radius: 14px; background: var(--field); }
+  .t-typing.on { display: flex; }
+  .t-typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--dim); animation: t-dot 1s infinite; }
+  .t-typing i:nth-child(2) { animation-delay: .15s; } .t-typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes t-dot { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+  .t-input { margin: 0 12px 16px; padding: 9px 12px; border-radius: 16px; background: var(--field); color: var(--dim); font-size: 12px; }
+  .t-w i { font-style: normal; } .t-w i + i { display: none; }
+  .phone.changed .t-w i:first-child { display: none; } .phone.changed .t-w i + i { display: inline; }
+  .phone.changed .t-w { animation: t-flash 1.6s ease-out; }
+  @keyframes t-flash { 0%, 30% { background: #bf5af2; color: #fff; } 100% { background: var(--field); } }
+  .t-changed { margin-left: 6px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); opacity: 0; transition: opacity .3s; vertical-align: 1px; }
+  .phone.changed .t-changed { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .t-chat { transition: none; } .phone.changed .t-w { animation: none; } }
+  /* second phone: planning in Claude through the connector */
+  .p-log { display: flex; flex-direction: column; justify-content: flex-end; height: calc(100% - 40px); overflow: hidden; }
+  .p-log > * { flex: none; }
+  .p-plan [data-at] { display: none; }
+  .p-plan [data-at].on { display: block; animation: t-in .25s ease-out; }
+  .p-plan .msg { margin-bottom: 7px; }
+  .p-tool { align-self: flex-start; margin: 0 0 6px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); color: var(--dim); font-size: 10.5px; }
+  .p-tool code { color: var(--text); font: 500 10.5px ui-monospace, Menlo, monospace; }
+  .p-tool span { margin-left: 6px; color: var(--ok); }
+  .p-tool span::before { content: "✓ "; }
+  .p-plan.still [data-at] { display: block; animation: none; }
+  .p-wilo {
+    position: absolute; inset: 0; z-index: 2; background: #000; padding: 34px 14px 0;
+    transform: translateX(100%); transition: transform .45s cubic-bezier(.3,.8,.4,1);
+  }
+  .p-plan.wilo .p-wilo { transform: none; }
+  .p-tl { display: flex; align-items: center; gap: 8px; margin: 0 -14px; padding: 6px 10px; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); }
+  .p-tl > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .p-tl strong { font-size: 13px; } .p-tl > div span { font-size: 10.5px; color: var(--dim); }
+  .p-step { flex: none; width: 36px; height: 30px; border-radius: 8px; background: var(--field); border: 1px solid var(--line); display: grid; place-items: center; font-size: 20px; line-height: 1; padding-bottom: 2px; }
+  .p-step.tap { transform: scale(.88); background: #2c2c30; transition: transform .1s; }
+  .p-moved { display: none; margin: 8px 0 0; font-size: 10.5px; color: var(--coach); }
+  .p-plan.moved .p-moved { display: block; }
+  .p-plan.moved .p-moved { animation: t-tag 1.6s ease-out; }
+  @keyframes t-tag { 0%, 30% { color: #fff; text-shadow: 0 0 12px var(--coach); } }
+  .p-rest { padding: 64px 0; text-align: center; color: var(--dim); font-size: 15px; animation: t-in .35s ease-out; }
+  .p-rest span { display: block; margin-top: 8px; font-size: 11px; color: var(--coach); }
+  .p-days { animation: t-in .3s ease-out; }
+  .p-days .t-ex { padding-left: 0; padding-right: 0; }
+  .p-wilo { display: flex; flex-direction: column; overflow: hidden; }
+  .p-clip { flex: 1; min-height: 0; overflow: hidden; }
+  .t-cue .pr { color: #ffd60a; }
+  .p-plan.still .p-wilo { display: none; }
+  .t-sets.c5 { grid-template-columns: 26px 1fr 1fr 34px; }
+  .t-hd { color: var(--dim); font-size: 10px; font-weight: 500; padding-bottom: 3px; }
+  .t-no { width: 24px; height: 24px; border-radius: 6px; background: var(--field); display: grid; place-items: center; font-size: 12px; font-weight: 600; justify-self: start; }
+  .t-v { width: 100%; max-width: 54px; height: 27px; border-radius: 6px; background: var(--field); display: grid; place-items: center; font-size: 12.5px; font-weight: 500; }
+  .t-v.on { background: #1f4a2c; }
+  .t-ck { width: 34px; height: 26px; border-radius: 6px; background: var(--field); color: var(--dim); display: grid; place-items: center; font-size: 12px; }
+  .t-ck.on { background: #1f4a2c; color: #34c759; }
+  .t-add { margin-top: 9px; padding: 8px; border-radius: 8px; background: var(--field); text-align: center; font-size: 12px; }
+  .t-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .t-chip { border: 1px solid var(--line); border-radius: 999px; color: var(--dim); font-size: 10.5px; padding: 3px 9px; }
+  .t-chip.demo { color: var(--accent); border-color: var(--accent); }
+  .t-coach { position: absolute; left: 18px; bottom: 18px; background: var(--accent); color: #fff; border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,.6); }
+
+  /* ---- sections ---- */
+  section.block { padding: 72px 0; border-top: 1px solid var(--line); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .split.flip > :first-child { order: 2; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; gap: 36px; } .split.flip > :first-child { order: 0; } }
+  .kicker { color: var(--accent); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 10px; }
+  .kicker.coach { color: var(--coach); }
+  h2 { margin: 0 0 16px; font-size: clamp(30px, 4vw, 44px); line-height: 1.08; font-weight: 800; letter-spacing: -.015em; }
+  .block p { color: var(--dim); margin: 0 0 18px; max-width: 520px; }
+  ul.ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  ul.ticks li { padding-left: 30px; position: relative; }
+  ul.ticks li::before { content: "✓"; position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%; background: #0a84ff26; color: var(--accent); font-size: 11px; display: grid; place-items: center; font-weight: 700; }
+
+  /* ---- the loop ---- */
+  .steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 14px; }
+  .steps li { padding: 14px 16px 14px 18px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid; border-radius: 14px; }
+  .steps li.s-train { border-left-color: var(--accent); }
+  .steps li.s-track { border-left-color: var(--coach); }
+  .steps li.s-progress { border-left-color: var(--ok); }
+  .steps b { display: block; font-size: 17px; margin-bottom: 2px; }
+  .steps span { color: var(--dim); font-size: 15px; line-height: 1.4; }
+  .cycle { width: 100%; max-width: 420px; margin: 0 auto; display: block; overflow: visible; }
+  .cycle .arc { fill: none; stroke: #8e8e96; stroke-width: 2.5; stroke-linecap: round; }
+  .cycle .node circle { fill: var(--panel); stroke-width: 3; }
+  .cycle .node text { fill: var(--text); font: 700 17px Inter, sans-serif; text-anchor: middle; }
+  .cycle .hub { fill: var(--text); font: 800 30px Inter, sans-serif; letter-spacing: .06em; text-anchor: middle; }
+  .cycle .hub-sub { fill: var(--dim); font: 500 15px Inter, sans-serif; text-anchor: middle; }
+  .cycle .orbit { transform-origin: 200px 200px; animation: orbit 9s linear infinite; }
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cycle .orbit { animation: none; } }
+
+  /* ---- closing panels, articles ---- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; gap: 14px; }
+  .card h3 { margin: 0; font-size: 26px; font-weight: 800; }
+  .card p { margin: 0; color: var(--dim); }
+  .card .btn { align-self: flex-start; margin-top: auto; }
+  .card.coach { background: linear-gradient(160deg, #1e1530, var(--panel) 60%); }
+  .card.train { background: linear-gradient(160deg, #0b2036, var(--panel) 60%); }
+  @media (max-width: 760px) { .duo { grid-template-columns: 1fr; } }
+  .article { text-decoration: none; }
+  .article:hover { border-color: #3a3a40; }
+  .article small { color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
+  .article .more { color: var(--text); font-weight: 600; margin-top: auto; }
+
+  footer { border-top: 1px solid var(--line); padding: 36px 0 calc(36px + env(safe-area-inset-bottom)); color: var(--dim); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; }
+  footer nav { display: flex; gap: 20px; flex: 1; flex-wrap: wrap; }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="logo" href="#top">WILO<span>.</span></a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#adjust">Mid-workout</a>
+      <a href="#coaches">For coaches</a>
+      <a href="#read">Read</a>
+    </nav>
+    <a class="btn small" href="index.html?signin">Open the app</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>You set the goal.<br><em>Wilo plans, tracks and adjusts.</em><br><b>You train.</b></h1>
+        <p class="lede">Wilo is an AI coach and a workout tracker joined at the hip. Plan your week in a chat, log every set on your phone, and when your body or life says no, the plan changes mid-workout without losing a rep.</p>
+        <div class="ctas">
+          <a class="btn" href="index.html?signin">Open the app</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <div class="facts">
+          <span>Used for every workout since Oct 2026</span>
+          <span>Now coaching clients</span>
+          <span>Built in the open</span>
+        </div>
+      </div>
+      <div class="phone" aria-label="The Wilo tracker during a workout">
+        <div class="scr-h"><b>Lower A</b><small>Today</small></div>
+        <div class="saved">Synced to WILO ✓</div>
+        <!-- Drawn like the tracker's exercise list (fe/index.html .exercise): flat rows, blue name,
+             "Coach:" cue, Set | lbs | reps | ✓ table, green done rows, outline chips. -->
+        <div class="t-ex">
+          <div class="t-name">Goblet Squat</div>
+          <div class="t-cue"><b>Coach:</b> Elbows inside knees, sit between your heels.</div>
+          <div class="t-sets">
+            <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v on">35</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+            <span class="t-no">2</span><span class="t-v on">35</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+            <span class="t-no">3</span><span class="t-v on">40</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+          </div>
+          <div class="t-chips"><span class="t-chip demo">▶ Coach demo</span><span class="t-chip">+ Video / photo</span></div>
+        </div>
+        <div class="t-ex">
+          <div class="t-name">Incline Push Up <span class="t-changed">Changed by coach</span></div>
+          <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
+          <!-- the card's "Custom field name" input (ex-note in the tracker), filled in -->
+          <div class="t-field"><span>Custom field</span>Width</div>
+          <!-- custom field (custom_name "Width"), one value per set -->
+          <div class="t-sets c5">
+            <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">Width</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v on">8</span><span class="t-v on">Wide</span><span class="t-ck on">✓</span>
+            <span class="t-no">2</span><span class="t-v">8</span><span class="t-v">Wide</span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v">8</span><span class="t-v t-w"><i>Close</i><i>Wide</i></span><span class="t-ck">✓</span>
+            <span class="t-no">4</span><span class="t-v">8</span><span class="t-v t-w"><i>Close</i><i>Wide</i></span><span class="t-ck">✓</span>
+          </div>
+        </div>
+        <span class="t-coach">Coach</span>
+
+        <!-- The coach chat sheet (same layout as the tracker's), played by the loop script at the bottom. -->
+        <div class="t-chat" aria-hidden="true">
+          <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+          <div class="t-log">
+            <div class="t-msg me" data-at="1">Close grip is hurting my wrists.</div>
+            <div class="t-msg coach" data-at="3">Switching sets 3 and 4 to Wide. Ok?</div>
+            <div class="t-msg me" data-at="4">Ok</div>
+            <div class="t-msg coach" data-at="6">Done. It's in your tracker.</div>
+            <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
+            <div class="t-typing" data-at="5" data-until="6"><i></i><i></i><i></i></div>
+          </div>
+          <div class="t-input">Message your coach</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The loop -->
+  <section class="block" id="how">
+    <div class="wrap">
+     <div class="split">
+      <div>
+        <p class="kicker">How it works</p>
+        <h2>Train. Track. Progress.<br>Repeat.</h2>
+        <p>Most apps log what you did. Wilo closes the loop: what you did shapes what you do next.</p>
+        <ol class="steps">
+          <li class="s-train"><b>Train</b><span>Today's workout is on your phone. Do the work.</span></li>
+          <li class="s-track"><b>Track</b><span>Log every set as you go: reps, weight, notes, a form video.</span></li>
+          <li class="s-progress"><b>Progress</b><span>Wilo reads it all and sets up the next one: heavier, lighter or different, for a reason.</span></li>
+        </ol>
+      </div>
+      <!-- The loop: three steps on a circle, arrows clockwise, a dot going round. -->
+      <svg class="cycle" viewBox="0 0 400 400" role="img" aria-label="A loop: Train, then Track, then Progress, then back to Train">
+        <defs>
+          <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#8e8e96"/>
+          </marker>
+        </defs>
+        <circle cx="200" cy="200" r="150" fill="none" stroke="#1c1c1e" stroke-width="22"/>
+        <path d="M256.2 60.9 A150 150 0 0 1 348.5 220.9" class="arc" marker-end="url(#head)"/>
+        <path d="M292.4 318.2 A150 150 0 0 1 107.6 318.2" class="arc" marker-end="url(#head)"/>
+        <path d="M51.5 220.9 A150 150 0 0 1 143.8 60.9" class="arc" marker-end="url(#head)"/>
+        <g class="orbit"><circle cx="200" cy="50" r="6" fill="#f2f2f7"/></g>
+        <g class="node"><circle cx="200" cy="50" r="46" stroke="#0a84ff"/><text x="200" y="56">Train</text></g>
+        <g class="node"><circle cx="329.9" cy="275" r="46" stroke="#bf5af2"/><text x="329.9" y="281">Track</text></g>
+        <g class="node"><circle cx="70.1" cy="275" r="46" stroke="#34c759"/><text x="70.1" y="281">Progress</text></g>
+        <text x="200" y="198" class="hub">WILO</text>
+        <text x="200" y="224" class="hub-sub">↻ repeat</text>
+      </svg>
+     </div>
+    </div>
+  </section>
+
+  <!-- Plan -->
+  <section class="block">
+    <div class="wrap split">
+      <div>
+        <p class="kicker coach">Plan</p>
+        <h2>A coach that knows your training.</h2>
+        <p>Wilo is an MCP connector: connect Claude, or any LLM that speaks MCP, and your training is there wherever you chat. It reads your history, your preferences and your coaching principles before it writes a set.</p>
+        <ul class="ticks">
+          <li>Plans built from what you actually lifted, not a template</li>
+          <li>Holds you to last week's plan, and asks what got in the way</li>
+          <li>Remembers injuries, preferences and the exercises you hate</li>
+          <li>Workouts land on your days, ready on your phone</li>
+        </ul>
+      </div>
+      <!-- Planning in Claude with the Wilo connector: the tools it calls are the real ones (wilo/mcp_server.py).
+           Played step by step by the loop script at the bottom (data-at). -->
+      <div class="phone p-plan" aria-label="Planning next week in Claude with the Wilo connector">
+        <div class="scr-h"><b>Claude</b><small>Wilo connected</small></div>
+        <div class="p-log">
+          <div class="msg me" data-at="1">Connect to my Wilo. Look at last week and help me plan next week.</div>
+          <div class="p-tool" data-at="2">Wilo · <code>coaching_method</code><span>coaching principles</span></div>
+          <div class="p-tool" data-at="3">Wilo · <code>get_profile</code><span>your preferences</span></div>
+          <div class="p-tool" data-at="4">Wilo · <code>training_summary</code><span>planned vs done</span></div>
+          <div class="msg coach" data-at="5"><b>Claude</b>Last week you planned 3 workouts and did 2. Saturday's full body didn't happen. Plan 2 this week, or what would make the third one happen?</div>
+          <div class="msg me" data-at="6">Keep 3. Saturdays are hard, Sunday morning works.</div>
+          <div class="msg coach" data-at="7"><b>Claude</b>Ok: Tuesday and Thursday same as last week. Great job on the Leg Press and Push Up PRs! Saturday's workout moves to Sunday.
+          </div>
+          <div class="msg me" data-at="8">Save it</div>
+          <div class="p-tool" data-at="9">Wilo · <code>assign_workout</code> × 3<span>saved</span></div>
+          <div class="msg coach" data-at="10"><b>Claude</b>Done. They're on your days in the tracker.</div>
+        </div>
+        <!-- Then the tracker's Review view (fe/index.html .tl): ‹ day › through the week the chat just saved. -->
+        <div class="p-wilo" aria-hidden="true">
+          <div class="scr-h"><b>WILO</b><small>Review</small></div>
+          <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
+          <div class="p-moved">Moved from Saturday</div>
+          <div class="p-clip"><div class="p-days"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Adjust mid-workout -->
+  <section class="block" id="adjust">
+    <div class="wrap split flip">
+      <div>
+        <p class="kicker">Mid-workout</p>
+        <h2>Plans change. Your log doesn't break.</h2>
+        <p>Machine taken? Shoulder tweaky? Tell the coach between sets. The new plan merges into the workout on your screen, live. Every set you've logged stays put.</p>
+        <ul class="ticks">
+          <li>Swap, add or drop exercises mid-session</li>
+          <li>Logged sets, notes and renames are never overwritten</li>
+          <li>Saves as you go, so nothing is lost if your phone dies</li>
+        </ul>
+      </div>
+      <div class="phone" aria-label="The coach swapping an exercise mid-workout">
+        <div class="scr-h"><b>Upper</b><small>In progress</small></div>
+        <div class="msg me">Shoulder's not having overhead today.</div>
+        <div class="msg coach"><b>Coach</b>Swapping to landmine press, same sets. Your first two exercises are kept.</div>
+        <div class="ex">
+          <div class="name"><span class="struck">Shoulder Press (DB)</span></div>
+          <div class="name" style="margin-top:4px">Landmine Press <span class="tag">Updated by coach</span></div>
+          <div class="sets" style="margin-top:8px">
+            <span class="hd">Set</span><span class="hd">Reps</span><span class="hd">Lbs</span><span></span>
+            <span>1</span><span class="v empty">10</span><span class="v empty">25</span><span class="tick"></span>
+          </div>
+        </div>
+        <div class="ex">
+          <div class="name">Chest Supported Row <span class="tag" style="background:#34c75926;color:#34c759">3/3 ✓</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Video -->
+  <section class="block">
+    <div class="wrap split">
+      <div>
+        <p class="kicker">Form checks</p>
+        <h2>See it done. Show how you did it.</h2>
+        <p>Every exercise can carry a short demo from your coach. Film a set and attach it, and your coach sees exactly what you saw.</p>
+        <ul class="ticks">
+          <li>10-second coach demos on every exercise</li>
+          <li>Attach a form video or photo to any set</li>
+          <li>Private: only you and your coach can watch yours</li>
+        </ul>
+      </div>
+      <div class="phone" aria-label="A coach demo and a form video on an exercise">
+        <div class="scr-h"><b>Full body</b><small>Yesterday</small></div>
+        <div class="ex">
+          <div class="name">Deadlift (Barbell) <span class="tag">3 × 6</span></div>
+          <div class="cue">2 s negative, every rep</div>
+          <div class="video"><span>Coach demo · 0:09</span></div>
+          <div class="chips"><span class="chip blue">▶ Coach demo</span><span class="chip">🎥 Your set 3</span><span class="chip">+ Video / photo</span></div>
+        </div>
+        <div class="ex">
+          <div class="name">Split Squat <span class="tag">3 × 8</span></div>
+          <div class="cue">Front shin vertical, slow down.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- For coaches -->
+  <section class="block" id="coaches">
+    <div class="wrap">
+      <div class="duo">
+        <div class="card train">
+          <p class="kicker">For lifters</p>
+          <h3>Train with Wilo</h3>
+          <p>You already go to the gym. Wilo makes the plan smarter every week and keeps up when the day doesn't go to plan.</p>
+          <a class="btn" href="index.html?signin">Open the app</a>
+        </div>
+        <div class="card coach">
+          <p class="kicker coach">For coaches</p>
+          <h3>Coach with Wilo</h3>
+          <p>Write a client's next session in plain words, watch their form videos, and see every set they logged, without chasing screenshots in DMs.</p>
+          <a class="btn ghost" href="#read">How it's built</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Read -->
+  <section class="block" id="read">
+    <div class="wrap">
+      <p class="kicker">Read</p>
+      <h2>Built in the open.</h2>
+      <p>Notes from building an AI coach that people actually train with.</p>
+      <div class="duo">
+        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai/blob/main/docs/case-study-coach-token-cost.md">
+          <small>Case study</small>
+          <h3>Why the coach chat was expensive</h3>
+          <p>Where an AI coach's tokens really go (mostly into re-reading its own tool results) and what cut the bill.</p>
+          <span class="more">Read the case study →</span>
+        </a>
+        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai">
+          <small>Source</small>
+          <h3>The code</h3>
+          <p>The tracker, the coach's tools and the coaching method, all on GitHub.</p>
+          <span class="more">View on GitHub →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="#top">WILO<span>.</span></a>
+    <nav>
+      <a href="index.html?signin">App</a>
+      <a href="#how">How it works</a>
+      <a href="#read">Case study</a>
+      <a href="https://github.com/CoachThomLamb/wilo_ai">GitHub</a>
+    </nav>
+    <span>© 2026 Wilo</span>
+  </div>
+</footer>
+
+<script>
+  // Hero loop: workout → tap Coach → chat (data-at steps) → chat closes, the change shows → again.
+  // With reduced motion it just shows the changed workout, no loop.
+  (() => {
+    const phone = document.querySelector('.phone[aria-label="The Wilo tracker during a workout"]');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('changed'); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    async function play() {
+      for (;;) {
+        phone.classList.remove('chat', 'changed', 'tap'); step(0);
+        await wait(2200);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
+        phone.classList.add('chat'); await wait(700);
+        for (const [n, ms] of [[1, 1100], [2, 1300], [3, 1400], [4, 900], [5, 1100], [6, 1500]]) { step(n); await wait(ms); }
+        phone.classList.remove('chat'); await wait(450);
+        phone.classList.add('changed'); await wait(4200);
+      }
+    }
+    play();
+  })();
+
+  // Second phone: the planning chat in Claude plays one step at a time, newest at the bottom, then again.
+  (() => {
+    const phone = document.querySelector('.p-plan');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('still'); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    // The week the chat saves, drawn like the tracker's exercise rows (planned sets, nothing logged yet).
+    const WEEK = [
+      { day: 'Tue, Nov 17', name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
+      { day: 'Thu, Nov 19', name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
+      { day: 'Sat, Nov 21', name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+      { day: 'Sun, Nov 22', name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+    ];
+    const next = phone.querySelector('.p-step.next');
+    function showDay(w) {
+      phone.querySelector('.p-tl strong').textContent = w.day;
+      phone.querySelector('.p-tl > div span').textContent = w.name;
+      phone.querySelector('.p-moved').textContent = w.moved || '';
+      phone.classList.toggle('moved', !!w.moved);
+      const box = phone.querySelector('.p-days');
+      box.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> <span class="pr">${cue.slice(0, 2)}</span>${cue.slice(2)}</div>` : ''}<div class="t-sets">
+        <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+        ${[1, 2, 3].map(i => `<span class="t-no">${i}</span><span class="t-v">${lbs}</span><span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
+      </div></div>`).join('');
+      box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
+      // Longer than the screen: scroll down it slowly, like a thumb in the tracker.
+      unscroll();
+      const over = box.scrollHeight - box.parentElement.clientHeight;
+      if (over > 0) scrollTimer = setTimeout(() => { box.style.transition = 'transform 2.2s ease-in-out'; box.style.transform = `translateY(-${over}px)`; }, 1800);
+    }
+    let scrollTimer;
+    function unscroll() {
+      clearTimeout(scrollTimer);
+      const box = phone.querySelector('.p-days');
+      box.style.transition = 'none'; box.style.transform = '';
+    }
+    // Saturday: the workout clears and the day turns into rest (the tracker's "No workout" screen).
+    function toRest(w) {
+      unscroll();
+      phone.querySelector('.p-tl > div span').textContent = 'Rest';
+      phone.querySelector('.p-days').innerHTML = `<div class="p-rest">No workout<span>${w.rest}</span></div>`;
+    }
+    const pause = { 1: 1200, 2: 600, 3: 600, 4: 900, 5: 3200, 6: 1800, 7: 3800, 8: 900, 9: 900, 10: 3500 };
+    (async () => {
+      for (;;) {
+        for (let n = 1; n <= 10; n++) { items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n)); await wait(pause[n] - (n === 10 ? 1800 : 0)); }
+        // Over to Wilo: the saved week in Review, one day at a time.
+        phone.classList.add('wilo');
+        for (let d = 0; d < WEEK.length; d++) {
+          if (d) { next.classList.add('tap'); await wait(180); next.classList.remove('tap'); }
+          showDay(WEEK[d]);
+          if (WEEK[d].rest) { await wait(1100); toRest(WEEK[d]); }
+          await wait(WEEK[d].rest ? 2200 : 4600);
+        }
+        phone.classList.remove('wilo', 'moved');
+        items.forEach(el => el.classList.remove('on'));
+        await wait(700);
+      }
+    })();
+  })();
+</script>
+</body>
+</html>
