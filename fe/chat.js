@@ -89,6 +89,8 @@ async function send(text) {
     chat.messages.push({ role: "coach", text: reply });
     wait.className = "msg coach";
     wait.textContent = reply;
+    // The page can refresh what the coach wrote (day.html reloads the day after update_day).
+    window.dispatchEvent(new CustomEvent("wilo-chat-reply", { detail: { tools: body.tools || [] } }));
   } catch (err) {
     wait.className = "msg err";
     wait.textContent = "Couldn't reach the coach: " + (err.message || err);

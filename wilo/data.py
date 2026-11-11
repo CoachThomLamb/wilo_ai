@@ -471,6 +471,55 @@ def delete_todo(db, uid, doc_id):
     return {'ok': True, 'deleted': {'docId': doc_id, **snap.to_dict()}}
 
 
+# Days (#156): the daily loop the Day page (fe/day.html) writes, one doc per local date at users/{uid}/days/{date}:
+# {date, grat[], strive[], watch[], wilos[], notes[{at, text}], score{"Wilos:<text>": y|m|n}, tomorrow[], retro?, updatedAt}.
+DAY_LISTS = ('grat', 'strive', 'watch', 'wilos', 'tomorrow')
+DAY_FIELDS = DAY_LISTS + ('retro',)
+_DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+def get_day(db, uid, date):
+    if not _DATE.match(str(date)):
+        return {'ok': False, 'errors': [f'date {date!r} is not YYYY-MM-DD']}
+    snap = collection(db, uid, 'days').document(date).get()
+    return {'ok': True, 'date': date, 'exists': snap.exists, 'day': snap.to_dict() if snap.exists else {}}
+
+
+def recent_days(db, uid, limit=7):
+    """The latest days with a note, newest first."""
+    docs = sorted(((d.id, d.to_dict()) for d in collection(db, uid, 'days').stream()), reverse=True)
+    return [{'date': k, **v} for k, v in docs[:max(1, min(int(limit), 60))]]
+
+
+def update_day(db, uid, date, changes, now):
+    """Set lists (grat, strive, watch, wilos, tomorrow) and/or retro on a day. None leaves a field as is;
+    a list replaces the whole list; '' clears retro. Notes and score are the user's, so they're never touched."""
+    if not _DATE.match(str(date)):
+        return {'ok': False, 'errors': [f'date {date!r} is not YYYY-MM-DD']}
+    ref = collection(db, uid, 'days').document(date)
+    snap = ref.get()
+    old = snap.to_dict() if snap.exists else {'date': date, 'notes': [], 'score': {}}
+    new = dict(old)
+    for k, v in changes.items():
+        if k not in DAY_FIELDS:
+            return {'ok': False, 'errors': [f'unknown field {k!r} (allowed: {", ".join(DAY_FIELDS)})']}
+        if v is None:
+            continue
+        if k == 'retro':
+            if str(v).strip():
+                new['retro'] = str(v).strip()
+            else:
+                new.pop('retro', None)
+        elif not isinstance(v, list):
+            return {'ok': False, 'errors': [f'{k} must be a list of strings']}
+        else:
+            new[k] = [str(s).strip() for s in v if str(s).strip()]
+    changed = diff(old, new)
+    new['updatedAt'] = _iso(now)
+    ref.set(new)
+    return {'ok': True, 'date': date, 'day': new, 'changes': changed}
+
+
 # The coaching profile (#48): what's personal to this user, as opposed to the generic method in wilo/coach.md.
 # Loose on purpose: free-text sections, formalized only once real use shows what's needed.
 PROFILE_SECTIONS = ('preferences', 'limitations', 'plan', 'notes')

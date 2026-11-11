@@ -177,8 +177,31 @@ def delete_todo(doc_id: str) -> dict[str, Any]:
     return wilo_data.delete_todo(db(), current_uid(), doc_id)
 
 
+def get_day(date: str | None = None) -> dict[str, Any]:
+    """One day from the user's Day page (default today, in the user's timezone): grat (grateful for), strive
+    (who they want to be today), watch (watch out for), wilos (what to get done today), notes (timestamped notes
+    to their future self), score ("Wilos:<text>" or "Strive for:<text>" -> y / m (partly) / n), tomorrow (lines for
+    the next morning) and retro. exists is False for a day with nothing written yet."""
+    return wilo_data.get_day(db(), current_uid(), date or _today())
+
+
+def recent_days(limit: int = 7) -> dict[str, Any]:
+    """The user's latest days with anything written, newest first (fields as in get_day)."""
+    return {'days': wilo_data.recent_days(db(), current_uid(), limit)}
+
+
+def update_day(date: str | None = None, retro: str | None = None, grat: list[str] | None = None,
+               strive: list[str] | None = None, watch: list[str] | None = None, wilos: list[str] | None = None,
+               tomorrow: list[str] | None = None) -> dict[str, Any]:
+    """Write to a day (default today). retro shows on the Day page's Night tab; '' clears it. A list replaces that
+    whole list (send the full list, not just the new line). Leave a field out to keep it. The user's notes and
+    scores are never changed. Saves immediately (no dry run); the page shows it the next time it loads."""
+    changes = {'retro': retro, 'grat': grat, 'strive': strive, 'watch': watch, 'wilos': wilos, 'tomorrow': tomorrow}
+    return wilo_data.update_day(db(), current_uid(), date or _today(), changes, datetime.now(timezone.utc))
+
+
 TOOLS = [coaching_method, get_profile, update_profile, workout_schema, current_workout, training_summary, recent_workouts, get_workout, exercise_history, exercise_names,
-         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo]
+         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo, get_day, recent_days, update_day]
 
 
 def make_server(provider=None, issuer=None):

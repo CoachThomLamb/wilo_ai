@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<!--
+  WILO Day: the daily loop, like a workout's train / review.
+    Morning: grateful for, strive for (who to be), watch out for, Wilos (what to get done).
+    Day: those pinned, plus notes to future me, any time.
+    Night: did I? (✓ ~ ✕ per Wilo and strive), the retro, for tomorrow.
+
+  - Data: users/{uid}/days/{YYYY-MM-DD} (local date), one doc per day:
+    {date, grat[], strive[], watch[], wilos[], notes[{at, text}], score{"Wilos:<text>": y|m|n},
+     tomorrow[], retro?, updatedAt}. Empty lines are dropped on save.
+  - "From last night" is the previous day's `tomorrow`.
+  - `retro` is written by the coach (connector), not this page; shown when present.
+  - Saves as you type (debounced); "Saved ✓" only after Firestore confirms.
+  - Rules: covered by users/{uid}/{collection}/** in firestore.rules.
+-->
+<html lang="en">
+<head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // Same config as index.html; see the authDomain note there.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  getFirestore(app, "wilo");
+  window.__fs = { setDoc, getDoc };
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Day</title>
+<style>
+  :root {
+    --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
+    --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff;
+    --done: #1f4a2c; --done-line: #34c759; --warn: #ff9f0a; --night: #bf5af2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    font: 400 17px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
+  }
+  header { padding: 14px 16px 10px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; }
+
+  /* mode switch, like the tracker's train / review */
+  .modes { display: flex; gap: 4px; margin: 6px 16px 4px; padding: 3px; background: var(--field); border-radius: 10px; }
+  .modes button {
+    flex: 1; height: 34px; border: 0; border-radius: 8px; background: none;
+    color: var(--dim); font: 500 15px/1 inherit; font-family: inherit;
+  }
+  .modes button.on { background: #3a3a3c; color: var(--text); }
+
+  h2 { margin: 22px 16px 6px; font-size: 13px; font-weight: 500; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; display: flex; justify-content: space-between; }
+  h2 span { text-transform: none; letter-spacing: 0; }
+  .card { margin: 0 16px; background: var(--field); border-radius: 12px; overflow: hidden; }
+  .row { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .k { flex: none; width: 20px; color: var(--dim); font-size: 15px; padding-top: 1px; }
+  .row .v { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .row input, .row textarea {
+    width: 100%; background: none; border: 0; padding: 0; color: var(--text);
+    font: inherit; resize: none; outline: none;
+  }
+  .row input::placeholder, .row textarea::placeholder { color: #4a4a4f; }
+  .tag { font-size: 12px; color: var(--dim); }
+  .grat .k { color: var(--done-line); }
+  .strive .k { color: var(--accent); }
+  .watch .k { color: var(--warn); }
+  .wilo .k { color: var(--night); }
+  .pinned .o b { color: var(--night); }
+  .sub { margin: 14px 14px 4px; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+
+  /* compact pinned intentions in Day / Night */
+  .pinned { margin: 10px 16px 0; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; }
+  .pinned div { margin: 3px 0; }
+  .pinned b { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+  .pinned .s b { color: var(--accent); } .pinned .w b { color: var(--warn); }
+
+
+  /* notes to future self */
+  .note { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .note:last-child { border-bottom: 0; }
+  .note time { display: block; font-size: 12px; color: var(--dim); margin-bottom: 2px; }
+  .empty { padding: 12px 14px; color: var(--dim); font-size: 15px; }
+
+  /* the always-there "leave a note" bar */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(14,14,15,.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+  }
+  .bar form { display: flex; gap: 8px; max-width: 488px; margin: 0 auto; }
+  .bar input { flex: 1; min-width: 0; height: 42px; border: 0; border-radius: 21px; background: var(--field); color: var(--text); padding: 0 16px; font: inherit; font-size: 16px; }
+  .bar input:focus { outline: 2px solid var(--accent); }
+  .btn { flex: none; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: 500 16px/1 inherit; font-family: inherit; }
+
+  /* night review */
+  .score { display: flex; gap: 6px; flex: none; }
+  .score button { width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--dim); font-size: 14px; }
+  .score button.on.y { background: var(--done); border-color: var(--done-line); color: var(--done-line); }
+  .score button.on.n { background: #4a1f1f; border-color: #ff453a; color: #ff453a; }
+  .score button.on.m { background: #4a3a1f; border-color: var(--warn); color: var(--warn); }
+  .retro { margin: 0 16px; padding: 14px; border-radius: 12px; background: linear-gradient(160deg, #241a33, #141416); border: 1px solid #3a2d4f; }
+  .retro p { margin: 0 0 8px; font-size: 15px; }
+  .retro .who { font-size: 12px; color: var(--night); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .retro .btn { background: var(--night); width: 100%; margin-top: 6px; }
+  .tomorrow .k { color: var(--night); }
+  .mock { margin: 28px 16px 0; color: #4a4a4f; font-size: 12px; text-align: center; }
+  .saved { margin: 4px 0 0; font-size: 12px; color: var(--dim); min-height: 15px; }
+  .saved.ok { color: var(--done-line); }
+  .saved.err { color: #ff453a; }
+  .gate {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate h1 { font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .talk { flex: none; margin-top: 4px; height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--night); color: #fff; font: 500 15px/1 inherit; font-family: inherit; }
+
+  /* coach chat (chat.js), same sheet as the tracker */
+  .chat-sheet {
+    position: fixed; left: 0; right: 0; top: 0; z-index: 5; height: var(--vvh, 100dvh);
+    background: var(--bg); display: flex; flex-direction: column; max-width: 520px; margin: 0 auto;
+    transform: translateY(100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.3,.8,.4,1), visibility 0s linear .28s;
+  }
+  .chat-sheet.open { transform: translateY(0); visibility: visible; transition: transform .28s cubic-bezier(.3,.8,.4,1); }
+  @media (prefers-reduced-motion: reduce) { .chat-sheet, .chat-sheet.open { transition: none; } }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between; flex: none;
+    padding: max(12px, env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid var(--line);
+  }
+  .sheet-head strong { font-size: 17px; }
+  .sheet-head button { background: none; border: 0; color: var(--accent); font-family: inherit; font-size: 16px; }
+  .chat-log { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { position: relative; max-width: 85%; padding: 9px 13px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; transition: transform .15s, filter .15s; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; }
+  .msg.coach { align-self: flex-start; background: var(--field); }
+  .msg.pending { color: var(--dim); }
+  .msg.err { align-self: flex-start; background: none; border: 1px solid #ff453a; color: #ff453a; }
+  .msg.hint { align-self: center; max-width: 100%; color: var(--dim); font-size: 14px; text-align: center; }
+  .msg.note { align-self: flex-start; padding-top: 0; color: var(--dim); font-size: 14px; }
+  @media (hover: none) { .msg { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+  .msg.held { transform: scale(.97); filter: brightness(1.25); }
+  .msg.flash::after { content: attr(data-flash); position: absolute; top: -10px; right: 8px; background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; pointer-events: none; }
+  .chat-form { display: flex; gap: 8px; align-items: flex-end; flex: none; padding: 10px 16px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .chat-form textarea { flex: 1; min-width: 0; resize: none; height: 44px; max-height: 120px; background: var(--field); border: 0; border-radius: 20px; padding: 11px 14px; color: var(--text); font-family: inherit; font-size: 16px; line-height: 1.3; }
+  .chat-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chat-form .btn:disabled { opacity: .5; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button class="btn" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<header>
+  <div>
+  <h1>Today</h1>
+  <p class="date" id="date"></p>
+  <p class="saved" id="saved"></p>
+  </div>
+  <button class="talk" id="chatBtn">Wilo</button>
+</header>
+
+<div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Chat with Wilo">
+  <div class="sheet-head">
+    <button id="chatNew">New</button>
+    <strong>Wilo</strong>
+    <button id="chatClose">Close</button>
+  </div>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <form class="chat-form" id="chatForm">
+    <textarea id="chatInput" rows="1" placeholder="Talk to Wilo" enterkeyhint="send"></textarea>
+    <button class="btn" type="submit">Send</button>
+  </form>
+</div>
+
+<div class="modes" role="tablist">
+  <button data-mode="morning">☀︎ Morning</button>
+  <button data-mode="day">Day</button>
+  <button data-mode="night">☾ Night</button>
+</div>
+
+<!-- MORNING: set the day up -->
+<section id="morning">
+  <h2>Grateful for</h2>
+  <div class="card grat" id="grat"></div>
+
+  <h2>Strive for <span>who I want to be today</span></h2>
+  <div class="card strive" id="strive"></div>
+
+  <h2>Watch out for</h2>
+  <div class="card watch" id="watch"></div>
+
+  <h2>Wilos <span>what we get done today</span></h2>
+  <div class="card wilo" id="wilos"></div>
+
+  <div id="lastNightBox" hidden>
+    <h2>From last night</h2>
+    <div class="card tomorrow" id="lastNight"></div>
+  </div>
+</section>
+
+<!-- DAY: intentions pinned, notes all day -->
+<section id="day">
+  <div class="pinned" id="pinned"></div>
+  <h2>Notes to future me <span id="count"></span></h2>
+  <div class="card" id="notes"></div>
+</section>
+
+<!-- NIGHT: review against the morning, retro with Wilo -->
+<section id="night">
+  <h2>Did I?</h2>
+  <div class="card strive" id="review"></div>
+
+  <h2>Today's notes <span id="count2"></span></h2>
+  <div class="card" id="notes2"></div>
+
+  <h2>Retro</h2>
+  <div class="retro">
+    <div class="who">Wilo</div>
+    <p id="retro">Score the day above, then talk it through.</p>
+    <button class="btn" id="retroBtn" style="background:var(--night);width:100%;margin-top:6px">Retro my day with Wilo</button>
+  </div>
+
+  <h2>For tomorrow</h2>
+  <div class="card tomorrow" id="tomorrow"></div>
+</section>
+
+<div class="bar">
+  <form id="noteForm" autocomplete="off">
+    <input id="noteText" placeholder="Note to future me…" enterkeyhint="send">
+    <button class="btn" type="submit">Add</button>
+  </form>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const pad = n => String(n).padStart(2, '0');
+  const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const LISTS = ['grat', 'strive', 'watch', 'wilos', 'tomorrow'];
+  let today = localDate(new Date());
+  let day = blank();
+
+  function blank() {
+    const d = { notes: [], score: {} };
+    LISTS.forEach(k => d[k] = ['']);
+    return d;
+  }
+
+  function note(msg, kind) {
+    $('saved').textContent = msg;
+    $('saved').className = 'saved' + (kind ? ' ' + kind : '');
+  }
+
+  // Saves the whole day, debounced while typing. Empty lines are dropped.
+  let timer, pending = false;
+  function save(now) {
+    clearTimeout(timer);
+    pending = true;
+    note('Saving…');
+    timer = setTimeout(flush, now ? 0 : 700);
+  }
+  async function flush() {
+    clearTimeout(timer);
+    if (!pending) return;
+    pending = false;
+    const out = { date: today, notes: day.notes, score: day.score, updatedAt: new Date().toISOString() };
+    LISTS.forEach(k => out[k] = day[k].map(s => s.trim()).filter(Boolean));
+    try {
+      await window.__fs.setDoc(window.__auth.userDoc('days', today), out, { merge: true });
+      note('Saved ✓', 'ok');
+    } catch (err) {
+      note('Save failed: ' + (err.code || err.message) + '. Keep the page open and try again.', 'err');
+    }
+  }
+
+  async function load() {
+    const { getDoc } = window.__fs;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const [snap, prev] = await Promise.all([
+      getDoc(window.__auth.userDoc('days', today)),
+      getDoc(window.__auth.userDoc('days', localDate(y))),
+    ]);
+    day = blank();
+    if (snap.exists()) {
+      const d = snap.data();
+      LISTS.forEach(k => day[k] = [...(d[k] || []), '']);
+      day.notes = d.notes || [];
+      day.score = d.score || {};
+      day.retro = d.retro;
+    }
+    const carry = prev.exists() ? (prev.data().tomorrow || []) : [];
+    $('lastNightBox').hidden = !carry.length;
+    $('lastNight').innerHTML = '';
+    carry.forEach(s => {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = '<span class="k">↳</span><span class="v"></span>';
+      r.querySelector('.v').textContent = s;
+      $('lastNight').appendChild(r);
+    });
+    if (day.retro) $('retro').textContent = day.retro;
+    drawLists();
+    draw();
+  }
+
+  function lines(el, list, ph, mark) {
+    el.innerHTML = '';
+    list.forEach((v, i) => {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = `<span class="k">${mark}</span><span class="v"><input></span>`;
+      const inp = r.querySelector('input');
+      inp.value = v; inp.placeholder = ph;
+      inp.addEventListener('input', () => {
+        list[i] = inp.value;
+        if (i === list.length - 1 && inp.value) { list.push(''); lines(el, list, ph, mark); el.querySelectorAll('input')[i].focus(); }
+        draw();
+        save();
+      });
+      el.appendChild(r);
+    });
+  }
+
+  function noteList(el) {
+    el.innerHTML = day.notes.length ? '' : '<div class="empty">Nothing yet. Leave yourself a note any time.</div>';
+    [...day.notes].reverse().forEach(n => {
+      const d = document.createElement('div');
+      d.className = 'note';
+      d.innerHTML = `<time></time><div></div>`;
+      d.querySelector('time').textContent = n.at;
+      d.lastChild.textContent = n.text;
+      el.appendChild(d);
+    });
+  }
+
+  function draw() {
+    const strive = day.strive.filter(Boolean), watch = day.watch.filter(Boolean), wilos = day.wilos.filter(Boolean);
+    $('pinned').innerHTML = '';
+    const pin = (cls, label, s) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = `<b>${label}</b>`; d.append(s); $('pinned').appendChild(d); };
+    strive.forEach(s => pin('s', 'Strive', s));
+    watch.forEach(s => pin('w', 'Watch', s));
+    wilos.forEach(s => pin('o', 'Wilo', s));
+
+    noteList($('notes')); noteList($('notes2'));
+    $('count').textContent = $('count2').textContent = day.notes.length ? day.notes.length : '';
+
+    $('review').innerHTML = '';
+    [['Wilos', wilos], ['Strive for', strive]].forEach(([label, list]) => {
+      if (!list.length) return;
+      $('review').insertAdjacentHTML('beforeend', `<div class="sub">${label}</div>`);
+      list.forEach(s => {
+        const key = label + ':' + s;
+        const r = document.createElement('div');
+        r.className = 'row';
+        r.innerHTML = `<span class="v"></span><span class="score">
+          <button class="y" aria-label="Yes">✓</button><button class="m" aria-label="Partly">~</button><button class="n" aria-label="No">✕</button></span>`;
+        r.querySelector('.v').textContent = s;
+        r.querySelectorAll('.score button').forEach(b => {
+          if (day.score[key] === b.className) b.classList.add('on');
+          b.addEventListener('click', () => {
+            if (day.score[key] === b.classList[0]) delete day.score[key]; else day.score[key] = b.classList[0];
+            draw();
+            save(true);
+          });
+        });
+        $('review').appendChild(r);
+      });
+    });
+  }
+
+  function drawLists() {
+    lines($('grat'), day.grat, 'Something you\'re grateful for', '•');
+    lines($('strive'), day.strive, 'Something to strive for', '→');
+    lines($('watch'), day.watch, 'Something to watch out for', '!');
+    lines($('wilos'), day.wilos, 'Something to get done today', '○');
+    lines($('tomorrow'), day.tomorrow, 'Carry into tomorrow', '↳');
+  }
+
+  $('noteForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const text = $('noteText').value.trim();
+    if (!text) return;
+    const d = new Date();
+    day.notes.push({ at: `${pad(d.getHours())}:${pad(d.getMinutes())}`, text });
+    $('noteText').value = '';
+    draw();
+    save(true);
+  });
+
+  // Talking to Wilo (chat.js). When it wrote to the day, reload so the page shows it, after our own save lands.
+  window.addEventListener('wilo-chat-reply', async ev => {
+    if (!ev.detail.tools.includes('update_day')) return;
+    await flush();
+    load().catch(err => note("Couldn't reload your day: " + (err.code || err.message), 'err'));
+  });
+  $('retroBtn').addEventListener('click', () => {
+    $('chatBtn').click();
+    $('chatInput').value = 'Retro my day';
+    $('chatInput').focus();
+  });
+
+  // The keyboard shrinks the chat sheet instead of pushing the page (same as the tracker).
+  const vv = window.visualViewport;
+  const lockViewport = () => document.documentElement.style.setProperty('--vvh', (vv ? vv.height : innerHeight) + 'px');
+  if (vv) vv.addEventListener('resize', lockViewport);
+  lockViewport();
+
+  // A page left open past midnight reloads onto the new day when you come back to it.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && localDate(new Date()) !== today && window.__auth?.currentUser()) location.reload();
+  });
+
+  // ---- sign-in (same as Today) ---------------------------------------
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    $('gate').hidden = !!user;
+    $('gateBtn').hidden = !!user;
+    $('gateMsg').textContent = 'Sign in to see your day.';
+    if (user) load().catch(err => note("Couldn't load your day: " + (err.code || err.message), 'err'));
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+  $('gateBtn').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { $('gateMsg').textContent = 'Sign-in failed: ' + (err.code || err.message); }
+  });
+
+  // Mode: picked by the clock (before 11 morning, after 19 night), tabs override.
+  function setMode(m) {
+    ['morning', 'day', 'night'].forEach(x => $(x).hidden = x !== m);
+    document.querySelectorAll('.modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  }
+  document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  const h = new Date().getHours();
+  setMode(h < 11 ? 'morning' : h >= 19 ? 'night' : 'day');
+</script>
+<script type="module" src="./chat.js"></script>
+</body>
+</html>
