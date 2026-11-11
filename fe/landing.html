@@ -178,6 +178,9 @@
   .p-rest span { display: block; margin-top: 8px; font-size: 11px; color: var(--coach); }
   .p-days { animation: t-in .3s ease-out; }
   .p-days .t-ex { padding-left: 0; padding-right: 0; }
+  .p-wilo { display: flex; flex-direction: column; overflow: hidden; }
+  .p-clip { flex: 1; min-height: 0; overflow: hidden; }
+  .t-cue .pr { color: #ffd60a; }
   .p-plan.still .p-wilo { display: none; }
   .t-sets.c5 { grid-template-columns: 26px 1fr 1fr 34px; }
   .t-hd { color: var(--dim); font-size: 10px; font-weight: 500; padding-bottom: 3px; }
@@ -398,7 +401,7 @@
           <div class="scr-h"><b>WILO</b><small>Review</small></div>
           <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
           <div class="p-moved">Moved from Saturday</div>
-          <div class="p-days"></div>
+          <div class="p-clip"><div class="p-days"></div></div>
         </div>
       </div>
     </div>
@@ -556,10 +559,10 @@
     const wait = ms => new Promise(r => setTimeout(r, ms));
     // The week the chat saves, drawn like the tracker's exercise rows (planned sets, nothing logged yet).
     const WEEK = [
-      { day: 'Tue, Nov 17', name: 'Lower A', ex: [['Leg Press', 180, 10], ['Hip Thrust', 135, 8]] },
-      { day: 'Thu, Nov 19', name: 'Upper', ex: [['Incline Push Up', '', 10], ['Chest Supported Row', 30, 12]] },
-      { day: 'Sat, Nov 21', name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8]] },
-      { day: 'Sun, Nov 22', name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8]] },
+      { day: 'Tue, Nov 17', name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
+      { day: 'Thu, Nov 19', name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
+      { day: 'Sat, Nov 21', name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+      { day: 'Sun, Nov 22', name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
     ];
     const next = phone.querySelector('.p-step.next');
     function showDay(w) {
@@ -568,14 +571,25 @@
       phone.querySelector('.p-moved').textContent = w.moved || '';
       phone.classList.toggle('moved', !!w.moved);
       const box = phone.querySelector('.p-days');
-      box.innerHTML = w.ex.map(([n, lbs, reps]) => `<div class="t-ex"><div class="t-name">${n}</div><div class="t-sets">
+      box.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> <span class="pr">${cue.slice(0, 2)}</span>${cue.slice(2)}</div>` : ''}<div class="t-sets">
         <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
         ${[1, 2, 3].map(i => `<span class="t-no">${i}</span><span class="t-v">${lbs}</span><span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
       </div></div>`).join('');
       box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
+      // Longer than the screen: scroll down it slowly, like a thumb in the tracker.
+      unscroll();
+      const over = box.scrollHeight - box.parentElement.clientHeight;
+      if (over > 0) scrollTimer = setTimeout(() => { box.style.transition = 'transform 2.2s ease-in-out'; box.style.transform = `translateY(-${over}px)`; }, 1800);
+    }
+    let scrollTimer;
+    function unscroll() {
+      clearTimeout(scrollTimer);
+      const box = phone.querySelector('.p-days');
+      box.style.transition = 'none'; box.style.transform = '';
     }
     // Saturday: the workout clears and the day turns into rest (the tracker's "No workout" screen).
     function toRest(w) {
+      unscroll();
       phone.querySelector('.p-tl > div span').textContent = 'Rest';
       phone.querySelector('.p-days').innerHTML = `<div class="p-rest">No workout<span>${w.rest}</span></div>`;
     }
@@ -589,7 +603,7 @@
           if (d) { next.classList.add('tap'); await wait(180); next.classList.remove('tap'); }
           showDay(WEEK[d]);
           if (WEEK[d].rest) { await wait(1100); toRest(WEEK[d]); }
-          await wait(d === WEEK.length - 1 ? 3200 : 2400);
+          await wait(WEEK[d].rest ? 2200 : 4600);
         }
         phone.classList.remove('wilo', 'moved');
         items.forEach(el => el.classList.remove('on'));
