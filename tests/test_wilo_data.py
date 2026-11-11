@@ -446,6 +446,46 @@ class TodoTest(unittest.TestCase):
         self.assertFalse(self.db.store[f'users/{UID}/todos/{tid}']['done'])
 
 
+class DayTest(unittest.TestCase):
+    PAGE = {'date': '2026-11-11', 'grat': ['sleep'], 'wilos': ['train', 'email'], 'notes': [{'at': '08:42', 'text': 'flat'}],
+            'score': {'Wilos:train': 'y'}, 'updatedAt': '2026-11-11T13:00:00.000Z'}
+
+    def setUp(self):
+        self.db = FakeDB({f'users/{UID}/days/2026-11-11': dict(self.PAGE), f'users/{UID}/days/2026-11-09': {'date': '2026-11-09'}})
+
+    def test_get_day_and_a_missing_day(self):
+        self.assertEqual(wilo_data.get_day(self.db, UID, '2026-11-11')['day']['wilos'], ['train', 'email'])
+        out = wilo_data.get_day(self.db, UID, '2026-11-10')
+        self.assertEqual((out['ok'], out['exists'], out['day']), (True, False, {}))
+        self.assertFalse(wilo_data.get_day(self.db, UID, 'today')['ok'])
+
+    def test_recent_days_newest_first_and_capped(self):
+        self.assertEqual([d['date'] for d in wilo_data.recent_days(self.db, UID)], ['2026-11-11', '2026-11-09'])
+        self.assertEqual(len(wilo_data.recent_days(self.db, UID, 1)), 1)
+
+    def test_update_writes_retro_and_lists_but_never_notes_or_score(self):
+        out = wilo_data.update_day(self.db, UID, '2026-11-11', {'retro': ' Good day. ', 'tomorrow': ['email first', ' '],
+                                                                'wilos': None}, NOW)
+        saved = self.db.store[f'users/{UID}/days/2026-11-11']
+        self.assertEqual(saved['retro'], 'Good day.')
+        self.assertEqual(saved['tomorrow'], ['email first'])
+        self.assertEqual((saved['wilos'], saved['notes'], saved['score']), (self.PAGE['wilos'], self.PAGE['notes'], self.PAGE['score']))
+        self.assertTrue(out['changes'])
+        wilo_data.update_day(self.db, UID, '2026-11-11', {'retro': ''}, NOW)
+        self.assertNotIn('retro', self.db.store[f'users/{UID}/days/2026-11-11'])
+
+    def test_update_creates_a_day_and_rejects_bad_input(self):
+        self.assertTrue(wilo_data.update_day(self.db, UID, '2026-11-12', {'wilos': ['plan']}, NOW)['ok'])
+        self.assertEqual(self.db.store[f'users/{UID}/days/2026-11-12']['wilos'], ['plan'])
+        self.assertFalse(wilo_data.update_day(self.db, UID, '2026-11-12', {'notes': []}, NOW)['ok'])
+        self.assertFalse(wilo_data.update_day(self.db, UID, '2026-11-12', {'wilos': 'plan'}, NOW)['ok'])
+        self.assertFalse(wilo_data.update_day(self.db, UID, 'tomorrow', {'retro': 'x'}, NOW)['ok'])
+
+    def test_users_only_see_their_own_days(self):
+        self.assertEqual(wilo_data.recent_days(self.db, OTHER), [])
+        self.assertFalse(wilo_data.get_day(self.db, OTHER, '2026-11-11')['exists'])
+
+
 
 class ProfileTest(unittest.TestCase):
     PATH = f'users/{UID}/coach/profile'
