@@ -1,14 +1,48 @@
 <!DOCTYPE html>
 <!--
-  MOCKUP: the daily loop (Morning → Day → Night), styled like Today.
-  No Firebase, no saving: fake data in memory so Thom can react to the shape.
-  Open locally: http://localhost:8001/day-mockup.html
+  WILO Day: the daily loop, like a workout's train / review.
+    Morning: grateful for, strive for (who to be), watch out for, Wilos (what to get done).
+    Day: those pinned, plus notes to future me, any time.
+    Night: did I? (✓ ~ ✕ per Wilo and strive), the retro, for tomorrow.
+
+  - Data: users/{uid}/days/{YYYY-MM-DD} (local date), one doc per day:
+    {date, grat[], strive[], watch[], wilos[], notes[{at, text}], score{"Wilos:<text>": y|m|n},
+     tomorrow[], retro?, updatedAt}. Empty lines are dropped on save.
+  - "From last night" is the previous day's `tomorrow`.
+  - `retro` is written by the coach (connector), not this page; shown when present.
+  - Saves as you type (debounced); "Saved ✓" only after Firestore confirms.
+  - Rules: covered by users/{uid}/{collection}/** in firestore.rules.
 -->
 <html lang="en">
 <head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // Same config as index.html; see the authDomain note there.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  getFirestore(app, "wilo");
+  window.__fs = { setDoc, getDoc };
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta charset="utf-8">
-<title>WILO Day (mockup)</title>
+<title>WILO Day</title>
 <style>
   :root {
     --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
@@ -90,14 +124,31 @@
   .retro .btn { background: var(--night); width: 100%; margin-top: 6px; }
   .tomorrow .k { color: var(--night); }
   .mock { margin: 28px 16px 0; color: #4a4a4f; font-size: 12px; text-align: center; }
+  .saved { margin: 4px 0 0; font-size: 12px; color: var(--dim); min-height: 15px; }
+  .saved.ok { color: var(--done-line); }
+  .saved.err { color: #ff453a; }
+  .gate {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate h1 { font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button class="btn" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
 <header>
   <h1>Today</h1>
   <p class="date" id="date"></p>
+  <p class="saved" id="saved"></p>
 </header>
 
 <div class="modes" role="tablist">
@@ -120,8 +171,10 @@
   <h2>Wilos <span>what we get done today</span></h2>
   <div class="card wilo" id="wilos"></div>
 
-  <h2>From last night</h2>
-  <div class="card tomorrow"><div class="row"><span class="k">↳</span><span class="v">Do the hard email before 10, not after lunch.</span></div></div>
+  <div id="lastNightBox" hidden>
+    <h2>From last night</h2>
+    <div class="card tomorrow" id="lastNight"></div>
+  </div>
 </section>
 
 <!-- DAY: intentions pinned, notes all day -->
@@ -142,16 +195,12 @@
   <h2>Retro</h2>
   <div class="retro">
     <div class="who">Wilo</div>
-    <p>You hit the workout and the call. The email slid again, third day in a row you've noted it. You wrote "phone in the other room helped" at 14:10.</p>
-    <p>What got in the way of the email?</p>
-    <button class="btn">Talk it through with Wilo</button>
+    <p id="retro">Score the day above, then open Claude and say "retro my day".</p>
   </div>
 
   <h2>For tomorrow</h2>
   <div class="card tomorrow" id="tomorrow"></div>
 </section>
-
-<p class="mock">Mockup: nothing saves. Tap the tabs to see each part of the day.</p>
 
 <div class="bar">
   <form id="noteForm" autocomplete="off">
@@ -164,20 +213,69 @@
   const $ = id => document.getElementById(id);
   $('date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // Fake day.
-  const day = {
-    grat: ['Slept 7 hours', 'Coffee with M before work', ''],
-    strive: ['Patient, even when it\'s slow', 'Present in conversations', ''],
-    watch: ['Phone in bed after 22:00', ''],
-    wilos: ['Train: Upper A', 'Send the hard email before 10', 'Call Mum', ''],
-    notes: [
-      { at: '08:42', text: 'Felt flat this morning, the walk fixed it.' },
-      { at: '11:15', text: 'Idea: landing page needs the real tracker screens, not drawings.' },
-      { at: '14:10', text: 'Phone in the other room helped. Do that again.' },
-    ],
-    score: { 'Wilos:Train: Upper A': 'y', 'Wilos:Call Mum': 'y', 'Wilos:Send the hard email before 10': 'n', 'Strive for:Present in conversations': 'm' },
-    tomorrow: ['Email first thing, before opening anything else', ''],
-  };
+  const pad = n => String(n).padStart(2, '0');
+  const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const LISTS = ['grat', 'strive', 'watch', 'wilos', 'tomorrow'];
+  let today = localDate(new Date());
+  let day = blank();
+
+  function blank() {
+    const d = { notes: [], score: {} };
+    LISTS.forEach(k => d[k] = ['']);
+    return d;
+  }
+
+  function note(msg, kind) {
+    $('saved').textContent = msg;
+    $('saved').className = 'saved' + (kind ? ' ' + kind : '');
+  }
+
+  // Saves the whole day, debounced while typing. Empty lines are dropped.
+  let timer;
+  function save(now) {
+    clearTimeout(timer);
+    note('Saving…');
+    timer = setTimeout(async () => {
+      const out = { date: today, notes: day.notes, score: day.score, updatedAt: new Date().toISOString() };
+      LISTS.forEach(k => out[k] = day[k].map(s => s.trim()).filter(Boolean));
+      try {
+        await window.__fs.setDoc(window.__auth.userDoc('days', today), out, { merge: true });
+        note('Saved ✓', 'ok');
+      } catch (err) {
+        note('Save failed: ' + (err.code || err.message) + '. Keep the page open and try again.', 'err');
+      }
+    }, now ? 0 : 700);
+  }
+
+  async function load() {
+    const { getDoc } = window.__fs;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const [snap, prev] = await Promise.all([
+      getDoc(window.__auth.userDoc('days', today)),
+      getDoc(window.__auth.userDoc('days', localDate(y))),
+    ]);
+    day = blank();
+    if (snap.exists()) {
+      const d = snap.data();
+      LISTS.forEach(k => day[k] = [...(d[k] || []), '']);
+      day.notes = d.notes || [];
+      day.score = d.score || {};
+      day.retro = d.retro;
+    }
+    const carry = prev.exists() ? (prev.data().tomorrow || []) : [];
+    $('lastNightBox').hidden = !carry.length;
+    $('lastNight').innerHTML = '';
+    carry.forEach(s => {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = '<span class="k">↳</span><span class="v"></span>';
+      r.querySelector('.v').textContent = s;
+      $('lastNight').appendChild(r);
+    });
+    if (day.retro) $('retro').textContent = day.retro;
+    drawLists();
+    draw();
+  }
 
   function lines(el, list, ph, mark) {
     el.innerHTML = '';
@@ -191,6 +289,7 @@
         list[i] = inp.value;
         if (i === list.length - 1 && inp.value) { list.push(''); lines(el, list, ph, mark); el.querySelectorAll('input')[i].focus(); }
         draw();
+        save();
       });
       el.appendChild(r);
     });
@@ -232,28 +331,55 @@
         r.querySelector('.v').textContent = s;
         r.querySelectorAll('.score button').forEach(b => {
           if (day.score[key] === b.className) b.classList.add('on');
-          b.addEventListener('click', () => { day.score[key] = day.score[key] === b.classList[0] ? undefined : b.classList[0]; draw(); });
+          b.addEventListener('click', () => {
+            if (day.score[key] === b.classList[0]) delete day.score[key]; else day.score[key] = b.classList[0];
+            draw();
+            save(true);
+          });
         });
         $('review').appendChild(r);
       });
     });
   }
 
-  lines($('grat'), day.grat, 'Something you\'re grateful for', '•');
-  lines($('strive'), day.strive, 'Something to strive for', '→');
-  lines($('watch'), day.watch, 'Something to watch out for', '!');
-  lines($('wilos'), day.wilos, 'Something to get done today', '○');
-  lines($('tomorrow'), day.tomorrow, 'Carry into tomorrow', '↳');
-  draw();
+  function drawLists() {
+    lines($('grat'), day.grat, 'Something you\'re grateful for', '•');
+    lines($('strive'), day.strive, 'Something to strive for', '→');
+    lines($('watch'), day.watch, 'Something to watch out for', '!');
+    lines($('wilos'), day.wilos, 'Something to get done today', '○');
+    lines($('tomorrow'), day.tomorrow, 'Carry into tomorrow', '↳');
+  }
 
   $('noteForm').addEventListener('submit', e => {
     e.preventDefault();
     const text = $('noteText').value.trim();
     if (!text) return;
     const d = new Date();
-    day.notes.push({ at: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, text });
+    day.notes.push({ at: `${pad(d.getHours())}:${pad(d.getMinutes())}`, text });
     $('noteText').value = '';
     draw();
+    save(true);
+  });
+
+  // A page left open past midnight reloads onto the new day when you come back to it.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && localDate(new Date()) !== today && window.__auth?.currentUser()) location.reload();
+  });
+
+  // ---- sign-in (same as Today) ---------------------------------------
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    $('gate').hidden = !!user;
+    $('gateBtn').hidden = !!user;
+    $('gateMsg').textContent = 'Sign in to see your day.';
+    if (user) load().catch(err => note("Couldn't load your day: " + (err.code || err.message), 'err'));
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+  $('gateBtn').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { $('gateMsg').textContent = 'Sign-in failed: ' + (err.code || err.message); }
   });
 
   // Mode: picked by the clock (before 11 morning, after 19 night), tabs override.
