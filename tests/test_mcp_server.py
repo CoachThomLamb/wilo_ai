@@ -16,7 +16,7 @@ ME, OTHER = 'thom', 'someone-else'
 TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'current_workout', 'training_summary',
          'recent_workouts', 'get_workout',
          'exercise_history', 'exercise_names', 'assign_workout', 'change_workout',
-         'list_todos', 'add_todo', 'update_todo', 'delete_todo'}
+         'list_todos', 'add_todo', 'update_todo', 'delete_todo', 'get_day', 'recent_days', 'update_day'}
 
 
 def call(tool, **args):
@@ -136,6 +136,16 @@ class ServerTest(unittest.TestCase):
         self.assertFalse(call('delete_todo', doc_id=tid)['ok'])
         self.uid = ME
         self.assertTrue(call('delete_todo', doc_id=tid)['ok'])
+
+    def test_days_default_to_today_for_current_user_only(self):
+        today = srv._today()
+        self.assertFalse(call('get_day')['exists'])
+        self.assertTrue(call('update_day', retro='Solid day.', tomorrow=['email first'])['ok'])
+        self.assertEqual(self.db.store[f'users/{ME}/days/{today}']['retro'], 'Solid day.')
+        self.assertEqual(call('get_day', date=today)['day']['tomorrow'], ['email first'])
+        self.assertEqual([d['date'] for d in call('recent_days')['days']], [today])
+        self.uid = OTHER
+        self.assertEqual(call('recent_days')['days'], [])
 
     def test_profile_is_a_dry_run_by_default_and_per_user(self):
         path = f'users/{ME}/coach/profile'
