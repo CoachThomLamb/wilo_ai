@@ -574,7 +574,7 @@
       box.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> <span class="pr">${cue.slice(0, 2)}</span>${cue.slice(2)}</div>` : ''}<div class="t-sets">
         <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
         ${[1, 2, 3].map(i => `<span class="t-no">${i}</span><span class="t-v">${lbs}</span><span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
-      </div><div class="t-chips"><span class="t-chip demo">▶ Coach demo</span><span class="t-chip">+ Video / photo</span></div></div>`).join('');
+      </div></div>`).join('');
       box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
       // Longer than the screen: scroll down it slowly, like a thumb in the tracker.
       unscroll();
