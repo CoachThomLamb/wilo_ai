@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<!--
+  MOCKUP: the daily loop (Morning → Day → Night), styled like Today.
+  No Firebase, no saving: fake data in memory so Thom can react to the shape.
+  Open locally: http://localhost:8001/day-mockup.html
+-->
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Day (mockup)</title>
+<style>
+  :root {
+    --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
+    --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff;
+    --done: #1f4a2c; --done-line: #34c759; --warn: #ff9f0a; --night: #bf5af2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    font: 400 17px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
+  }
+  header { padding: 14px 16px 10px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; }
+
+  /* mode switch, like the tracker's train / review */
+  .modes { display: flex; gap: 4px; margin: 6px 16px 4px; padding: 3px; background: var(--field); border-radius: 10px; }
+  .modes button {
+    flex: 1; height: 34px; border: 0; border-radius: 8px; background: none;
+    color: var(--dim); font: 500 15px/1 inherit; font-family: inherit;
+  }
+  .modes button.on { background: #3a3a3c; color: var(--text); }
+
+  h2 { margin: 22px 16px 6px; font-size: 13px; font-weight: 500; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; display: flex; justify-content: space-between; }
+  h2 span { text-transform: none; letter-spacing: 0; }
+  .card { margin: 0 16px; background: var(--field); border-radius: 12px; overflow: hidden; }
+  .row { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .k { flex: none; width: 20px; color: var(--dim); font-size: 15px; padding-top: 1px; }
+  .row .v { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .row input, .row textarea {
+    width: 100%; background: none; border: 0; padding: 0; color: var(--text);
+    font: inherit; resize: none; outline: none;
+  }
+  .row input::placeholder, .row textarea::placeholder { color: #4a4a4f; }
+  .tag { font-size: 12px; color: var(--dim); }
+  .grat .k { color: var(--done-line); }
+  .strive .k { color: var(--accent); }
+  .watch .k { color: var(--warn); }
+
+  /* compact pinned intentions in Day / Night */
+  .pinned { margin: 10px 16px 0; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; }
+  .pinned div { margin: 3px 0; }
+  .pinned b { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+  .pinned .s b { color: var(--accent); } .pinned .w b { color: var(--warn); }
+
+  .workout { display: flex; justify-content: space-between; align-items: center; margin: 12px 16px 0; padding: 12px 14px; background: var(--field); border-radius: 12px; color: var(--text); text-decoration: none; }
+  .workout small { display: block; color: var(--dim); font-size: 13px; }
+  .workout .go { color: var(--accent); font-size: 15px; }
+
+  /* notes to future self */
+  .note { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .note:last-child { border-bottom: 0; }
+  .note time { display: block; font-size: 12px; color: var(--dim); margin-bottom: 2px; }
+  .empty { padding: 12px 14px; color: var(--dim); font-size: 15px; }
+
+  /* the always-there "leave a note" bar */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(14,14,15,.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+  }
+  .bar form { display: flex; gap: 8px; max-width: 488px; margin: 0 auto; }
+  .bar input { flex: 1; min-width: 0; height: 42px; border: 0; border-radius: 21px; background: var(--field); color: var(--text); padding: 0 16px; font: inherit; font-size: 16px; }
+  .bar input:focus { outline: 2px solid var(--accent); }
+  .btn { flex: none; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: 500 16px/1 inherit; font-family: inherit; }
+
+  /* night review */
+  .score { display: flex; gap: 6px; flex: none; }
+  .score button { width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--dim); font-size: 14px; }
+  .score button.on.y { background: var(--done); border-color: var(--done-line); color: var(--done-line); }
+  .score button.on.n { background: #4a1f1f; border-color: #ff453a; color: #ff453a; }
+  .score button.on.m { background: #4a3a1f; border-color: var(--warn); color: var(--warn); }
+  .retro { margin: 0 16px; padding: 14px; border-radius: 12px; background: linear-gradient(160deg, #241a33, #141416); border: 1px solid #3a2d4f; }
+  .retro p { margin: 0 0 8px; font-size: 15px; }
+  .retro .who { font-size: 12px; color: var(--night); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .retro .btn { background: var(--night); width: 100%; margin-top: 6px; }
+  .tomorrow .k { color: var(--night); }
+  .mock { margin: 28px 16px 0; color: #4a4a4f; font-size: 12px; text-align: center; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Today</h1>
+  <p class="date" id="date"></p>
+</header>
+
+<div class="modes" role="tablist">
+  <button data-mode="morning">☀︎ Morning</button>
+  <button data-mode="day">Day</button>
+  <button data-mode="night">☾ Night</button>
+</div>
+
+<!-- MORNING: set the day up -->
+<section id="morning">
+  <h2>Grateful for</h2>
+  <div class="card grat" id="grat"></div>
+
+  <h2>Strive for <span>what would make today a win</span></h2>
+  <div class="card strive" id="strive"></div>
+
+  <h2>Watch out for</h2>
+  <div class="card watch" id="watch"></div>
+
+  <h2>From last night</h2>
+  <div class="card tomorrow"><div class="row"><span class="k">↳</span><span class="v">Do the hard email before 10, not after lunch.</span></div></div>
+</section>
+
+<!-- DAY: intentions pinned, notes all day -->
+<section id="day">
+  <div class="pinned" id="pinned"></div>
+  <a class="workout" href="#"><span><small>Workout</small><b>Upper A</b></span><span class="go">Open tracker →</span></a>
+  <h2>Notes to future me <span id="count"></span></h2>
+  <div class="card" id="notes"></div>
+</section>
+
+<!-- NIGHT: review against the morning, retro with Wilo -->
+<section id="night">
+  <h2>Did I?</h2>
+  <div class="card strive" id="review"></div>
+
+  <h2>Today's notes <span id="count2"></span></h2>
+  <div class="card" id="notes2"></div>
+
+  <h2>Retro</h2>
+  <div class="retro">
+    <div class="who">Wilo</div>
+    <p>You hit the workout and the call. The email slid again, third day in a row you've noted it. You wrote "phone in the other room helped" at 14:10.</p>
+    <p>What got in the way of the email?</p>
+    <button class="btn">Talk it through with Wilo</button>
+  </div>
+
+  <h2>For tomorrow</h2>
+  <div class="card tomorrow" id="tomorrow"></div>
+</section>
+
+<p class="mock">Mockup: nothing saves. Tap the tabs to see each part of the day.</p>
+
+<div class="bar">
+  <form id="noteForm" autocomplete="off">
+    <input id="noteText" placeholder="Note to future me…" enterkeyhint="send">
+    <button class="btn" type="submit">Add</button>
+  </form>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Fake day.
+  const day = {
+    grat: ['Slept 7 hours', 'Coffee with M before work', ''],
+    strive: ['Train: Upper A', 'Send the hard email before 10', 'Call Mum'],
+    watch: ['Phone in bed after 22:00', ''],
+    notes: [
+      { at: '08:42', text: 'Felt flat this morning, the walk fixed it.' },
+      { at: '11:15', text: 'Idea: landing page needs the real tracker screens, not drawings.' },
+      { at: '14:10', text: 'Phone in the other room helped. Do that again.' },
+    ],
+    score: { 0: 'y', 2: 'y', 1: 'n' },
+    tomorrow: ['Email first thing, before opening anything else', ''],
+  };
+
+  function lines(el, list, ph, mark) {
+    el.innerHTML = '';
+    list.forEach((v, i) => {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = `<span class="k">${mark}</span><span class="v"><input></span>`;
+      const inp = r.querySelector('input');
+      inp.value = v; inp.placeholder = ph;
+      inp.addEventListener('input', () => {
+        list[i] = inp.value;
+        if (i === list.length - 1 && inp.value) { list.push(''); lines(el, list, ph, mark); el.querySelectorAll('input')[i].focus(); }
+        draw();
+      });
+      el.appendChild(r);
+    });
+  }
+
+  function noteList(el) {
+    el.innerHTML = day.notes.length ? '' : '<div class="empty">Nothing yet. Leave yourself a note any time.</div>';
+    [...day.notes].reverse().forEach(n => {
+      const d = document.createElement('div');
+      d.className = 'note';
+      d.innerHTML = `<time></time><div></div>`;
+      d.querySelector('time').textContent = n.at;
+      d.lastChild.textContent = n.text;
+      el.appendChild(d);
+    });
+  }
+
+  function draw() {
+    const strive = day.strive.filter(Boolean), watch = day.watch.filter(Boolean);
+    $('pinned').innerHTML = '';
+    strive.forEach(s => $('pinned').insertAdjacentHTML('beforeend', `<div class="s"><b>Strive</b></div>`));
+    [...$('pinned').children].forEach((d, i) => d.append(strive[i]));
+    watch.forEach(w => { const d = document.createElement('div'); d.className = 'w'; d.innerHTML = '<b>Watch</b>'; d.append(w); $('pinned').appendChild(d); });
+
+    noteList($('notes')); noteList($('notes2'));
+    $('count').textContent = $('count2').textContent = day.notes.length ? day.notes.length : '';
+
+    $('review').innerHTML = '';
+    strive.forEach((s, i) => {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = `<span class="v"></span><span class="score">
+        <button class="y" aria-label="Yes">✓</button><button class="m" aria-label="Partly">~</button><button class="n" aria-label="No">✕</button></span>`;
+      r.querySelector('.v').textContent = s;
+      r.querySelectorAll('.score button').forEach(b => {
+        if (day.score[i] === b.className) b.classList.add('on');
+        b.addEventListener('click', () => { day.score[i] = day.score[i] === b.classList[0] ? undefined : b.classList[0]; draw(); });
+      });
+      $('review').appendChild(r);
+    });
+  }
+
+  lines($('grat'), day.grat, 'Something you\'re grateful for', '•');
+  lines($('strive'), day.strive, 'Something to strive for', '→');
+  lines($('watch'), day.watch, 'Something to watch out for', '!');
+  lines($('tomorrow'), day.tomorrow, 'Carry into tomorrow', '↳');
+  draw();
+
+  $('noteForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const text = $('noteText').value.trim();
+    if (!text) return;
+    const d = new Date();
+    day.notes.push({ at: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, text });
+    $('noteText').value = '';
+    draw();
+  });
+
+  // Mode: picked by the clock (before 11 morning, after 19 night), tabs override.
+  function setMode(m) {
+    ['morning', 'day', 'night'].forEach(x => $(x).hidden = x !== m);
+    document.querySelectorAll('.modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  }
+  document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  const h = new Date().getHours();
+  setMode(h < 11 ? 'morning' : h >= 19 ? 'night' : 'day');
+</script>
+</body>
+</html>
