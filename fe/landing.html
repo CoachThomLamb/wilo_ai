@@ -116,6 +116,8 @@
   .t-cue { color: #b5b5bd; font-size: 11.5px; line-height: 1.35; padding-bottom: 8px; }
   .t-cue b { color: var(--accent); font-weight: 400; }
   .t-sets { display: grid; grid-template-columns: 26px 1fr 1fr 34px; gap: 4px 8px; align-items: center; justify-items: center; }
+  .t-field { display: inline-flex; gap: 6px; align-items: baseline; margin: -2px 0 9px; padding-bottom: 2px; border-bottom: 1px solid var(--accent); color: var(--text); font-size: 11.5px; }
+  .t-field span { color: var(--dim); font-size: 10px; }
   .t-sets.c5 { grid-template-columns: 26px 1fr 1fr 1fr 34px; gap: 4px 6px; }
   .t-hd { color: var(--dim); font-size: 10px; font-weight: 500; padding-bottom: 3px; }
   .t-no { width: 24px; height: 24px; border-radius: 6px; background: var(--field); display: grid; place-items: center; font-size: 12px; font-weight: 600; justify-self: start; }
@@ -228,12 +230,13 @@
             <span class="t-no">2</span><span class="t-v on">35</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
             <span class="t-no">3</span><span class="t-v on">40</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
           </div>
-          <div class="t-add">+ Add Set</div>
           <div class="t-chips"><span class="t-chip demo">▶ Coach demo</span><span class="t-chip">+ Video / photo</span></div>
         </div>
         <div class="t-ex">
           <div class="t-name">Incline Push Up</div>
           <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
+          <!-- the card's "Custom field name" input (ex-note in the tracker), filled in -->
+          <div class="t-field"><span>Custom field</span>Width</div>
           <!-- custom field (custom_name "Width"), one value per set -->
           <div class="t-sets c5">
             <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">Width</span><span class="t-hd">✓</span>
