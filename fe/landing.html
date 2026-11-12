@@ -319,6 +319,16 @@
             <span class="t-no">4</span><span class="t-v">8</span><span class="t-v t-w"><i>Close</i><i>Wide</i></span><span class="t-ck">✓</span>
           </div>
         </div>
+        <div class="t-ex">
+          <div class="t-name">Aussie Row</div>
+          <div class="t-cue"><b>Coach:</b> Body straight, chest to the bar.</div>
+          <div class="t-sets c3">
+            <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            <span class="t-no">2</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v">10</span><span class="t-ck">✓</span>
+          </div>
+        </div>
         <span class="t-coach">Coach</span>
 
         <!-- The coach chat sheet (same layout as the tracker's), played by the loop script at the bottom. -->
@@ -372,6 +382,26 @@
               <span class="t-no">3</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
             </div>
           </div>
+          <div class="t-ex">
+            <div class="t-name">Hamstring Curl</div>
+            <div class="t-cue"><b>Coach:</b> Slow on the way down.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">50</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">50</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">50</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Calf Raise</div>
+            <div class="t-cue"><b>Coach:</b> Full stretch at the bottom.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">45</span><span class="t-v">15</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">45</span><span class="t-v">15</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">45</span><span class="t-v">15</span><span class="t-ck">✓</span>
+            </div>
+          </div>
           <span class="thumb" aria-hidden="true"></span>
         </div>
       </div>
@@ -403,6 +433,24 @@
               <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
               <span class="t-no">1</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
               <span class="t-no">2</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Chest Supported Row</div>
+            <div class="t-cue"><b>Coach:</b> Squeeze at the top.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Cable Curl</div>
+            <div class="t-cue"><b>Coach:</b> Elbows pinned.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
             </div>
           </div>
           <span class="t-coach">Coach</span>
@@ -644,8 +692,10 @@
     (async () => {
       for (;;) {
         cks.forEach(ck => mark(ck, false));
-        to(cks[0]); await wait(1200); thumb.classList.add('on'); await wait(400);
-        for (const ck of cks) {
+        const bottom = phone.getBoundingClientRect().bottom - 24;
+        const seen = cks.filter(ck => ck.getBoundingClientRect().bottom < bottom);
+        to(seen[0]); await wait(1200); thumb.classList.add('on'); await wait(400);
+        for (const ck of seen) {
           to(ck); await wait(650);
           thumb.classList.add('press'); await wait(140); mark(ck, true); thumb.classList.remove('press');
           await wait(500);
