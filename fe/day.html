@@ -59,7 +59,10 @@
   }
   header { padding: 14px 16px 10px; }
   h1 { margin: 0; font-size: 28px; font-weight: 700; }
-  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; }
+  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; display: flex; align-items: center; gap: 2px; }
+  .step { border: 0; background: none; color: inherit; font: 500 22px/1 inherit; font-family: inherit; padding: 2px 10px; margin: -4px 0; }
+  .step:first-child { margin-left: -10px; }
+  .step:disabled { opacity: .25; }
 
   /* mode switch, like the tracker's train / review */
   .modes { display: flex; gap: 4px; margin: 6px 16px 4px; padding: 3px; background: var(--field); border-radius: 10px; }
@@ -180,8 +183,8 @@
 
 <header>
   <div>
-  <h1>Today</h1>
-  <p class="date" id="date"></p>
+  <h1 id="title">Today</h1>
+  <p class="date"><button class="step" id="prevDay" aria-label="Previous day">‹</button><span id="date"></span><button class="step" id="nextDay" aria-label="Next day">›</button></p>
   <p class="saved" id="saved"></p>
   </div>
   <button class="talk" id="chatBtn">Wilo</button>
@@ -261,12 +264,20 @@
 
 <script>
   const $ = id => document.getElementById(id);
-  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-
   const pad = n => String(n).padStart(2, '0');
   const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const LISTS = ['grat', 'strive', 'watch', 'wilos', 'tomorrow'];
-  let today = localDate(new Date());
+  const today = localDate(new Date());   // the real today, when the page loaded
+  let shown = today;                     // the day on screen (‹ › step through past days)
+  const parse = s => new Date(s + 'T12:00');
+  function header() {
+    const d = parse(shown);
+    const long = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    $('title').textContent = shown === today ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'long' });
+    $('date').textContent = shown === today ? long : d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    $('nextDay').disabled = shown >= today;
+  }
+  header();
   let day = blank();
 
   function blank() {
@@ -292,10 +303,10 @@
     clearTimeout(timer);
     if (!pending) return;
     pending = false;
-    const out = { date: today, notes: day.notes, score: day.score, updatedAt: new Date().toISOString() };
+    const out = { date: shown, notes: day.notes, score: day.score, updatedAt: new Date().toISOString() };
     LISTS.forEach(k => out[k] = day[k].map(s => s.trim()).filter(Boolean));
     try {
-      await window.__fs.setDoc(window.__auth.userDoc('days', today), out, { merge: true });
+      await window.__fs.setDoc(window.__auth.userDoc('days', shown), out, { merge: true });
       note('Saved ✓', 'ok');
     } catch (err) {
       note('Save failed: ' + (err.code || err.message) + '. Keep the page open and try again.', 'err');
@@ -304,9 +315,9 @@
 
   async function load() {
     const { getDoc } = window.__fs;
-    const y = new Date(); y.setDate(y.getDate() - 1);
+    const y = parse(shown); y.setDate(y.getDate() - 1);
     const [snap, prev] = await Promise.all([
-      getDoc(window.__auth.userDoc('days', today)),
+      getDoc(window.__auth.userDoc('days', shown)),
       getDoc(window.__auth.userDoc('days', localDate(y))),
     ]);
     day = blank();
@@ -327,7 +338,7 @@
       r.querySelector('.v').textContent = s;
       $('lastNight').appendChild(r);
     });
-    if (day.retro) $('retro').textContent = day.retro;
+    $('retro').textContent = day.retro || 'Score the day above, then talk it through.';
     drawLists();
     draw();
   }
@@ -434,9 +445,23 @@
   if (vv) vv.addEventListener('resize', lockViewport);
   lockViewport();
 
-  // A page left open past midnight reloads onto the new day when you come back to it.
+  // ‹ › step through past days. Saves what's typed first, so nothing lands on the wrong day.
+  async function step(n) {
+    const d = parse(shown); d.setDate(d.getDate() + n);
+    const next = localDate(d);
+    if (next > today) return;
+    await flush();
+    shown = next;
+    header();
+    note('');
+    load().catch(err => note("Couldn't load that day: " + (err.code || err.message), 'err'));
+  }
+  $('prevDay').addEventListener('click', () => step(-1));
+  $('nextDay').addEventListener('click', () => step(1));
+
+  // A page left open on today past midnight reloads onto the new day when you come back to it.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && localDate(new Date()) !== today && window.__auth?.currentUser()) location.reload();
+    if (document.visibilityState === 'visible' && shown === today && localDate(new Date()) !== today && window.__auth?.currentUser()) location.reload();
   });
 
   // ---- sign-in (same as Today) ---------------------------------------
