@@ -240,16 +240,18 @@
   .i-card span { color: var(--dim); font-size: 10.5px; }
   @keyframes i-in { from { opacity: 0; transform: translateY(-10px); } }
   .b-imp.fold .i-card { transition: transform .5s cubic-bezier(.5,0,.7,.4), opacity .5s; transform: translateY(40px) scale(.4); opacity: 0; }
-  .i-plan { flex-direction: column; gap: 8px; }
-  .i-plan-h { display: flex; flex-direction: column; margin: 0 4px 2px; }
-  .i-plan-h b { font-size: 15px; } .i-plan-h span { color: var(--dim); font-size: 11px; }
-  .i-day { padding: 9px 11px; border-radius: 12px; background: var(--field); border-left: 3px solid var(--accent); }
-  .i-dh { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-  .i-dh b { font-size: 13px; } .i-dh span { color: var(--dim); font-size: 10.5px; }
-  .i-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 2px 0; }
-  .i-row span:last-child { color: #b5b5bd; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .b-imp.anim .i-day { opacity: 0; transform: translateY(14px) scale(.96); transition: opacity .35s, transform .35s cubic-bezier(.3,.8,.4,1); }
-  .b-imp.anim .i-day.on { opacity: 1; transform: none; }
+  .b-imp .i-trk { display: none; flex-direction: column; height: calc(100% - 46px); overflow: hidden; }
+  .b-imp.s-review .i-trk, .b-imp.s-train .i-trk { display: flex; animation: t-in .3s ease-out; }
+  .b-imp.s-train .i-tl { display: none; }
+  .i-sub { display: none; flex-direction: column; margin: 0 4px 2px; }
+  .b-imp.s-train .i-sub { display: flex; }
+  .i-sub b { font-size: 15px; } .i-sub span { color: var(--dim); font-size: 11px; }
+  .i-wk { animation: t-in .25s ease-out; }
+  .i-wk .t-ex { padding-left: 0; padding-right: 0; }
+  .i-mode { position: relative; }
+  .b-imp.s-review .i-mode, .b-imp.s-train .i-mode { color: var(--accent); font-weight: 600; }
+  .i-tap { position: relative; }
+  .i-tap::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid #fff; opacity: 0; animation: t-ring .6s ease-out; pointer-events: none; }
   .t-ck, .t-v { transition: background .2s, color .2s; }
   .b-reps i { font-style: normal; } .b-reps i + i { display: none; }
   .b-in.more .b-reps i:first-child { display: none; } .b-in.more .b-reps i + i { display: inline; }
@@ -386,8 +388,8 @@
           <p class="kicker">1 · The start</p>
           <h3 class="beat-copy">Bring your history from any tracker. Wilo turns it into your plan.</h3>
         </div>
-        <div class="phone b-imp s-plan" aria-label="Past workouts imported and turned into a Monday, Wednesday, Friday plan">
-          <div class="scr-h"><b>WILO</b><small>Import</small></div>
+        <div class="phone b-imp s-start" aria-label="Past workouts imported, the Monday, Wednesday, Friday plan in the tracker, then the first set ticked">
+          <div class="scr-h"><b>WILO</b><small class="i-mode">Import</small></div>
           <div class="i-start">
             <p>Bring your training history.</p>
             <span class="i-btn">Import workouts</span>
@@ -397,25 +399,11 @@
             <div class="i-count"><b>0</b> workouts</div>
             <div class="i-cards"></div>
           </div>
-          <div class="i-plan">
-            <div class="i-plan-h"><b>Your week</b><span>Built from 214 workouts</span></div>
-            <div class="i-day">
-              <div class="i-dh"><b>Mon</b><span>Lower</span></div>
-              <div class="i-row"><span>Goblet Squat</span><span>40 lb · 3 × 8</span></div>
-              <div class="i-row"><span>Leg Press</span><span>180 lb · 3 × 10</span></div>
-              <div class="i-row"><span>Hamstring Curl</span><span>50 lb · 3 × 10</span></div>
-            </div>
-            <div class="i-day">
-              <div class="i-dh"><b>Wed</b><span>Upper</span></div>
-              <div class="i-row"><span>Incline Push Up</span><span>3 × 12</span></div>
-              <div class="i-row"><span>Chest Supported Row</span><span>30 lb · 3 × 12</span></div>
-              <div class="i-row"><span>Cable Curl</span><span>25 lb · 3 × 12</span></div>
-            </div>
-            <div class="i-day">
-              <div class="i-dh"><b>Fri</b><span>Full body</span></div>
-              <div class="i-row"><span>Trap Bar Deadlift</span><span>185 lb · 3 × 6</span></div>
-              <div class="i-row"><span>Shoulder Press (DB)</span><span>20 lb · 3 × 10</span></div>
-            </div>
+          <!-- The tracker: Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first set is ticked. -->
+          <div class="i-trk">
+            <div class="p-tl i-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
+            <div class="i-sub"><b>Today</b><span>Mon · Lower</span></div>
+            <div class="i-wk"></div>
           </div>
         </div>
       </div>
@@ -744,26 +732,44 @@
     play();
   })();
 
-  // Beat 1 (about 9.5 s a loop): tap Import, past workouts stream in while the count runs to 214,
-  // they fold away and the Mon / Wed / Fri plan builds. Reduced motion: the plan, still.
+  // Beat 1 (about 10 s a loop): tap Import, past workouts stream in while the count runs to 214, they fold away,
+  // the tracker's Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first Goblet Squat set is ticked.
+  // Reduced motion: that last screen, still.
   (() => {
     const phone = document.querySelector('.b-imp');
     if (!phone) return;
-    const stage = st => { phone.classList.remove('s-start', 's-feed', 's-plan'); phone.classList.add('s-' + st); };
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stage('plan'); return; }
-    phone.classList.add('anim');
+    const WEEK = [
+      { day: 'Today', what: 'Mon · Lower', ex: [['Goblet Squat', 40, 8, 'Elbows inside knees, sit between your heels.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10]] },
+      { day: 'Wed, Nov 18', what: 'Upper', ex: [['Incline Push Up', '', 12, '2 s down, every rep.'], ['Chest Supported Row', 30, 12], ['Cable Curl', 25, 12]] },
+      { day: 'Fri, Nov 20', what: 'Full body', ex: [['Trap Bar Deadlift', 185, 6, 'Push the floor away.'], ['Shoulder Press (DB)', 20, 10], ['Aussie Row', '', 8]] },
+    ];
+    const mode = phone.querySelector('.i-mode'), wk = phone.querySelector('.i-wk'), next = phone.querySelector('.i-tl .next');
+    const stage = st => { phone.classList.remove('s-start', 's-feed', 's-review', 's-train'); phone.classList.add('s-' + st); };
+    // One day drawn like the tracker's exercise rows: Set | lbs | reps | ✓ (no lbs column for bodyweight).
+    function show(w) {
+      phone.querySelector('.i-tl strong').textContent = w.day;
+      phone.querySelector('.i-tl > div span').textContent = w.what;
+      wk.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> ${cue}</div>` : ''}<div class="t-sets${lbs ? '' : ' c3'}">
+        <span class="t-hd">Set</span>${lbs ? '<span class="t-hd">lbs</span>' : ''}<span class="t-hd">reps</span><span class="t-hd">✓</span>
+        ${[1, 2, 3].map(i => `<span class="t-no">${i}</span>${lbs ? `<span class="t-v">${lbs}</span>` : ''}<span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
+      </div></div>`).join('');
+      wk.style.animation = 'none'; void wk.offsetWidth; wk.style.animation = '';
+    }
+    const tick = () => { const ck = wk.querySelector('.t-ck'); ck.classList.add('on'); ck.previousElementSibling.classList.add('on'); ck.previousElementSibling.previousElementSibling.classList.add('on'); return ck; };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { show(WEEK[0]); stage('train'); mode.textContent = 'Review →'; tick(); return; }
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    const box = phone.querySelector('.i-cards'), count = phone.querySelector('.i-count b'), days = [...phone.querySelectorAll('.i-day')];
+    const tap = async el => { el.classList.remove('i-tap'); void el.offsetWidth; el.classList.add('i-tap'); await wait(320); };
+    const box = phone.querySelector('.i-cards'), count = phone.querySelector('.i-count b');
     const NAMES = ['Lower A', 'Upper', 'Full body', 'Lower B', 'Push', 'Pull', 'Legs'];
     const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const TOTAL = 214, FEED = 2900;
+    const TOTAL = 214, FEED = 2000;
     (async () => {
       for (;;) {
-        phone.classList.remove('fold', 'tap'); days.forEach(d => d.classList.remove('on'));
-        box.innerHTML = ''; count.textContent = '0'; stage('start');
-        await wait(1200);
-        phone.classList.add('tap'); await wait(400); phone.classList.remove('tap'); await wait(400);
-        // Feed: a card every ~100 ms, newest on top, while the count eases up to 214.
+        phone.classList.remove('fold', 'tap');
+        box.innerHTML = ''; count.textContent = '0'; mode.textContent = 'Import'; stage('start');
+        await wait(900);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap'); await wait(250);
+        // Feed: a card every ~90 ms, while the count eases up to 214.
         stage('feed');
         const t0 = performance.now(), d = new Date(2026, 10, 11);
         let i = 0;
@@ -774,14 +780,18 @@
           c.innerHTML = `<b>${NAMES[i % NAMES.length]}</b><span>${MON[d.getMonth()]} ${d.getDate()} · ${4 + (i * 7) % 3} exercises</span>`;
           box.prepend(c); if (box.children.length > 16) box.lastChild.remove();
           d.setDate(d.getDate() - 2 - (i % 2)); i++;
-          await wait(100);
+          await wait(90);
         }
-        count.textContent = TOTAL; await wait(300);
-        // Fold the cards away, then build the week one day at a time.
-        phone.classList.add('fold'); await wait(550);
-        stage('plan');
-        for (const day of days) { await wait(220); day.classList.add('on'); }
-        await wait(3200);
+        count.textContent = TOTAL; await wait(250);
+        phone.classList.add('fold'); await wait(450);
+        // The tracker, in Review: the new week, one day at a time.
+        mode.textContent = 'Train →'; show(WEEK[0]); stage('review'); await wait(1000);
+        for (const w of WEEK.slice(1)) { await tap(next); show(w); await wait(850); }
+        // Train: today's workout, first set of Goblet Squats ticked.
+        await tap(mode);
+        mode.textContent = 'Review →'; show(WEEK[0]); stage('train'); await wait(600);
+        const ck = wk.querySelector('.t-ck'); await tap(ck); tick();
+        await wait(1300);
       }
     })();
   })();
