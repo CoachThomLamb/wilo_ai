@@ -268,6 +268,20 @@
   .b-in.changed .b-old { display: none; } .b-in.changed .b-new { display: inline; }
   .b-in.changed .t-name .b-new { animation: t-tag 1.6s ease-out; }
 
+  /* Beat 4: the weekly review */
+  .w-lines { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 12px; }
+  .w-lines li { color: var(--dim); font-size: 17px; font-weight: 500; transform-origin: left center; transition: transform .35s cubic-bezier(.3,.8,.4,1), color .35s; }
+  .w-lines li.on { color: var(--text); font-weight: 700; transform: scale(1.22); }
+  .w-lines li.on::before { content: "→ "; color: var(--accent); }
+  .b-wk .w-day i { font-style: normal; } .b-wk .w-day i + i { display: none; }
+  .b-wk.next .w-day i:first-child { display: none; } .b-wk.next .w-day i + i { display: inline; }
+  .w-next { display: none; } .b-wk.next .w-last { display: none; } .b-wk.next .w-next { display: block; animation: t-in .3s ease-out; }
+  .b-wk .t-ex { padding-left: 0; padding-right: 0; }
+  .w-done { margin: 8px 0 0; font-size: 11px; color: var(--ok); }
+  .w-struck { text-decoration: line-through; color: var(--dim); font-weight: 500; }
+  .w-tag { margin-left: 4px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); vertical-align: 1px; }
+  .b-wk.next .w-next .w-tag { animation: t-flash 1.6s ease-out; }
+
   /* ---- closing panels, articles ---- */
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; gap: 14px; }
@@ -520,29 +534,81 @@
         </div>
       </div>
 
-      <!-- Beat 4: repeat. The loop; don't explain the joke. -->
+      <!-- Beat 4: repeat. Each week Wilo reviews the last one in a chat: it calls out what got done and the PRs,
+           asks about what you changed (Bench swapped for Machine Press), then lays out next week.
+           The lines beside the phone light up as the chat says them (script at the bottom). -->
       <div class="split flip beat">
         <div>
           <p class="kicker">4 · Repeat</p>
           <h3 class="beat-copy">Like shampoo, but for gains.</h3>
+          <ul class="w-lines">
+            <li data-l="1">Wilo celebrates your finished workouts and PRs.</li>
+            <li data-l="2">Wilo remembers what you changed.</li>
+            <li data-l="3">Then it plans your next week.</li>
+          </ul>
         </div>
-      <svg class="cycle" viewBox="0 0 400 400" role="img" aria-label="A loop: Train, then Track, then Progress, then back to Train">
-        <defs>
-          <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0 0 L10 5 L0 10 z" fill="#8e8e96"/>
-          </marker>
-        </defs>
-        <circle cx="200" cy="200" r="150" fill="none" stroke="#1c1c1e" stroke-width="22"/>
-        <path d="M256.2 60.9 A150 150 0 0 1 348.5 220.9" class="arc" marker-end="url(#head)"/>
-        <path d="M292.4 318.2 A150 150 0 0 1 107.6 318.2" class="arc" marker-end="url(#head)"/>
-        <path d="M51.5 220.9 A150 150 0 0 1 143.8 60.9" class="arc" marker-end="url(#head)"/>
-        <g class="orbit"><circle cx="200" cy="50" r="6" fill="#f2f2f7"/></g>
-        <g class="node"><circle cx="200" cy="50" r="46" stroke="#0a84ff"/><text x="200" y="56">Train</text></g>
-        <g class="node"><circle cx="329.9" cy="275" r="46" stroke="#bf5af2"/><text x="329.9" y="281">Track</text></g>
-        <g class="node"><circle cx="70.1" cy="275" r="46" stroke="#34c759"/><text x="70.1" y="281">Progress</text></g>
-        <text x="200" y="198" class="hub">WILO</text>
-        <text x="200" y="224" class="hub-sub">↻ repeat</text>
-      </svg>
+        <div class="phone b-wk" aria-label="Wilo reviews last week in a chat, then next week's plan lands in the tracker">
+          <div class="scr-h"><b>WILO</b><small>Review</small></div>
+          <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong class="w-day"><i>Fri, Nov 13</i><i>Fri, Nov 20</i></strong><span>Chest</span></div><span class="p-step next">&rsaquo;</span></div>
+          <div class="w-last">
+            <div class="w-done">✓ Done · 3 of 3 this week</div>
+            <div class="t-ex">
+              <div class="t-name"><span class="w-struck">Bench Press</span> <span class="w-tag">Swapped mid-workout</span></div>
+              <div class="t-name">Machine Chest Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Incline DB Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+          </div>
+          <div class="w-next">
+            <div class="t-ex">
+              <div class="t-name">Bench Press <span class="w-tag">Back from Machine Press</span></div>
+              <div class="t-cue"><b>Coach:</b> 135 to ease back in. Stop at a clean 8.</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Incline DB Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+          </div>
+          <span class="t-coach">Coach</span>
+          <div class="t-chat" aria-hidden="true">
+            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+            <div class="t-log">
+              <div class="t-msg me" data-at="1">Plan next week?</div>
+              <div class="t-msg coach" data-at="3">Great week: 3 of 3 workouts done, and a 🏆 Leg Press PR at 200 × 10.</div>
+              <div class="t-msg coach" data-at="5">Friday you swapped Bench for Machine Press. Keep the machine, or plan for bench?</div>
+              <div class="t-msg me" data-at="6">Back to bench. Shoulder feels good.</div>
+              <div class="t-msg coach" data-at="8">Bench is back Friday, starting at 135 to ease in. Next week's in your tracker.</div>
+              <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="4" data-until="5"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="7" data-until="8"><i></i><i></i><i></i></div>
+            </div>
+            <div class="t-input">Message your coach</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -845,6 +911,39 @@
         for (const [n, ms] of [[1, 1100], [2, 1300], [3, 1700], [4, 900], [5, 1200], [6, 2200]]) { step(n); await wait(ms); }
         phone.classList.remove('chat'); await wait(450);
         phone.classList.add('changed'); await wait(4200);
+      }
+    })();
+  })();
+
+  // Beat 4: last Friday in Review → tap Coach → the weekly chat (each line beside the phone lights up as the chat
+  // says it) → chat closes, › to next Friday: Bench is back. Reduced motion: next week, still.
+  (() => {
+    const phone = document.querySelector('.b-wk');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('next'); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const lines = [...phone.closest('.beat').querySelectorAll('.w-lines li')];
+    const next = phone.querySelector('.p-step.next');
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    const light = l => lines.forEach(li => li.classList.toggle('on', +li.dataset.l === l));
+    (async () => {
+      for (;;) {
+        phone.classList.remove('chat', 'next', 'tap'); step(0); light(0);
+        await wait(2000);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
+        phone.classList.add('chat'); await wait(600);
+        step(1); await wait(800);
+        step(2); await wait(900);
+        step(3); light(1); await wait(2200);
+        step(4); await wait(900);
+        step(5); light(2); await wait(2400);
+        step(6); await wait(1000);
+        step(7); await wait(900);
+        step(8); light(3); await wait(2000);
+        phone.classList.remove('chat'); await wait(500);
+        next.classList.add('tap'); await wait(180); next.classList.remove('tap');
+        phone.classList.add('next'); await wait(3800);
       }
     })();
   })();
