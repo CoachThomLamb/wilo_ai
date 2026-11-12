@@ -847,6 +847,13 @@
 </footer>
 
 <script>
+  // Dates in the phones are worked out from the day the page is opened, so they never go stale.
+  const TODAY = new Date(); TODAY.setHours(12, 0, 0, 0);
+  const plus = n => { const d = new Date(TODAY); d.setDate(d.getDate() + n); return d; };
+  const fmtDay = d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });   // "Wed, Nov 18"
+  const wkDay = d => d.toLocaleDateString('en-US', { weekday: 'short' });                                    // "Wed"
+  const NEXT_MON = (TODAY.getDay() + 6) % 7;            // days since this week's Monday
+  const nextWeek = dow => plus(7 - NEXT_MON + (dow + 6) % 7);   // dow: 0 Sun … 6 Sat, in the week after this one
   // Hero loop: workout → tap Coach → chat (data-at steps) → chat closes, the change shows → again.
   // With reduced motion it just shows the changed workout, no loop.
   (() => {
@@ -877,11 +884,12 @@
     const phone = document.querySelector('.b-imp');
     if (!phone) return;
     const WEEK = [
-      { day: 'Today', what: 'Mon · Lower', ex: [['Goblet Squat', 40, 8, 'Elbows inside knees, sit between your heels.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10], ['Walking Lunge', 20, 10], ['Calf Raise', 45, 15]] },
-      { day: 'Wed, Nov 18', what: 'Upper', ex: [['Incline Push Up', '', 12, '2 s down, every rep.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Shoulder Press (DB)', 20, 10], ['Cable Curl', 25, 12]] },
-      { day: 'Fri, Nov 20', what: 'Full body', ex: [['Trap Bar Deadlift', 185, 6, 'Push the floor away.'], ['Split Squat', 25, 8], ['Incline DB Press', 35, 10], ['Aussie Row', '', 8], ['Plank', '', '45 s']] },
+      { day: 'Today', what: wkDay(TODAY) + ' · Lower', ex: [['Goblet Squat', 40, 8, 'Elbows inside knees, sit between your heels.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10], ['Walking Lunge', 20, 10], ['Calf Raise', 45, 15]] },
+      { day: fmtDay(plus(2)), what: 'Upper', ex: [['Incline Push Up', '', 12, '2 s down, every rep.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Shoulder Press (DB)', 20, 10], ['Cable Curl', 25, 12]] },
+      { day: fmtDay(plus(4)), what: 'Full body', ex: [['Trap Bar Deadlift', 185, 6, 'Push the floor away.'], ['Split Squat', 25, 8], ['Incline DB Press', 35, 10], ['Aussie Row', '', 8], ['Plank', '', '45 s']] },
     ];
     const mode = phone.querySelector('.i-mode'), wk = phone.querySelector('.i-wk'), next = phone.querySelector('.i-tl .next');
+    phone.querySelector('.i-sub span').textContent = WEEK[0].what;
     const stage = st => { phone.classList.remove('s-start', 's-feed', 's-review', 's-train'); phone.classList.add('s-' + st); };
     // One day drawn like the tracker's exercise rows: Set | lbs | reps | ✓ (no lbs column for bodyweight).
     function show(w) {
@@ -909,7 +917,7 @@
         phone.classList.add('tap'); await wait(350); phone.classList.remove('tap'); await wait(250);
         // Feed: a card every ~90 ms, while the count eases up to 214.
         stage('feed');
-        const t0 = performance.now(), d = new Date(2026, 10, 11);
+        const t0 = performance.now(), d = plus(-1);
         let i = 0;
         while (performance.now() - t0 < FEED) {
           const k = Math.min(1, (performance.now() - t0) / FEED);
@@ -992,6 +1000,8 @@
   (() => {
     const phone = document.querySelector('.b-wk');
     if (!phone) return;
+    const lastFri = plus(-(((TODAY.getDay() - 5 + 7) % 7) || 7)), nextFri = new Date(lastFri); nextFri.setDate(nextFri.getDate() + 7);
+    const [dLast, dNext] = phone.querySelectorAll('.w-day i'); dLast.textContent = fmtDay(lastFri); dNext.textContent = fmtDay(nextFri);
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('next'); return; }
     const items = [...phone.querySelectorAll('[data-at]')];
     const lines = [...phone.closest('.beat').querySelectorAll('.w-lines li')];
@@ -1029,10 +1039,10 @@
     const wait = ms => new Promise(r => setTimeout(r, ms));
     // The week the chat saves, drawn like the tracker's exercise rows (planned sets, nothing logged yet).
     const WEEK = [
-      { day: 'Tue, Nov 17', name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
-      { day: 'Thu, Nov 19', name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
-      { day: 'Sat, Nov 21', name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
-      { day: 'Sun, Nov 22', name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+      { day: fmtDay(nextWeek(2)), name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
+      { day: fmtDay(nextWeek(4)), name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
+      { day: fmtDay(nextWeek(6)), name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+      { day: fmtDay(nextWeek(0)), name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
     ];
     const next = phone.querySelector('.p-step.next');
     function showDay(w) {
