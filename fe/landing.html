@@ -79,6 +79,8 @@
     background: #050505; border: 10px solid #1d1d20; box-shadow: 0 30px 80px #0a84ff22, 0 0 0 1px #333 inset;
     padding: 34px 14px 14px; position: relative; overflow: hidden; font-size: 13px;
   }
+  /* On a phone, each mockup is scaled up to fill the screen width and fit the screen height (script sets --pz/--ph). */
+  @media (max-width: 600px) { .phone { zoom: var(--pz, 1); aspect-ratio: auto; height: var(--ph, 633px); border-width: 6px; border-radius: 34px; } }
   .phone::before { content: ""; position: absolute; top: 10px; left: 50%; width: 90px; height: 24px; margin-left: -45px; border-radius: 12px; background: #1d1d20; }
   .scr-h { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 4px 10px; }
   .scr-h b { font-size: 20px; }
@@ -847,6 +849,17 @@
 </footer>
 
 <script>
+  // Mobile: scale the phone mockups (drawn 300 px wide) up to the screen's width, no taller than the screen.
+  (() => {
+    const fit = () => {
+      const w = document.documentElement.clientWidth;
+      if (w > 600) return;
+      const pz = (w - 40) / 300;   // .wrap has 20 px side padding
+      document.documentElement.style.setProperty('--pz', pz.toFixed(3));
+      document.documentElement.style.setProperty('--ph', Math.min(633, (innerHeight - 76) / pz).toFixed(0) + 'px');
+    };
+    fit(); addEventListener('resize', fit);
+  })();
   // Dates in the phones are worked out from the day the page is opened, so they never go stale.
   const TODAY = new Date(); TODAY.setHours(12, 0, 0, 0);
   const plus = n => { const d = new Date(TODAY); d.setDate(d.getDate() + n); return d; };
