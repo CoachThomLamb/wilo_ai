@@ -138,7 +138,9 @@
   .gate h1 { font-size: 34px; }
   .gate p { margin: 0; color: var(--dim); font-size: 15px; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  .talk { flex: none; margin-top: 4px; height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--night); color: #fff; font: 500 15px/1 inherit; font-family: inherit; }
+  .acts { flex: none; display: flex; gap: 8px; margin-top: 4px; }
+  .train { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--field); color: inherit; text-decoration: none; font: 500 15px/1 inherit; font-family: inherit; }
+  .talk { flex: none; height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--night); color: #fff; font: 500 15px/1 inherit; font-family: inherit; }
 
   /* coach chat (chat.js), same sheet as the tracker */
   .chat-sheet {
@@ -187,7 +189,10 @@
   <p class="date"><button class="step" id="prevDay" aria-label="Previous day">‹</button><span id="date"></span><button class="step" id="nextDay" aria-label="Next day">›</button></p>
   <p class="saved" id="saved"></p>
   </div>
-  <button class="talk" id="chatBtn">Wilo</button>
+  <div class="acts">
+    <a class="train" href="index.html">Train</a>
+    <button class="talk" id="chatBtn">Wilo</button>
+  </div>
 </header>
 
 <div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Chat with Wilo">
