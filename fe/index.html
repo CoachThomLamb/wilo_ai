@@ -1208,7 +1208,7 @@
   authBtn.addEventListener('click', async () => {
     const a = window.__auth;
     if (!a || !a.currentUser()) return;
-    if (confirm('Sign out of ' + a.currentUser().email + '? Your draft stays on this phone.')) await a.signOut();
+    if (confirm('Sign out of ' + a.currentUser().email + '? Your draft stays on this phone.')) { await a.signOut(); location.replace('landing.html'); }
   });
 
   // ---- reset ---------------------------------------------------------
