@@ -809,11 +809,11 @@
   }
   async function run(visible, once) { for (;;) { await visible(); try { await once(); } catch (e) { if (e !== OUT) throw e; } } }
 
-  // Headline: "reality" is crossed out and replaced with "the gym", then "my shoulder", then back. Reduced motion: still.
+  // Headline: "reality" is crossed out and replaced with "the gym", then "my knee", then back. Reduced motion: still.
   (() => {
     const el = document.querySelector('.swap');
     if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const words = ['reality', 'the gym', 'my shoulder'];
+    const words = ['reality', 'the gym', 'my knee'];
     const wait = ms => new Promise(r => setTimeout(r, ms));
     (async () => {
       for (let i = 1; ; i++) {
