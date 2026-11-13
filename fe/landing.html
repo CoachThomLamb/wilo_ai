@@ -69,6 +69,12 @@
   .hero h1 { margin: 0; font-size: clamp(40px, 6vw, 68px); line-height: 1.02; font-weight: 800; letter-spacing: -.02em; }
   .hero h1 em { font-style: normal; color: var(--dim); }
   .hero h1 b { color: var(--accent); font-weight: 800; }
+  /* The last word gets crossed out and replaced: reality → the gym → my shoulder → reality… (script at the bottom) */
+  .swap { position: relative; display: inline-block; white-space: nowrap; }
+  .swap::after { content: ""; position: absolute; left: -.04em; right: 100%; top: 54%; height: .09em; background: var(--accent); border-radius: 2px; }
+  .swap.strike::after { right: -.04em; transition: right .35s ease-in; }
+  .swap.alt { color: var(--text); }
+  .swap.in { animation: t-in .3s ease-out; }
   .h-lines { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; max-width: 540px; }
   .h-lines li { padding-left: 16px; border-left: 3px solid var(--accent); font-size: clamp(16px, 1.7vw, 18px); color: #c7c7cc; line-height: 1.4; }
   .h-lines b { color: var(--text); }
@@ -346,7 +352,7 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <h1>Wilo, because<br><em>no plan survives contact with reality.</em></h1>
+        <h1>Wilo, because<br><em>no plan survives contact with <span class="swap">reality</span>.</em></h1>
         <ul class="h-lines">
           <li>Leg press occupied? Wilo shifts your workout for you.</li>
           <li>Slept on your shoulder funny and it's bench day? Wilo loads up your rehab.</li>
@@ -802,6 +808,22 @@
     return { wait, visible };
   }
   async function run(visible, once) { for (;;) { await visible(); try { await once(); } catch (e) { if (e !== OUT) throw e; } } }
+
+  // Headline: "reality" is crossed out and replaced with "the gym", then "my shoulder", then back. Reduced motion: still.
+  (() => {
+    const el = document.querySelector('.swap');
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const words = ['reality', 'the gym', 'my shoulder'];
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    (async () => {
+      for (let i = 1; ; i++) {
+        await wait(2600);
+        el.classList.add('strike'); await wait(900);
+        el.classList.remove('strike', 'in'); void el.offsetWidth;
+        el.textContent = words[i % words.length]; el.classList.toggle('alt', i % words.length !== 0); el.classList.add('in');
+      }
+    })();
+  })();
 
   // Hero loop: workout → tap Coach → chat (data-at steps) → chat closes, the change shows → again.
   // With reduced motion it just shows the changed workout, no loop.
