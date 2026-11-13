@@ -441,6 +441,17 @@
             <div class="i-sub"><b>Today</b><span>Mon · Lower</span></div>
             <div class="i-wk"></div>
           </div>
+          <!-- Before it builds the plan, Wilo asks what to account for. -->
+          <div class="t-chat" aria-hidden="true">
+            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+            <div class="t-log">
+              <div class="t-msg coach" data-at="1">214 workouts in. Before I build your plan, anything I should account for?</div>
+              <div class="t-msg me" data-at="2">Left knee hates deep squats. And I can only train 3 days a week.</div>
+              <div class="t-msg coach" data-at="4">Got it: 3 days, and squats to a box at knee-friendly depth. Building your plan now.</div>
+              <div class="t-typing" data-at="3" data-until="4"><i></i><i></i><i></i></div>
+            </div>
+            <div class="t-input">Message your coach</div>
+          </div>
         </div>
       </div>
 
@@ -905,7 +916,7 @@
     const phone = document.querySelector('.b-imp');
     if (!phone) return;
     const WEEK = [
-      { day: 'Today', what: wkDay(TODAY) + ' · Lower', ex: [['Goblet Squat', 40, 8, 'Elbows inside knees, sit between your heels.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10], ['Walking Lunge', 20, 10], ['Calf Raise', 45, 15]] },
+      { day: 'Today', what: wkDay(TODAY) + ' · Lower', ex: [['Goblet Squat', 40, 8, 'To the box. Easy on the left knee.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10], ['Walking Lunge', 20, 10], ['Calf Raise', 45, 15]] },
       { day: fmtDay(plus(2)), what: 'Upper', ex: [['Incline Push Up', '', 12, '2 s down, every rep.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Shoulder Press (DB)', 20, 10], ['Cable Curl', 25, 12]] },
       { day: fmtDay(plus(4)), what: 'Full body', ex: [['Trap Bar Deadlift', 185, 6, 'Push the floor away.'], ['Split Squat', 25, 8], ['Incline DB Press', 35, 10], ['Aussie Row', '', 8], ['Plank', '', '45 s']] },
     ];
@@ -930,9 +941,11 @@
     const NAMES = ['Lower A', 'Upper', 'Full body', 'Lower B', 'Push', 'Pull', 'Legs'];
     const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const TOTAL = 214, FEED = 2000;
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
     (async () => {
       for (;;) {
-        phone.classList.remove('fold', 'tap');
+        phone.classList.remove('fold', 'tap', 'chat'); step(0);
         box.innerHTML = ''; count.textContent = '0'; mode.textContent = 'Import'; stage('start');
         await wait(900);
         phone.classList.add('tap'); await wait(350); phone.classList.remove('tap'); await wait(250);
@@ -951,6 +964,13 @@
         }
         count.textContent = TOTAL; await wait(250);
         phone.classList.add('fold'); await wait(450);
+        // Wilo asks what to account for before it builds the plan.
+        phone.classList.add('chat'); await wait(500);
+        step(1); await wait(1500);
+        step(2); await wait(1500);
+        step(3); await wait(900);
+        step(4); await wait(2000);
+        phone.classList.remove('chat'); await wait(400);
         // The tracker, in Review: the new week, one day at a time.
         mode.textContent = 'Train →'; show(WEEK[0]); stage('review'); await wait(1000);
         for (const w of WEEK.slice(1)) { await tap(next); show(w); await wait(850); }
