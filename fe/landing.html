@@ -267,6 +267,14 @@
   .b-wk.next .w-mode { color: var(--accent); font-weight: 600; }
   .b-wk.train .p-tl { display: none; } .b-wk.train .w-sub { display: flex; }
 
+  /* The closing screen */
+  .why { padding-bottom: 0; }
+  .note { max-width: 620px; }
+  .note p { margin: 0 0 16px; font-size: 17px; line-height: 1.55; color: #c7c7cc; }
+  .note p.big { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.3; font-weight: 600; color: var(--text); margin-bottom: 22px; }
+  .note p.sig { color: var(--dim); margin: 4px 0 26px; }
+  .why footer { margin-top: 64px; }
+
   /* ---- closing panels, articles ---- */
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; gap: 14px; }
@@ -311,10 +319,13 @@
     .w-lines li.on { transform: none; color: var(--text); }
     /* Scroll snapping: a flick lands on the next beat, framed under the header; you can't stop halfway. */
     html { scroll-snap-type: y mandatory; --hdr: 66px; }
-    .hero, .beat, footer { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: var(--hdr); }
+    .hero, .beat, .why { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: var(--hdr); }
     section.block { padding-top: 24px; }
-    footer { min-height: calc(100vh - var(--hdr)); display: flex; }   /* its own screen, so beat 4 isn't cut; the closing section goes here */
-    footer .wrap { align-self: flex-end; }
+    .why { min-height: calc(100vh - var(--hdr)); display: flex; flex-direction: column; justify-content: space-between; }
+    .note p { font-size: 15.5px; margin-bottom: 12px; } .note p.big { font-size: 21px; }
+    .why footer { margin-top: 28px; padding: 20px 0 calc(16px + env(safe-area-inset-bottom)); }
+    .why { scroll-snap-align: end; }   /* the page ends on this screen */
+    .why footer nav { flex: none; }
     .b-pr { bottom: 290px; }                                   /* the PR toast, up out from under the copy */
     .b-wk .t-log { gap: 5px; } .b-wk .t-msg { font-size: 11.5px; padding: 6px 10px; }   /* 7 messages clear of the fade */
   }
@@ -731,19 +742,32 @@
     </div>
   </section>
 
-</main>
+  <!-- The closing screen: why it's called Wilo, from Thom. The footer lives in here so the page ends on this screen. -->
+  <section class="block why" id="why">
+    <div class="wrap">
+      <div class="note">
+        <p class="kicker">Why it's called Wilo</p>
+        <p class="big">Someone once told me I was an oak, and that I needed a willow in my life to learn that flexibility is a kind of strength. I named my dog after that. Then I named this.</p>
+        <p>I'm 52. A beat-up powerlifter (yeah, I trained at Westside) with more injuries than you've got "thanks for coming out" meet shirts. Every rigid plan I ever followed eventually broke me. Wilo is the plan that bends.</p>
+        <p>I built it to track my own training while I rehab, lose weight and rebuild my lifts. I hope it helps you as much as it still helps me.</p>
+        <p class="sig">— Thom</p>
+        <a class="btn" href="index.html?signin">Talk to Wilo</a>
+      </div>
+    </div>
+    <footer>
+      <div class="wrap">
+        <a class="logo" href="#top">WILO<span>.</span></a>
+        <nav>
+          <a href="index.html?signin">App</a>
+          <a href="#how">How we got you</a>
+          <a href="https://github.com/CoachThomLamb/wilo_ai">GitHub</a>
+        </nav>
+        <span>© 2026 Wilo</span>
+      </div>
+    </footer>
+  </section>
 
-<footer>
-  <div class="wrap">
-    <a class="logo" href="#top">WILO<span>.</span></a>
-    <nav>
-      <a href="index.html?signin">App</a>
-      <a href="#how">How we got you</a>
-      <a href="https://github.com/CoachThomLamb/wilo_ai">GitHub</a>
-    </nav>
-    <span>© 2026 Wilo</span>
-  </div>
-</footer>
+</main>
 
 <script>
   // Mobile: scale the phone mockups (drawn 300 px wide) up to the screen's width, no taller than the screen.
