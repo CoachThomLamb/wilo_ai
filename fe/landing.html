@@ -304,6 +304,12 @@
     .w-lines li { font-size: 14.5px; }
     .w-lines li:not(.on) { display: none; }
     .w-lines li.on { transform: none; color: var(--text); }
+    /* Scroll snapping: a flick lands on the next beat, framed under the header; you can't stop halfway. */
+    html { scroll-snap-type: y mandatory; --hdr: 66px; }
+    .hero, .beat, footer { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: var(--hdr); }
+    section.block { padding-top: 24px; }
+    footer { min-height: calc(100vh - var(--hdr)); display: flex; }   /* its own screen, so beat 4 isn't cut; the closing section goes here */
+    footer .wrap { align-self: flex-end; }
     .b-pr { bottom: 290px; }                                   /* the PR toast, up out from under the copy */
     .b-wk .t-log { gap: 5px; } .b-wk .t-msg { font-size: 11.5px; padding: 6px 10px; }   /* 7 messages clear of the fade */
   }
@@ -428,8 +434,6 @@
   <!-- How we got you: three beats, each a phone that plays itself (scripts at the bottom). -->
   <section class="block" id="how">
     <div class="wrap">
-      <h2>How we got you</h2>
-
       <!-- Beat 1: import. Tap Import, past workouts stream in with a counter, they fold into a Mon / Wed / Fri plan.
            Played by the script at the bottom; with reduced motion it shows the plan only. -->
       <div class="split beat">
