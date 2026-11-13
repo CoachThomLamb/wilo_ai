@@ -83,7 +83,6 @@
     padding: 34px 14px 14px; position: relative; overflow: hidden; font-size: 13px;
   }
   /* On a phone, each mockup is scaled up to fill the screen width and fit the screen height (script sets --pz/--ph). */
-  @media (max-width: 600px) { .phone { zoom: var(--pz, 1); aspect-ratio: auto; height: var(--ph, 633px); border-width: 6px; border-radius: 34px; } }
   .phone::before { content: ""; position: absolute; top: 10px; left: 50%; width: 90px; height: 24px; margin-left: -45px; border-radius: 12px; background: #1d1d20; }
   .scr-h { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 4px 10px; }
   .scr-h b { font-size: 20px; }
@@ -287,6 +286,27 @@
   footer nav { display: flex; gap: 20px; flex: 1; flex-wrap: wrap; }
   footer a { color: var(--dim); text-decoration: none; }
   footer a:hover { color: var(--text); }
+  /* Phones (last so these win over the desktop rules above) */
+  @media (max-width: 600px) {
+    .phone { zoom: var(--pz, 1); aspect-ratio: auto; height: var(--ph, 633px); border-width: 6px; border-radius: 34px; }
+    .h-lines b { white-space: nowrap; }
+    /* Phones: each beat's copy sits over the bottom of its phone on a dark fade, so a beat is one thing to look at. */
+    .beat { position: relative; margin-top: 36px; }
+    .beat > div:first-child {
+      position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 3; pointer-events: none;
+      padding: 96px 18px 22px; border-radius: 0 0 28px 28px;
+      background: linear-gradient(to bottom, transparent, rgba(0,0,0,.88) 70px, #000 110px);
+    }
+    .beat .kicker { margin-bottom: 6px; font-size: 11px; }
+    .beat-copy { font-size: 21px; max-width: none; }
+    .beat .beat-sub { margin-top: 8px; font-size: 14.5px; color: #d0d0d5; }
+    .w-lines { margin-top: 10px; gap: 0; }
+    .w-lines li { font-size: 14.5px; }
+    .w-lines li:not(.on) { display: none; }
+    .w-lines li.on { transform: none; color: var(--text); }
+    .b-pr { bottom: 290px; }                                   /* the PR toast, up out from under the copy */
+    .b-wk .t-log { gap: 5px; } .b-wk .t-msg { font-size: 11.5px; padding: 6px 10px; }   /* 7 messages clear of the fade */
+  }
 </style>
 </head>
 <body>
