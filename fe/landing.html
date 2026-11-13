@@ -149,39 +149,12 @@
   .t-changed { margin-left: 6px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); opacity: 0; transition: opacity .3s; vertical-align: 1px; }
   .phone.changed .t-changed { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .t-chat { transition: none; } .phone.changed .t-w { animation: none; } }
-  /* second phone: planning in Claude through the connector */
-  .p-log { display: flex; flex-direction: column; justify-content: flex-end; height: calc(100% - 40px); overflow: hidden; }
-  .p-log > * { flex: none; }
-  .p-plan [data-at] { display: none; }
-  .p-plan [data-at].on { display: block; animation: t-in .25s ease-out; }
-  .p-plan .msg { margin-bottom: 7px; }
-  .p-tool { align-self: flex-start; margin: 0 0 6px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); color: var(--dim); font-size: 10.5px; }
-  .p-tool code { color: var(--text); font: 500 10.5px ui-monospace, Menlo, monospace; }
-  .p-tool span { margin-left: 6px; color: var(--ok); }
-  .p-tool span::before { content: "✓ "; }
-  .p-plan.still [data-at] { display: block; animation: none; }
-  .p-wilo {
-    position: absolute; inset: 0; z-index: 2; background: #000; padding: 34px 14px 0;
-    transform: translateX(100%); transition: transform .45s cubic-bezier(.3,.8,.4,1);
-  }
-  .p-plan.wilo .p-wilo { transform: none; }
   .p-tl { display: flex; align-items: center; gap: 8px; margin: 0 -14px; padding: 6px 10px; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); }
   .p-tl > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .p-tl strong { font-size: 13px; } .p-tl > div span { font-size: 10.5px; color: var(--dim); }
   .p-step { flex: none; width: 36px; height: 30px; border-radius: 8px; background: var(--field); border: 1px solid var(--line); display: grid; place-items: center; font-size: 20px; line-height: 1; padding-bottom: 2px; }
   .p-step.tap { transform: scale(.88); background: #2c2c30; transition: transform .1s; }
-  .p-moved { display: none; margin: 8px 0 0; font-size: 10.5px; color: var(--coach); }
-  .p-plan.moved .p-moved { display: block; }
-  .p-plan.moved .p-moved { animation: t-tag 1.6s ease-out; }
   @keyframes t-tag { 0%, 30% { color: #fff; text-shadow: 0 0 12px var(--coach); } }
-  .p-rest { padding: 64px 0; text-align: center; color: var(--dim); font-size: 15px; animation: t-in .35s ease-out; }
-  .p-rest span { display: block; margin-top: 8px; font-size: 11px; color: var(--coach); }
-  .p-days { animation: t-in .3s ease-out; }
-  .p-days .t-ex { padding-left: 0; padding-right: 0; }
-  .p-wilo { display: flex; flex-direction: column; overflow: hidden; }
-  .p-clip { flex: 1; min-height: 0; overflow: hidden; }
-  .t-cue .pr { color: #ffd60a; }
-  .p-plan.still .p-wilo { display: none; }
   .t-sets.c5 { grid-template-columns: 26px 1fr 1fr 34px; }
   .t-hd { color: var(--dim); font-size: 10px; font-weight: 500; padding-bottom: 3px; }
   .t-no { width: 24px; height: 24px; border-radius: 6px; background: var(--field); display: grid; place-items: center; font-size: 12px; font-weight: 600; justify-self: start; }
@@ -314,9 +287,6 @@
     <a class="logo" href="#top">WILO<span>.</span></a>
     <nav>
       <a href="#how">How we got you</a>
-      <a href="#adjust">Mid-workout</a>
-      <a href="#coaches">For coaches</a>
-      <a href="#read">Read</a>
     </nav>
     <a class="btn small" href="index.html?signin">Open the app</a>
   </div>
@@ -706,152 +676,6 @@
     </div>
   </section>
 
-  <!-- Plan -->
-  <section class="block">
-    <div class="wrap split">
-      <div>
-        <p class="kicker coach">Plan</p>
-        <h2>A coach that knows your training.</h2>
-        <p>Wilo is an MCP connector: connect Claude, or any LLM that speaks MCP, and your training is there wherever you chat. It reads your history, your preferences and your coaching principles before it writes a set.</p>
-        <ul class="ticks">
-          <li>Plans built from what you actually lifted, not a template</li>
-          <li>Holds you to last week's plan, and asks what got in the way</li>
-          <li>Remembers injuries, preferences and the exercises you hate</li>
-          <li>Workouts land on your days, ready on your phone</li>
-        </ul>
-      </div>
-      <!-- Planning in Claude with the Wilo connector: the tools it calls are the real ones (wilo/mcp_server.py).
-           Played step by step by the loop script at the bottom (data-at). -->
-      <div class="phone p-plan" aria-label="Planning next week in Claude with the Wilo connector">
-        <div class="scr-h"><b>Claude</b><small>Wilo connected</small></div>
-        <div class="p-log">
-          <div class="msg me" data-at="1">Connect to my Wilo. Look at last week and help me plan next week.</div>
-          <div class="p-tool" data-at="2">Wilo · <code>coaching_method</code><span>coaching principles</span></div>
-          <div class="p-tool" data-at="3">Wilo · <code>get_profile</code><span>your preferences</span></div>
-          <div class="p-tool" data-at="4">Wilo · <code>training_summary</code><span>planned vs done</span></div>
-          <div class="msg coach" data-at="5"><b>Claude</b>Last week you planned 3 workouts and did 2. Saturday's full body didn't happen. Plan 2 this week, or what would make the third one happen?</div>
-          <div class="msg me" data-at="6">Keep 3. Saturdays are hard, Sunday morning works.</div>
-          <div class="msg coach" data-at="7"><b>Claude</b>Ok: Tuesday and Thursday same as last week. Great job on the Leg Press and Push Up PRs! Saturday's workout moves to Sunday.
-          </div>
-          <div class="msg me" data-at="8">Save it</div>
-          <div class="p-tool" data-at="9">Wilo · <code>assign_workout</code> × 3<span>saved</span></div>
-          <div class="msg coach" data-at="10"><b>Claude</b>Done. They're on your days in the tracker.</div>
-        </div>
-        <!-- Then the tracker's Review view (fe/index.html .tl): ‹ day › through the week the chat just saved. -->
-        <div class="p-wilo" aria-hidden="true">
-          <div class="scr-h"><b>WILO</b><small>Review</small></div>
-          <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
-          <div class="p-moved">Moved from Saturday</div>
-          <div class="p-clip"><div class="p-days"></div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Adjust mid-workout -->
-  <section class="block" id="adjust">
-    <div class="wrap split flip">
-      <div>
-        <p class="kicker">Mid-workout</p>
-        <h2>Plans change. Your log doesn't break.</h2>
-        <p>Machine taken? Shoulder tweaky? Tell the coach between sets. The new plan merges into the workout on your screen, live. Every set you've logged stays put.</p>
-        <ul class="ticks">
-          <li>Swap, add or drop exercises mid-session</li>
-          <li>Logged sets, notes and renames are never overwritten</li>
-          <li>Saves as you go, so nothing is lost if your phone dies</li>
-        </ul>
-      </div>
-      <div class="phone" aria-label="The coach swapping an exercise mid-workout">
-        <div class="scr-h"><b>Upper</b><small>In progress</small></div>
-        <div class="msg me">Shoulder's not having overhead today.</div>
-        <div class="msg coach"><b>Coach</b>Swapping to landmine press, same sets. Your first two exercises are kept.</div>
-        <div class="ex">
-          <div class="name"><span class="struck">Shoulder Press (DB)</span></div>
-          <div class="name" style="margin-top:4px">Landmine Press <span class="tag">Updated by coach</span></div>
-          <div class="sets" style="margin-top:8px">
-            <span class="hd">Set</span><span class="hd">Reps</span><span class="hd">Lbs</span><span></span>
-            <span>1</span><span class="v empty">10</span><span class="v empty">25</span><span class="tick"></span>
-          </div>
-        </div>
-        <div class="ex">
-          <div class="name">Chest Supported Row <span class="tag" style="background:#34c75926;color:#34c759">3/3 ✓</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Video -->
-  <section class="block">
-    <div class="wrap split">
-      <div>
-        <p class="kicker">Form checks</p>
-        <h2>See it done. Show how you did it.</h2>
-        <p>Every exercise can carry a short demo from your coach. Film a set and attach it, and your coach sees exactly what you saw.</p>
-        <ul class="ticks">
-          <li>10-second coach demos on every exercise</li>
-          <li>Attach a form video or photo to any set</li>
-          <li>Private: only you and your coach can watch yours</li>
-        </ul>
-      </div>
-      <div class="phone" aria-label="A coach demo and a form video on an exercise">
-        <div class="scr-h"><b>Full body</b><small>Yesterday</small></div>
-        <div class="ex">
-          <div class="name">Deadlift (Barbell) <span class="tag">3 × 6</span></div>
-          <div class="cue">2 s negative, every rep</div>
-          <div class="video"><span>Coach demo · 0:09</span></div>
-          <div class="chips"><span class="chip blue">▶ Coach demo</span><span class="chip">🎥 Your set 3</span><span class="chip">+ Video / photo</span></div>
-        </div>
-        <div class="ex">
-          <div class="name">Split Squat <span class="tag">3 × 8</span></div>
-          <div class="cue">Front shin vertical, slow down.</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- For coaches -->
-  <section class="block" id="coaches">
-    <div class="wrap">
-      <div class="duo">
-        <div class="card train">
-          <p class="kicker">For lifters</p>
-          <h3>Train with Wilo</h3>
-          <p>You already go to the gym. Wilo makes the plan smarter every week and keeps up when the day doesn't go to plan.</p>
-          <a class="btn" href="index.html?signin">Open the app</a>
-        </div>
-        <div class="card coach">
-          <p class="kicker coach">For coaches</p>
-          <h3>Coach with Wilo</h3>
-          <p>Write a client's next session in plain words, watch their form videos, and see every set they logged, without chasing screenshots in DMs.</p>
-          <a class="btn ghost" href="#read">How it's built</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Read -->
-  <section class="block" id="read">
-    <div class="wrap">
-      <p class="kicker">Read</p>
-      <h2>Built in the open.</h2>
-      <p>Notes from building an AI coach that people actually train with.</p>
-      <div class="duo">
-        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai/blob/main/docs/case-study-coach-token-cost.md">
-          <small>Case study</small>
-          <h3>Why the coach chat was expensive</h3>
-          <p>Where an AI coach's tokens really go (mostly into re-reading its own tool results) and what cut the bill.</p>
-          <span class="more">Read the case study →</span>
-        </a>
-        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai">
-          <small>Source</small>
-          <h3>The code</h3>
-          <p>The tracker, the coach's tools and the coaching method, all on GitHub.</p>
-          <span class="more">View on GitHub →</span>
-        </a>
-      </div>
-    </div>
-  </section>
-
 </main>
 
 <footer>
@@ -860,7 +684,6 @@
     <nav>
       <a href="index.html?signin">App</a>
       <a href="#how">How we got you</a>
-      <a href="#read">Case study</a>
       <a href="https://github.com/CoachThomLamb/wilo_ai">GitHub</a>
     </nav>
     <span>© 2026 Wilo</span>
@@ -1078,68 +901,6 @@
         await tap(mode);
         mode.textContent = 'Review →'; phone.classList.add('train'); light(4); await wait(700);
         await tap(first); tick(true); await wait(2600);
-      }
-    })();
-  })();
-
-  // Second phone: the planning chat in Claude plays one step at a time, newest at the bottom, then again.
-  (() => {
-    const phone = document.querySelector('.p-plan');
-    if (!phone) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('still'); return; }
-    const items = [...phone.querySelectorAll('[data-at]')];
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-    // The week the chat saves, drawn like the tracker's exercise rows (planned sets, nothing logged yet).
-    const WEEK = [
-      { day: fmtDay(nextWeek(2)), name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
-      { day: fmtDay(nextWeek(4)), name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
-      { day: fmtDay(nextWeek(6)), name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
-      { day: fmtDay(nextWeek(0)), name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
-    ];
-    const next = phone.querySelector('.p-step.next');
-    function showDay(w) {
-      phone.querySelector('.p-tl strong').textContent = w.day;
-      phone.querySelector('.p-tl > div span').textContent = w.name;
-      phone.querySelector('.p-moved').textContent = w.moved || '';
-      phone.classList.toggle('moved', !!w.moved);
-      const box = phone.querySelector('.p-days');
-      box.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> <span class="pr">${cue.slice(0, 2)}</span>${cue.slice(2)}</div>` : ''}<div class="t-sets">
-        <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-        ${[1, 2, 3].map(i => `<span class="t-no">${i}</span><span class="t-v">${lbs}</span><span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
-      </div></div>`).join('');
-      box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
-      // Longer than the screen: scroll down it slowly, like a thumb in the tracker.
-      unscroll();
-      const over = box.scrollHeight - box.parentElement.clientHeight;
-      if (over > 0) scrollTimer = setTimeout(() => { box.style.transition = 'transform 2.2s ease-in-out'; box.style.transform = `translateY(-${over}px)`; }, 1800);
-    }
-    let scrollTimer;
-    function unscroll() {
-      clearTimeout(scrollTimer);
-      const box = phone.querySelector('.p-days');
-      box.style.transition = 'none'; box.style.transform = '';
-    }
-    // Saturday: the workout clears and the day turns into rest (the tracker's "No workout" screen).
-    function toRest(w) {
-      unscroll();
-      phone.querySelector('.p-tl > div span').textContent = 'Rest';
-      phone.querySelector('.p-days').innerHTML = `<div class="p-rest">No workout<span>${w.rest}</span></div>`;
-    }
-    const pause = { 1: 1200, 2: 600, 3: 600, 4: 900, 5: 3200, 6: 1800, 7: 3800, 8: 900, 9: 900, 10: 3500 };
-    (async () => {
-      for (;;) {
-        for (let n = 1; n <= 10; n++) { items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n)); await wait(pause[n] - (n === 10 ? 1800 : 0)); }
-        // Over to Wilo: the saved week in Review, one day at a time.
-        phone.classList.add('wilo');
-        for (let d = 0; d < WEEK.length; d++) {
-          if (d) { next.classList.add('tap'); await wait(180); next.classList.remove('tap'); }
-          showDay(WEEK[d]);
-          if (WEEK[d].rest) { await wait(1100); toRest(WEEK[d]); }
-          await wait(WEEK[d].rest ? 2200 : 4600);
-        }
-        phone.classList.remove('wilo', 'moved');
-        items.forEach(el => el.classList.remove('on'));
-        await wait(700);
       }
     })();
   })();
