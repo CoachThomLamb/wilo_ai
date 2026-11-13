@@ -283,6 +283,8 @@
   .w-struck { text-decoration: line-through; color: var(--dim); font-weight: 500; }
   .w-tag { margin-left: 4px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); vertical-align: 1px; }
   .b-wk.next .w-next .w-tag { animation: t-flash 1.6s ease-out; }
+  .b-wk.next .w-mode { color: var(--accent); font-weight: 600; }
+  .b-wk.train .p-tl { display: none; } .b-wk.train .w-sub { display: flex; }
 
   /* ---- closing panels, articles ---- */
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -559,16 +561,19 @@
            The lines beside the phone light up as the chat says them (script at the bottom). -->
       <div class="split flip beat">
         <div>
-          <p class="kicker">4 · Repeat</p>
+          <p class="kicker">4 · Review, plan, repeat</p>
           <h3 class="beat-copy">Like shampoo, but for gains.</h3>
           <ul class="w-lines">
+            <li data-l="0">Between workouts, you and Wilo look back before you go again.</li>
             <li data-l="1">Wilo celebrates your finished workouts and PRs.</li>
             <li data-l="2">Wilo remembers what you changed.</li>
             <li data-l="3">Then it plans your next week.</li>
+            <li data-l="4">Then you're back in the gym.</li>
           </ul>
         </div>
-        <div class="phone b-wk" aria-label="Wilo reviews last week in a chat, then next week's plan lands in the tracker">
-          <div class="scr-h"><b>WILO</b><small>Review</small></div>
+        <div class="phone b-wk" aria-label="Wilo reviews last week in a chat, next week's plan lands in the tracker, then back in the gym the first set is ticked">
+          <div class="scr-h"><b>WILO</b><small class="w-mode">Review</small></div>
+          <div class="i-sub w-sub"><b>Today</b><span>Fri · Chest</span></div>
           <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong class="w-day"><i>Fri, Nov 13</i><i>Fri, Nov 20</i></strong><span>Chest</span></div><span class="p-step next">&rsaquo;</span></div>
           <div class="w-last">
             <div class="w-done">✓ Done · 3 of 3 this week</div>
@@ -1009,23 +1014,28 @@
   })();
 
   // Beat 4: last Friday in Review → tap Coach → the weekly chat (each line beside the phone lights up as the chat
-  // says it) → chat closes, › to next Friday: Bench is back. Reduced motion: next week, still.
+  // says it) → chat closes, › to next Friday: Bench is back → tap Train, the first Bench set is ticked (back in the gym).
+  // Reduced motion: that last screen, still.
   (() => {
     const phone = document.querySelector('.b-wk');
     if (!phone) return;
     const lastFri = plus(-(((TODAY.getDay() - 5 + 7) % 7) || 7)), nextFri = new Date(lastFri); nextFri.setDate(nextFri.getDate() + 7);
     const [dLast, dNext] = phone.querySelectorAll('.w-day i'); dLast.textContent = fmtDay(lastFri); dNext.textContent = fmtDay(nextFri);
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('next'); return; }
+    const mode = phone.querySelector('.w-mode'), first = phone.querySelector('.w-next .t-ck');
+    const tick = on => [first, first.previousElementSibling, first.previousElementSibling.previousElementSibling].forEach(el => el.classList.toggle('on', on));
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('next', 'train'); mode.textContent = 'Review →'; tick(true); return; }
     const items = [...phone.querySelectorAll('[data-at]')];
     const lines = [...phone.closest('.beat').querySelectorAll('.w-lines li')];
     const next = phone.querySelector('.p-step.next');
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
     const light = l => lines.forEach(li => li.classList.toggle('on', +li.dataset.l === l));
+    const tap = async el => { el.classList.remove('i-tap'); void el.offsetWidth; el.classList.add('i-tap'); await wait(320); };
     (async () => {
       for (;;) {
-        phone.classList.remove('chat', 'next', 'tap'); step(0); light(0);
-        await wait(2000);
+        phone.classList.remove('chat', 'next', 'train', 'tap'); step(0); light(-1); tick(false); mode.textContent = 'Review';
+        await wait(1200);
+        light(0); await wait(1600);
         phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
         phone.classList.add('chat'); await wait(600);
         step(1); await wait(800);
@@ -1038,7 +1048,10 @@
         step(8); light(3); await wait(2000);
         phone.classList.remove('chat'); await wait(500);
         next.classList.add('tap'); await wait(180); next.classList.remove('tap');
-        phone.classList.add('next'); await wait(3800);
+        mode.textContent = 'Train →'; phone.classList.add('next'); await wait(2000);
+        await tap(mode);
+        mode.textContent = 'Review →'; phone.classList.add('train'); light(4); await wait(700);
+        await tap(first); tick(true); await wait(2600);
       }
     })();
   })();
