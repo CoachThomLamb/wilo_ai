@@ -680,10 +680,13 @@
               <div class="t-msg coach" data-at="3">Great week: 3 of 3 workouts done, and a 🏆 Leg Press PR at 200 × 10.</div>
               <div class="t-msg coach" data-at="5">Friday you swapped Bench for Machine Press. Keep the machine, or plan for bench?</div>
               <div class="t-msg me" data-at="6">Back to bench. Shoulder feels good.</div>
-              <div class="t-msg coach" data-at="8">Bench is back Friday, starting at 135 to ease in. Next week's in your tracker.</div>
+              <div class="t-msg coach" data-at="8">Did you look back over last week? Anything else stand out before I plan?</div>
+              <div class="t-msg me" data-at="9">Legs felt strong. Push them.</div>
+              <div class="t-msg coach" data-at="11">Bench is back Friday at 135 to ease in, and legs go up 10 lbs. Next week's in your tracker.</div>
               <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
               <div class="t-typing" data-at="4" data-until="5"><i></i><i></i><i></i></div>
               <div class="t-typing" data-at="7" data-until="8"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="10" data-until="11"><i></i><i></i><i></i></div>
             </div>
             <div class="t-input">Message your coach</div>
           </div>
@@ -1045,7 +1048,10 @@
         step(5); light(2); await wait(2400);
         step(6); await wait(1000);
         step(7); await wait(900);
-        step(8); light(3); await wait(2000);
+        step(8); light(0); await wait(2200);
+        step(9); await wait(1000);
+        step(10); await wait(900);
+        step(11); light(3); await wait(2000);
         phone.classList.remove('chat'); await wait(500);
         next.classList.add('tap'); await wait(180); next.classList.remove('tap');
         mode.textContent = 'Train →'; phone.classList.add('next'); await wait(2000);
