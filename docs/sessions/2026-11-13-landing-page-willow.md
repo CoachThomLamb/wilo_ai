@@ -1,4 +1,4 @@
-# 2026-11-13: landing page beats, the master idea bank, and the willow
+# 2026-11-13: landing page beats, the willow, and Talk to Wilo
 
 All on `feat/landing-beats` (PR #161, not merged). Preview: https://wilo2-1ee44--dev-6wjxhiwt.web.app/landing.html.
 Earlier in the day: PR #159 (‹ › through past days on the day page) and #160 (Train button back to the tracker)
@@ -7,79 +7,81 @@ needs adding to Auth authorized domains); `~/.local/bin/clip-sync` keeps primary
 
 ## Where the page is now (PR #161)
 
-Hero plus four beats, each a phone that loops beside the copy. Everything else (Plan, Mid-workout, Form checks,
-For lifters / For coaches, Read) is cut; the copy is kept in the master doc (below).
+Top to bottom:
 
-- **Hero:** "Wilo, because no plan survives contact with reality." Three lines (leg press occupied / slept on your
-  shoulder funny / gym crush, "Bro, WE GOT YOU!"), then "Wilo helps you adapt your training to life, and keeps you
-  on track at the same time." Phone: "Leg press is taken." → coach does hack squats first, moves leg press to 3rd.
+- **Header:** WILO logo + "Talk to Wilo" button. Nothing else.
+- **Hero:** "Wilo, because no plan survives contact with **reality**." The last word gets a red hand-drawn pen
+  stroke, crumples away and is replaced: reality → the gym → my knee → reality. Then (desktop only) Thom's three
+  lines (leg press occupied / slept on your shoulder funny / gym crush, "Bro, WE GOT YOU!") and the buttons.
+  Lede: "Wilo, like the willow. It bends in the strongest winds and doesn't break." Phone: "Leg press is taken."
+  → "No worries. Do hack squats first and I'll move leg press to 3rd." → the two swap order.
 - **1 · The start:** "Two minutes from your old tracker to today's workout." Import 214 workouts, the coach asks
-  what to account for (left knee, 3 days a week), the plan lands in Review, Train, first set ticked. ~17 s a loop;
-  Thom: 17 s to a whole plan is the selling point, don't trim it.
-- **2 · Progress:** "The work is working. Wilo helps you see it." Set 3 goes 8→10, gold cell, PR toast ending
-  "3rd PR this month", fireworks.
-- **3 · Hurting:** headline still "Hurting? Wilo adjusts." with "A great workout is flow. When the plan changes,
-  Wilo keeps you in it, and your tracker updates in real time." **Being rewritten** (see below).
-- **4 · Review, plan, repeat:** "Like shampoo, but for gains." Five lines light up as the chat says them; the coach
-  asks "Did you look back over last week?" before planning; then › to next Friday, tap Train, first Bench set ticked.
-  The loop closes: review happens away from the gym, then you go back in.
-- Signing out of the tracker now goes to the landing page.
+  what to account for (left knee, 3 days a week), plan in Review, Train, first set ticked. ~17 s; Thom: 17 s to a
+  whole plan is the selling point.
+- **2 · Progress:** "The work is working. Wilo helps you see it." + "Progress is easy to miss and easy to doubt.
+  Wilo catches every PR, so you know your effort is paying off." Gold cell, toast ending "3rd PR this month", fireworks.
+- **3 · Flow:** "A great workout is flow, not data entry." + "Tell your coach what's up. Wilo bends the plan, and
+  your tracker keeps up." Phone: cranky shoulder → Landmine Press.
+- **4 · Review, plan, repeat:** "Like shampoo, but for gains." Five lines light up with the weekly chat (incl.
+  "Did you look back over last week?"), then Train, first Bench set ticked.
+- **Closing screen, "Why it's called Wilo":** the oak and the willow, the dog, 52-year-old Westside powerlifter,
+  "Every rigid plan I ever followed eventually broke me. Wilo is the plan that bends." — Thom, + Talk to Wilo.
+  Footer lives inside it: App · Built in the open on GitHub →.
+- Cut: the "How we got you" heading and nav item; Plan, Mid-workout, Form checks, For lifters/coaches, Read
+  sections (copy kept in the master doc).
 
-## The master idea bank (Claude Doc)
-
-https://claude.ai/artifact/72uQKd8wHPVE9LbD8G5ecb. Every headline, beat and section we tried, word for word, with
-why it changed, plus five variants to split-test (#162). **Rule:** new ideas go in the doc as variants; the live page
-changes when Thom says so. The doc is slightly behind the page (Docs service timed out): beat 3's line and the beat 2
-label ("2 · Progress") still need updating there.
+**Phones (≤600px, desktop unchanged):** hero is just headline + willow line, then the phone. Each beat's copy sits
+over the bottom of its phone on a dark fade; beat 4 shows only the lit line. Scroll snaps beat to beat (hero, 4
+beats, closing screen); you control the pace, you just can't stop halfway. **All devices:** each phone's animation
+starts when it scrolls into view and restarts from the top when you come back.
 
 ## Decisions and why
 
-- **Four beats, not three.** Review/plan/repeat is one beat, because the review is its own moment away from the gym.
-- **Sell the dream.** Import (beat 1, "two minutes") and the PR count (beat 2, "3rd PR this month", #163) don't exist
-  yet. Fine for a demand test; paid traffic goes to an early-access signup, not the app. If the test pulls signups,
-  build those two first.
-- **Overlap between hero and beat 3 is wanted.** Hero says why to care; beats show how. People need telling twice.
-  Don't police it.
-- **Headline went from "Love training, tracking not so much?" to the reality line** on Thom's call, not via a test.
-  The old one is in the doc as a variant.
-- **Beat 2's feeling:** Wilo exists so people see they're getting better because of their effort; it's easy to get
-  discouraged. "The work is working" puts the credit on them.
-- **Beat 3's feeling:** a great workout is flow; you shouldn't have to switch context to data entry when the plan
-  changes. Thom's lead line: **"A great workout is flow, not data entry."** (not on the page yet).
+- **Willow is the frame, not every beat.** Hero explains the name; beat 3 gets one nod ("bends the plan"); the oak
+  story is the closer. Tone is storm, not spa: "flexibility" stays, "hope and compassion" stay off the page.
+- **Let the reader do the work.** Thom: good writing paints the picture and trusts the leap. Dropped "Neither does
+  your training" after the willow line, and "you stay in the workout" from beat 3.
+- **Overlap between hero and beats is wanted.** Hero says why to care, beats show how. Don't police it.
+- **Don't trash other trackers.** Be negative about the pain the reader has lived ("not data entry"), not about
+  competitors. One line of contrast at most, and the founder note is the place for it.
+- **The first ask is Talk to Wilo, not an email form or sign-in.** The chat is the product; sign-in comes after
+  Wilo has proposed a week ("Want this in your tracker?"). #162 rewritten around it; build is #165.
+- **Sell the dream.** Import (beat 1, "two minutes") and the PR count (beat 2, #163) don't exist yet. Fine for a
+  demand test; build them first if the test pulls.
 
-## The willow (the inflection point, end of session)
+## Open issues from today
 
-Wilo is named for the willow: it bends in the strongest winds and doesn't break. It's also Thom's dog's name;
-someone once told him "you're an oak, you need a willow in your life to teach you that hope, compassion and
-flexibility are signs of strength." Thom thinks this may be the metaphor for the whole page. Agreed, with limits:
+- #162: split test, now measuring first message → plan reached → signed in.
+- #163: PR list view (backs beat 2's "3rd PR this month").
+- #164: sticky-phone mobile layout (one phone, copy scrolls over it). Build on its own branch off main after #161
+  merges and compare with the current overlay + snap.
+- #165: Talk to Wilo on the landing page (Render endpoint, Haiku, turn cap, IP rate limit, kill switch, sign-in
+  hand-off). Needs a visitor/intake section in coach.md, which Thom writes.
 
-- **Willow is the frame, not every beat.** Hero carries "Wilo, like the willow. It bends in the strongest winds.
-  So does your training." (say the Wilo/willow link out loud once; nobody gets it from the spelling). Beats stay
-  concrete. Beat 2 (progress) has nothing to do with bending; don't force it.
-- **Tone: storm, not spa.** "Bends and doesn't break" is a strength claim. Keep "flexibility", drop "hope and
-  compassion" from the page.
-- **The oak story is the founder note** at the bottom (where the signup also needs to go): Thom was the oak, rigid
-  plans broke him, Wilo is the plan that bends. Draft in the conversation; a photo of the dog would do more than
-  copy, but it's personal, Thom's call. "Wilo bends so you don't break" is a possible headline variant to test later.
+## Before #161 merges
 
-## Where it stopped
+- **"Talk to Wilo" (header and closing) goes to the Google sign-in screen** until #165 exists. Either ship #165
+  first or rename the buttons back to "Open the app" for the merge.
+- Thom to check on his actual phone: the pen stroke, the founder note, snap feel in iOS Safari, and whether the
+  Coach button hidden under the copy on beats 3/4 matters.
+- "Wilo is the plan that bends" in the founder note might be one willow too many; Thom's call.
 
-Mid-conversation on beat 3's supporting line. Candidates: "Tell your coach what's up. Wilo bends the plan. You stay
-in flow." / "A good plan bends. A good coach adapts. Most trackers leave you to do the work when things change. Wilo
-does it for you." Kicker would become "3 · Flow". Nothing built yet; Thom wants to talk it through first.
+## Also behind
+
+- Master idea bank doc (https://claude.ai/artifact/72uQKd8wHPVE9LbD8G5ecb) is a few edits behind: beat 2 label
+  ("2 · Progress"), beat 3 (Flow), the willow hero, the founder note, Talk to Wilo as the conversion.
+- Still open from before: draft PR #158 (coach.md day mode, Thom's), verify the day tools on Render, the accidental
+  artifact DMxq2RVTav1hhU489Vj7kx (delete?), PR #154 parked, local http server on 8001.
 
 ## Next
 
-1. Finish beat 3 (lead line + supporting line + kicker), then the willow line in the hero, then the founder note +
-   early-access signup at the bottom (the page currently ends on beat 4 with no call to action).
-2. Update the master doc (beat 2 label, beat 3 line, the willow section).
-3. Thom merges #161 when happy. hiwilo.com: wait for Firebase verification, add to Auth domains.
-4. #162 split test: signup form ("What do you track with now?"), `?v=` variants with analytics.
-5. #163 PR list (Backlog). Still open from earlier: draft PR #158 (coach.md day mode, Thom's), verify the day tools
-   on Render, the accidental artifact DMxq2RVTav1hhU489Vj7kx (delete?), PR #154 parked, local http server on 8001.
+1. Thom writes the visitor part of coach.md (what Wilo asks a stranger with no history); then build #165.
+2. Merge #161 (after the button decision above). hiwilo.com: Firebase verification, Auth domains.
+3. #162 analytics (three funnel events + `?v=`), then a small paid round.
 
 ## Working-style note
 
-Three times today I built or committed while Thom was still talking an idea through. Saved as memory
-`feedback_talk_before_build_copy`: "lets chat" / "keep talking" / "what do you got" means talk only; edit when he
-says build. Thom's offer of a hook that blocks edits in talk mode is still open.
+Three times I built while Thom was still talking an idea through, and one of those edits (beat 3's "Your workout
+changes…" line) landed even though he rejected it; I found and removed it later. Memory
+`feedback_talk_before_build_copy`: "lets chat" / "keep talking" / "what do you got" means talk only; build when
+he says build. Thom's offer of a hook that blocks edits in talk mode is still open.
