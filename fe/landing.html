@@ -14,7 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>WILO Coach</title>
-<meta name="description" content="You set the goal. Wilo plans, tracks and adjusts. You train.">
+<meta name="description" content="Wilo, because no plan survives contact with reality. Like the willow, it bends in the strongest winds and doesn't break.">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,10 +69,23 @@
   .hero h1 { margin: 0; font-size: clamp(40px, 6vw, 68px); line-height: 1.02; font-weight: 800; letter-spacing: -.02em; }
   .hero h1 em { font-style: normal; color: var(--dim); }
   .hero h1 b { color: var(--accent); font-weight: 800; }
-  .hero p.lede { margin: 22px 0 28px; font-size: 19px; color: var(--dim); max-width: 520px; }
+  /* The last word gets crossed out and replaced: reality → the gym → my shoulder → reality… (script at the bottom) */
+  .swap { position: relative; display: inline-block; white-space: nowrap; transform-origin: 40% 60%; }
+  .swap .pen { position: absolute; left: -.08em; top: .02em; width: calc(100% + .16em); height: 1em; overflow: visible; pointer-events: none; transform: rotate(-2deg); }
+  .swap .pen path { fill: none; stroke: #e5322d; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; opacity: 0; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .swap.strike .pen path { opacity: .92; stroke-dashoffset: 0; transition: stroke-dashoffset .5s cubic-bezier(.4,.1,.3,1); }
+  .swap.crumple { animation: crumple .5s cubic-bezier(.6,0,.8,.4) forwards; }
+  @keyframes crumple {
+    35% { transform: scale(.9, .72) rotate(-5deg); letter-spacing: -.04em; }
+    100% { transform: scale(.2, .12) rotate(22deg) translateY(.5em); letter-spacing: -.3em; opacity: 0; filter: blur(1.5px); }
+  }
+  .swap.alt { color: var(--text); }
+  .swap.in { animation: t-in .3s ease-out; }
+  .h-lines { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; max-width: 540px; }
+  .h-lines li { padding-left: 16px; border-left: 3px solid var(--accent); font-size: clamp(16px, 1.7vw, 18px); color: #c7c7cc; line-height: 1.4; }
+  .h-lines b { color: var(--text); }
+  .hero p.lede { margin: 22px 0 28px; font-size: clamp(22px, 2.6vw, 28px); font-weight: 600; color: var(--text); max-width: 520px; }
   .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
-  .facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 28px; color: var(--dim); font-size: 14px; }
-  .facts span::before { content: "●"; color: var(--ok); margin-right: 8px; font-size: 10px; vertical-align: 2px; }
   @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } .hero { padding-top: 40px; } }
 
   /* ---- phone mockups (drawn like the real tracker) ---- */
@@ -81,6 +94,7 @@
     background: #050505; border: 10px solid #1d1d20; box-shadow: 0 30px 80px #0a84ff22, 0 0 0 1px #333 inset;
     padding: 34px 14px 14px; position: relative; overflow: hidden; font-size: 13px;
   }
+  /* On a phone, each mockup is scaled up to fill the screen width and fit the screen height (script sets --pz/--ph). */
   .phone::before { content: ""; position: absolute; top: 10px; left: 50%; width: 90px; height: 24px; margin-left: -45px; border-radius: 12px; background: #1d1d20; }
   .scr-h { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 4px 10px; }
   .scr-h b { font-size: 20px; }
@@ -149,39 +163,12 @@
   .t-changed { margin-left: 6px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); opacity: 0; transition: opacity .3s; vertical-align: 1px; }
   .phone.changed .t-changed { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .t-chat { transition: none; } .phone.changed .t-w { animation: none; } }
-  /* second phone: planning in Claude through the connector */
-  .p-log { display: flex; flex-direction: column; justify-content: flex-end; height: calc(100% - 40px); overflow: hidden; }
-  .p-log > * { flex: none; }
-  .p-plan [data-at] { display: none; }
-  .p-plan [data-at].on { display: block; animation: t-in .25s ease-out; }
-  .p-plan .msg { margin-bottom: 7px; }
-  .p-tool { align-self: flex-start; margin: 0 0 6px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); color: var(--dim); font-size: 10.5px; }
-  .p-tool code { color: var(--text); font: 500 10.5px ui-monospace, Menlo, monospace; }
-  .p-tool span { margin-left: 6px; color: var(--ok); }
-  .p-tool span::before { content: "✓ "; }
-  .p-plan.still [data-at] { display: block; animation: none; }
-  .p-wilo {
-    position: absolute; inset: 0; z-index: 2; background: #000; padding: 34px 14px 0;
-    transform: translateX(100%); transition: transform .45s cubic-bezier(.3,.8,.4,1);
-  }
-  .p-plan.wilo .p-wilo { transform: none; }
   .p-tl { display: flex; align-items: center; gap: 8px; margin: 0 -14px; padding: 6px 10px; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); }
   .p-tl > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .p-tl strong { font-size: 13px; } .p-tl > div span { font-size: 10.5px; color: var(--dim); }
   .p-step { flex: none; width: 36px; height: 30px; border-radius: 8px; background: var(--field); border: 1px solid var(--line); display: grid; place-items: center; font-size: 20px; line-height: 1; padding-bottom: 2px; }
   .p-step.tap { transform: scale(.88); background: #2c2c30; transition: transform .1s; }
-  .p-moved { display: none; margin: 8px 0 0; font-size: 10.5px; color: var(--coach); }
-  .p-plan.moved .p-moved { display: block; }
-  .p-plan.moved .p-moved { animation: t-tag 1.6s ease-out; }
   @keyframes t-tag { 0%, 30% { color: #fff; text-shadow: 0 0 12px var(--coach); } }
-  .p-rest { padding: 64px 0; text-align: center; color: var(--dim); font-size: 15px; animation: t-in .35s ease-out; }
-  .p-rest span { display: block; margin-top: 8px; font-size: 11px; color: var(--coach); }
-  .p-days { animation: t-in .3s ease-out; }
-  .p-days .t-ex { padding-left: 0; padding-right: 0; }
-  .p-wilo { display: flex; flex-direction: column; overflow: hidden; }
-  .p-clip { flex: 1; min-height: 0; overflow: hidden; }
-  .t-cue .pr { color: #ffd60a; }
-  .p-plan.still .p-wilo { display: none; }
   .t-sets.c5 { grid-template-columns: 26px 1fr 1fr 34px; }
   .t-hd { color: var(--dim); font-size: 10px; font-weight: 500; padding-bottom: 3px; }
   .t-no { width: 24px; height: 24px; border-radius: 6px; background: var(--field); display: grid; place-items: center; font-size: 12px; font-weight: 600; justify-self: start; }
@@ -209,13 +196,6 @@
   ul.ticks li::before { content: "✓"; position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%; background: #0a84ff26; color: var(--accent); font-size: 11px; display: grid; place-items: center; font-weight: 700; }
 
   /* ---- the loop ---- */
-  .steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 14px; }
-  .steps li { padding: 14px 16px 14px 18px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid; border-radius: 14px; }
-  .steps li.s-train { border-left-color: var(--accent); }
-  .steps li.s-track { border-left-color: var(--coach); }
-  .steps li.s-progress { border-left-color: var(--ok); }
-  .steps b { display: block; font-size: 17px; margin-bottom: 2px; }
-  .steps span { color: var(--dim); font-size: 15px; line-height: 1.4; }
   .cycle { width: 100%; max-width: 420px; margin: 0 auto; display: block; overflow: visible; }
   .cycle .arc { fill: none; stroke: #8e8e96; stroke-width: 2.5; stroke-linecap: round; }
   .cycle .node circle { fill: var(--panel); stroke-width: 3; }
@@ -225,6 +205,87 @@
   .cycle .orbit { transform-origin: 200px 200px; animation: orbit 9s linear infinite; }
   @keyframes orbit { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .cycle .orbit { animation: none; } }
+
+  /* ---- How we got you ---- */
+  .beat { margin-top: 56px; }
+  .beat .kicker { color: var(--accent); }
+  .beat .beat-sub { margin: 14px 0 0; max-width: 460px; font-size: 17px; line-height: 1.45; color: #c7c7cc; }
+  .beat-copy { margin: 0; font-size: clamp(24px, 3vw, 32px); line-height: 1.2; font-weight: 700; letter-spacing: -.01em; max-width: 480px; }
+  .t-sets.c3 { grid-template-columns: 26px 1fr 34px; }
+  /* Beat 1: import → feed → plan. One stage shows at a time (classes set by the script). */
+  .b-imp .i-start, .b-imp .i-feed, .b-imp .i-plan { display: none; }
+  .b-imp.s-start .i-start, .b-imp.s-feed .i-feed, .b-imp.s-plan .i-plan { display: flex; }
+  .i-start { flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: calc(100% - 46px); text-align: center; }
+  .i-start p { margin: 0; font-size: 15px; font-weight: 600; }
+  .i-start small { color: var(--dim); font-size: 11px; }
+  .i-btn { position: relative; padding: 11px 22px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; transition: transform .12s; }
+  .i-btn::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid #fff; opacity: 0; }
+  .b-imp.tap .i-btn { transform: scale(.92); }
+  .b-imp.tap .i-btn::after { animation: t-ring .6s ease-out; }
+  .i-feed { flex-direction: column; height: calc(100% - 46px); }
+  .i-count { margin: 0 4px 10px; font-size: 13px; color: var(--dim); }
+  .i-count b { color: var(--text); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .i-cards { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; }
+  .i-card { flex: none; display: flex; justify-content: space-between; align-items: baseline; padding: 8px 11px; border-radius: 10px; background: var(--field); font-size: 12px; animation: i-in .18s ease-out; }
+  .i-card span { color: var(--dim); font-size: 10.5px; }
+  @keyframes i-in { from { opacity: 0; transform: translateY(-10px); } }
+  .b-imp.fold .i-card { transition: transform .5s cubic-bezier(.5,0,.7,.4), opacity .5s; transform: translateY(40px) scale(.4); opacity: 0; }
+  .b-imp .i-trk { display: none; flex-direction: column; height: calc(100% - 46px); overflow: hidden; }
+  .b-imp.s-review .i-trk, .b-imp.s-train .i-trk { display: flex; animation: t-in .3s ease-out; }
+  .b-imp.s-train .i-tl { display: none; }
+  .i-sub { display: none; flex-direction: column; margin: 0 4px 2px; }
+  .b-imp.s-train .i-sub { display: flex; }
+  .i-sub b { font-size: 15px; } .i-sub span { color: var(--dim); font-size: 11px; }
+  .i-wk { animation: t-in .25s ease-out; }
+  .i-wk .t-ex { padding-left: 0; padding-right: 0; }
+  .i-mode { position: relative; }
+  .b-imp.s-review .i-mode, .b-imp.s-train .i-mode { color: var(--accent); font-weight: 600; }
+  .i-tap { position: relative; }
+  .i-tap::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid #fff; opacity: 0; animation: t-ring .6s ease-out; pointer-events: none; }
+  .t-ck, .t-v { transition: background .2s, color .2s; }
+  .b-reps i { font-style: normal; } .b-reps i + i { display: none; }
+  .b-in.more .b-reps i:first-child { display: none; } .b-in.more .b-reps i + i { display: inline; }
+  .b-in.more .b-reps { background: #ffd60a; color: #1a1400; font-weight: 700; box-shadow: 0 0 14px #ffd60a88; animation: b-gold 1.4s ease-out; }
+  @keyframes b-gold { 0% { transform: scale(1); } 30% { transform: scale(1.18); box-shadow: 0 0 26px #ffd60acc; } 100% { transform: scale(1); } }
+  .b-in.more .b-ck { background: #1f4a2c; color: #34c759; }
+  .b-pr { position: absolute; z-index: 2; left: 14px; right: 14px; bottom: 62px; padding: 9px 12px; border-radius: 14px; background: linear-gradient(135deg, #4a3a00, #2a2000); border: 1px solid #ffd60a; color: #fff3c4; font-size: 12.5px; box-shadow: 0 10px 30px #000c, 0 0 24px #ffd60a55; opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+  .b-pr b { display: block; color: #ffd60a; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+  .b-in.pr .b-pr { opacity: 1; transform: none; }
+  .b-pr small { display: block; margin-top: 3px; color: #ffd60a; font-size: 11px; font-weight: 600; }
+  .b-fw { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+  .b-fw i { position: absolute; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--c); animation: b-spark 1.1s cubic-bezier(.2,.7,.4,1) forwards; }
+  @keyframes b-spark { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 30px)) scale(.3); opacity: 0; } }
+  .b-new { display: none; }
+  .h-swap { display: flex; flex-direction: column; }
+  .phone.changed .h-swap .h-hs { order: 1; } .phone.changed .h-swap .h-lp { order: 2; }
+  .phone.changed .h-swap .t-ex { animation: t-in .35s ease-out; }
+  .phone.changed .h-swap .t-name { animation: t-tag 1.6s ease-out; }
+  .phone.changed .b-old { display: none; } .phone.changed .b-new { display: inline; }
+  .phone.changed .t-name .b-new { animation: t-tag 1.6s ease-out; }
+
+  /* Beat 4: the weekly review */
+  .w-lines { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 12px; }
+  .w-lines li { color: var(--dim); font-size: 17px; font-weight: 500; transform-origin: left center; transition: transform .35s cubic-bezier(.3,.8,.4,1), color .35s; }
+  .w-lines li.on { color: var(--text); font-weight: 700; transform: scale(1.22); }
+  .w-lines li.on::before { content: "→ "; color: var(--accent); }
+  .b-wk .w-day i { font-style: normal; } .b-wk .w-day i + i { display: none; }
+  .b-wk.next .w-day i:first-child { display: none; } .b-wk.next .w-day i + i { display: inline; }
+  .w-next { display: none; } .b-wk.next .w-last { display: none; } .b-wk.next .w-next { display: block; animation: t-in .3s ease-out; }
+  .b-wk .t-ex { padding-left: 0; padding-right: 0; }
+  .w-done { margin: 8px 0 0; font-size: 11px; color: var(--ok); }
+  .w-struck { text-decoration: line-through; color: var(--dim); font-weight: 500; }
+  .w-tag { margin-left: 4px; font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #bf5af233; color: var(--coach); vertical-align: 1px; }
+  .b-wk.next .w-next .w-tag { animation: t-flash 1.6s ease-out; }
+  .b-wk.next .w-mode { color: var(--accent); font-weight: 600; }
+  .b-wk.train .p-tl { display: none; } .b-wk.train .w-sub { display: flex; }
+
+  /* The closing screen */
+  .why { padding-bottom: 0; }
+  .note { max-width: 620px; }
+  .note p { margin: 0 0 16px; font-size: 17px; line-height: 1.55; color: #c7c7cc; }
+  .note p.big { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.3; font-weight: 600; color: var(--text); margin-bottom: 22px; }
+  .note p.sig { color: var(--dim); margin: 4px 0 26px; }
+  .why footer { margin-top: 64px; }
 
   /* ---- closing panels, articles ---- */
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -245,6 +306,41 @@
   footer nav { display: flex; gap: 20px; flex: 1; flex-wrap: wrap; }
   footer a { color: var(--dim); text-decoration: none; }
   footer a:hover { color: var(--text); }
+  /* Phones (last so these win over the desktop rules above) */
+  @media (max-width: 600px) {
+    .phone { zoom: var(--pz, 1); aspect-ratio: auto; height: var(--ph, 633px); border-width: 6px; border-radius: 34px; }
+    /* Hero: the headline and the willow line, then straight to the phone. No bullet lines, no buttons. */
+    .h-lines, .ctas { display: none; }
+    .hero { padding: 28px 0 20px; }
+    .hero .wrap { gap: 24px; }
+    .hero h1 { font-size: 36px; }
+    .hero p.lede { margin: 16px 0 0; font-size: 20px; }
+    /* Phones: each beat's copy sits over the bottom of its phone on a dark fade, so a beat is one thing to look at. */
+    .beat { position: relative; margin-top: 36px; }
+    .beat > div:first-child {
+      position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 3; pointer-events: none;
+      padding: 96px 18px 22px; border-radius: 0 0 28px 28px;
+      background: linear-gradient(to bottom, transparent, rgba(0,0,0,.88) 70px, #000 110px);
+    }
+    .beat .kicker { margin-bottom: 6px; font-size: 11px; }
+    .beat-copy { font-size: 21px; max-width: none; }
+    .beat .beat-sub { margin-top: 8px; font-size: 14.5px; color: #d0d0d5; }
+    .w-lines { margin-top: 10px; gap: 0; }
+    .w-lines li { font-size: 14.5px; }
+    .w-lines li:not(.on) { display: none; }
+    .w-lines li.on { transform: none; color: var(--text); }
+    /* Scroll snapping: a flick lands on the next beat, framed under the header; you can't stop halfway. */
+    html { scroll-snap-type: y mandatory; --hdr: 66px; }
+    .hero, .beat, .why { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: var(--hdr); }
+    section.block { padding-top: 24px; }
+    .why { min-height: calc(100vh - var(--hdr)); display: flex; flex-direction: column; justify-content: space-between; }
+    .note p { font-size: 15.5px; margin-bottom: 12px; } .note p.big { font-size: 21px; }
+    .why footer { margin-top: 28px; padding: 20px 0 calc(16px + env(safe-area-inset-bottom)); }
+    .why { scroll-snap-align: end; }   /* the page ends on this screen */
+    .why footer nav { flex: none; }
+    .b-pr { bottom: 290px; }                                   /* the PR toast, up out from under the copy */
+    .b-wk .t-log { gap: 5px; } .b-wk .t-msg { font-size: 11.5px; padding: 6px 10px; }   /* 7 messages clear of the fade */
+  }
 </style>
 </head>
 <body>
@@ -252,13 +348,7 @@
 <header class="bar">
   <div class="wrap">
     <a class="logo" href="#top">WILO<span>.</span></a>
-    <nav>
-      <a href="#how">How it works</a>
-      <a href="#adjust">Mid-workout</a>
-      <a href="#coaches">For coaches</a>
-      <a href="#read">Read</a>
-    </nav>
-    <a class="btn small" href="index.html?signin">Open the app</a>
+    <a class="btn small" href="index.html?signin">Talk to Wilo</a>
   </div>
 </header>
 
@@ -268,16 +358,16 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <h1>You set the goal.<br><em>Wilo plans, tracks and adjusts.</em><br><b>You train.</b></h1>
-        <p class="lede">Wilo is an AI coach and a workout tracker joined at the hip. Plan your week in a chat, log every set on your phone, and when your body or life says no, the plan changes mid-workout without losing a rep.</p>
+        <h1>Wilo, because<br><em>no plan survives contact with <span class="swap"><span class="w">reality</span><svg class="pen" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M2,60 C14,50 24,66 38,56 S60,46 72,58 S90,54 99,44" pathLength="1"/></svg></span>.</em></h1>
+        <ul class="h-lines">
+          <li>Leg press occupied? Wilo shifts your workout for you.</li>
+          <li>Slept on your shoulder funny and it's bench day? Wilo loads up your rehab.</li>
+          <li>Just wanna train chest and bis because your gym crush is there? Bro, <b>WE GOT YOU!</b></li>
+        </ul>
+        <p class="lede">Wilo, like the willow. It bends in the strongest winds and doesn't break.</p>
         <div class="ctas">
           <a class="btn" href="index.html?signin">Open the app</a>
           <a class="btn ghost" href="#how">See how it works</a>
-        </div>
-        <div class="facts">
-          <span>Used for every workout since Oct 2026</span>
-          <span>Now coaching clients</span>
-          <span>Built in the open</span>
         </div>
       </div>
       <div class="phone" aria-label="The Wilo tracker during a workout">
@@ -296,18 +386,55 @@
           </div>
           <div class="t-chips"><span class="t-chip demo">▶ Coach demo</span><span class="t-chip">+ Video / photo</span></div>
         </div>
+        <!-- Leg Press is taken: the coach swaps the order, Hack Squat now, Leg Press after (CSS order on .changed). -->
+        <div class="h-swap">
+          <div class="t-ex h-lp">
+            <div class="t-name">Leg Press <span class="t-changed">Moved by coach</span></div>
+            <div class="t-cue"><b>Coach:</b> Full range, don't lock out.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex h-hs">
+            <div class="t-name">Hack Squat <span class="t-changed">Moved by coach</span></div>
+            <div class="t-cue"><b>Coach:</b> Control the bottom.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+        </div>
         <div class="t-ex">
-          <div class="t-name">Incline Push Up <span class="t-changed">Changed by coach</span></div>
-          <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
-          <!-- the card's "Custom field name" input (ex-note in the tracker), filled in -->
-          <div class="t-field"><span>Custom field</span>Width</div>
-          <!-- custom field (custom_name "Width"), one value per set -->
-          <div class="t-sets c5">
-            <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">Width</span><span class="t-hd">✓</span>
-            <span class="t-no">1</span><span class="t-v on">8</span><span class="t-v on">Wide</span><span class="t-ck on">✓</span>
-            <span class="t-no">2</span><span class="t-v">8</span><span class="t-v">Wide</span><span class="t-ck">✓</span>
-            <span class="t-no">3</span><span class="t-v">8</span><span class="t-v t-w"><i>Close</i><i>Wide</i></span><span class="t-ck">✓</span>
-            <span class="t-no">4</span><span class="t-v">8</span><span class="t-v t-w"><i>Close</i><i>Wide</i></span><span class="t-ck">✓</span>
+          <div class="t-name">Aussie Row</div>
+          <div class="t-cue"><b>Coach:</b> Body straight, chest to the bar.</div>
+          <div class="t-sets c3">
+            <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            <span class="t-no">2</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v">10</span><span class="t-ck">✓</span>
+          </div>
+        </div>
+        <div class="t-ex">
+          <div class="t-name">Romanian Deadlift</div>
+          <div class="t-sets">
+            <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v">65</span><span class="t-v">8</span><span class="t-ck">✓</span>
+            <span class="t-no">2</span><span class="t-v">65</span><span class="t-v">8</span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v">65</span><span class="t-v">8</span><span class="t-ck">✓</span>
+          </div>
+        </div>
+        <div class="t-ex">
+          <div class="t-name">Cable Row</div>
+          <div class="t-sets">
+            <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v">50</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            <span class="t-no">2</span><span class="t-v">50</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v">50</span><span class="t-v">12</span><span class="t-ck">✓</span>
           </div>
         </div>
         <span class="t-coach">Coach</span>
@@ -316,8 +443,8 @@
         <div class="t-chat" aria-hidden="true">
           <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
           <div class="t-log">
-            <div class="t-msg me" data-at="1">Close grip is hurting my wrists.</div>
-            <div class="t-msg coach" data-at="3">Switching sets 3 and 4 to Wide. Ok?</div>
+            <div class="t-msg me" data-at="1">Leg press is taken.</div>
+            <div class="t-msg coach" data-at="3">No worries. Do hack squats first and I'll move leg press to 3rd.</div>
             <div class="t-msg me" data-at="4">Ok</div>
             <div class="t-msg coach" data-at="6">Done. It's in your tracker.</div>
             <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
@@ -329,204 +456,382 @@
     </div>
   </section>
 
-  <!-- The loop -->
+  <!-- How we got you: three beats, each a phone that plays itself (scripts at the bottom). -->
   <section class="block" id="how">
     <div class="wrap">
-     <div class="split">
-      <div>
-        <p class="kicker">How it works</p>
-        <h2>Train. Track. Progress.<br>Repeat.</h2>
-        <p>Most apps log what you did. Wilo closes the loop: what you did shapes what you do next.</p>
-        <ol class="steps">
-          <li class="s-train"><b>Train</b><span>Today's workout is on your phone. Do the work.</span></li>
-          <li class="s-track"><b>Track</b><span>Log every set as you go: reps, weight, notes, a form video.</span></li>
-          <li class="s-progress"><b>Progress</b><span>Wilo reads it all and sets up the next one: heavier, lighter or different, for a reason.</span></li>
-        </ol>
-      </div>
-      <!-- The loop: three steps on a circle, arrows clockwise, a dot going round. -->
-      <svg class="cycle" viewBox="0 0 400 400" role="img" aria-label="A loop: Train, then Track, then Progress, then back to Train">
-        <defs>
-          <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0 0 L10 5 L0 10 z" fill="#8e8e96"/>
-          </marker>
-        </defs>
-        <circle cx="200" cy="200" r="150" fill="none" stroke="#1c1c1e" stroke-width="22"/>
-        <path d="M256.2 60.9 A150 150 0 0 1 348.5 220.9" class="arc" marker-end="url(#head)"/>
-        <path d="M292.4 318.2 A150 150 0 0 1 107.6 318.2" class="arc" marker-end="url(#head)"/>
-        <path d="M51.5 220.9 A150 150 0 0 1 143.8 60.9" class="arc" marker-end="url(#head)"/>
-        <g class="orbit"><circle cx="200" cy="50" r="6" fill="#f2f2f7"/></g>
-        <g class="node"><circle cx="200" cy="50" r="46" stroke="#0a84ff"/><text x="200" y="56">Train</text></g>
-        <g class="node"><circle cx="329.9" cy="275" r="46" stroke="#bf5af2"/><text x="329.9" y="281">Track</text></g>
-        <g class="node"><circle cx="70.1" cy="275" r="46" stroke="#34c759"/><text x="70.1" y="281">Progress</text></g>
-        <text x="200" y="198" class="hub">WILO</text>
-        <text x="200" y="224" class="hub-sub">↻ repeat</text>
-      </svg>
-     </div>
-    </div>
-  </section>
-
-  <!-- Plan -->
-  <section class="block">
-    <div class="wrap split">
-      <div>
-        <p class="kicker coach">Plan</p>
-        <h2>A coach that knows your training.</h2>
-        <p>Wilo is an MCP connector: connect Claude, or any LLM that speaks MCP, and your training is there wherever you chat. It reads your history, your preferences and your coaching principles before it writes a set.</p>
-        <ul class="ticks">
-          <li>Plans built from what you actually lifted, not a template</li>
-          <li>Holds you to last week's plan, and asks what got in the way</li>
-          <li>Remembers injuries, preferences and the exercises you hate</li>
-          <li>Workouts land on your days, ready on your phone</li>
-        </ul>
-      </div>
-      <!-- Planning in Claude with the Wilo connector: the tools it calls are the real ones (wilo/mcp_server.py).
-           Played step by step by the loop script at the bottom (data-at). -->
-      <div class="phone p-plan" aria-label="Planning next week in Claude with the Wilo connector">
-        <div class="scr-h"><b>Claude</b><small>Wilo connected</small></div>
-        <div class="p-log">
-          <div class="msg me" data-at="1">Connect to my Wilo. Look at last week and help me plan next week.</div>
-          <div class="p-tool" data-at="2">Wilo · <code>coaching_method</code><span>coaching principles</span></div>
-          <div class="p-tool" data-at="3">Wilo · <code>get_profile</code><span>your preferences</span></div>
-          <div class="p-tool" data-at="4">Wilo · <code>training_summary</code><span>planned vs done</span></div>
-          <div class="msg coach" data-at="5"><b>Claude</b>Last week you planned 3 workouts and did 2. Saturday's full body didn't happen. Plan 2 this week, or what would make the third one happen?</div>
-          <div class="msg me" data-at="6">Keep 3. Saturdays are hard, Sunday morning works.</div>
-          <div class="msg coach" data-at="7"><b>Claude</b>Ok: Tuesday and Thursday same as last week. Great job on the Leg Press and Push Up PRs! Saturday's workout moves to Sunday.
+      <!-- Beat 1: import. Tap Import, past workouts stream in with a counter, they fold into a Mon / Wed / Fri plan.
+           Played by the script at the bottom; with reduced motion it shows the plan only. -->
+      <div class="split beat">
+        <div>
+          <p class="kicker">1 · The start</p>
+          <h3 class="beat-copy">Two minutes from your old tracker to today's workout.</h3>
+          <p class="beat-sub">Bring your training history from any app. Wilo reads it, asks what to account for, and has your plan ready to go.</p>
+        </div>
+        <div class="phone b-imp s-start" aria-label="Past workouts imported, the Monday, Wednesday, Friday plan in the tracker, then the first set ticked">
+          <div class="scr-h"><b>WILO</b><small class="i-mode">Import</small></div>
+          <div class="i-start">
+            <p>Bring your training history.</p>
+            <span class="i-btn">Import workouts</span>
+            <small>CSV or export file from any tracker</small>
           </div>
-          <div class="msg me" data-at="8">Save it</div>
-          <div class="p-tool" data-at="9">Wilo · <code>assign_workout</code> × 3<span>saved</span></div>
-          <div class="msg coach" data-at="10"><b>Claude</b>Done. They're on your days in the tracker.</div>
-        </div>
-        <!-- Then the tracker's Review view (fe/index.html .tl): ‹ day › through the week the chat just saved. -->
-        <div class="p-wilo" aria-hidden="true">
-          <div class="scr-h"><b>WILO</b><small>Review</small></div>
-          <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
-          <div class="p-moved">Moved from Saturday</div>
-          <div class="p-clip"><div class="p-days"></div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Adjust mid-workout -->
-  <section class="block" id="adjust">
-    <div class="wrap split flip">
-      <div>
-        <p class="kicker">Mid-workout</p>
-        <h2>Plans change. Your log doesn't break.</h2>
-        <p>Machine taken? Shoulder tweaky? Tell the coach between sets. The new plan merges into the workout on your screen, live. Every set you've logged stays put.</p>
-        <ul class="ticks">
-          <li>Swap, add or drop exercises mid-session</li>
-          <li>Logged sets, notes and renames are never overwritten</li>
-          <li>Saves as you go, so nothing is lost if your phone dies</li>
-        </ul>
-      </div>
-      <div class="phone" aria-label="The coach swapping an exercise mid-workout">
-        <div class="scr-h"><b>Upper</b><small>In progress</small></div>
-        <div class="msg me">Shoulder's not having overhead today.</div>
-        <div class="msg coach"><b>Coach</b>Swapping to landmine press, same sets. Your first two exercises are kept.</div>
-        <div class="ex">
-          <div class="name"><span class="struck">Shoulder Press (DB)</span></div>
-          <div class="name" style="margin-top:4px">Landmine Press <span class="tag">Updated by coach</span></div>
-          <div class="sets" style="margin-top:8px">
-            <span class="hd">Set</span><span class="hd">Reps</span><span class="hd">Lbs</span><span></span>
-            <span>1</span><span class="v empty">10</span><span class="v empty">25</span><span class="tick"></span>
+          <div class="i-feed" aria-hidden="true">
+            <div class="i-count"><b>0</b> workouts</div>
+            <div class="i-cards"></div>
+          </div>
+          <!-- The tracker: Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first set is ticked. -->
+          <div class="i-trk">
+            <div class="p-tl i-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
+            <div class="i-sub"><b>Today</b><span>Mon · Lower</span></div>
+            <div class="i-wk"></div>
+          </div>
+          <!-- Before it builds the plan, Wilo asks what to account for. -->
+          <div class="t-chat" aria-hidden="true">
+            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+            <div class="t-log">
+              <div class="t-msg coach" data-at="1">214 workouts in. Before I build your plan, anything I should account for?</div>
+              <div class="t-msg me" data-at="2">Left knee hates deep squats. And I can only train 3 days a week.</div>
+              <div class="t-msg coach" data-at="4">Got it: 3 days, and squats to a box at knee-friendly depth. Building your plan now.</div>
+              <div class="t-typing" data-at="3" data-until="4"><i></i><i></i><i></i></div>
+            </div>
+            <div class="t-input">Message your coach</div>
           </div>
         </div>
-        <div class="ex">
-          <div class="name">Chest Supported Row <span class="tag" style="background:#34c75926;color:#34c759">3/3 ✓</span></div>
+      </div>
+
+      <!-- Beat 2: progress. More reps than planned: the cell turns gold, Wilo calls the PR, fireworks. -->
+      <div class="split flip beat">
+        <div>
+          <p class="kicker">2 · Progress</p>
+          <h3 class="beat-copy">The work is working. Wilo helps you see it.</h3>
+          <p class="beat-sub">Progress is easy to miss and easy to doubt. Wilo catches every PR, so you know your effort is paying off.</p>
+        </div>
+        <div class="phone b-in b-gain" aria-label="More reps than planned: Wilo calls the PR">
+          <div class="scr-h"><b>Upper</b><small>In progress</small></div>
+          <div class="saved">Synced to WILO ✓</div>
+          <div class="t-ex">
+            <div class="t-name">Incline Push Up</div>
+            <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
+            <div class="t-sets c3">
+              <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v b-reps"><i>8</i><i>10</i></span><span class="t-ck b-ck">✓</span>
+            </div>
+          </div>
+          <div class="b-pr" aria-hidden="true"><b>Wilo</b>🏆 10 reps. That's a PR. Nice work.<small>3rd PR this month</small></div>
+          <div class="t-ex">
+            <div class="t-name">Shoulder Press (Dumbbell)</div>
+            <div class="t-cue"><b>Coach:</b> Brace, press straight up.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">20</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">20</span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Chest Supported Row</div>
+            <div class="t-cue"><b>Coach:</b> Squeeze at the top.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Cable Curl</div>
+            <div class="t-cue"><b>Coach:</b> Elbows pinned.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beat 3: flow. A cranky shoulder, sorted with the coach mid-workout; the logged sets stay put, no data entry. -->
+      <div class="split beat">
+        <div>
+          <p class="kicker">3 · Flow</p>
+          <h3 class="beat-copy">A great workout is flow, not data entry.</h3>
+          <p class="beat-sub">Tell your coach what's up. Wilo bends the plan, and your tracker keeps up.</p>
+        </div>
+        <div class="phone b-in b-fix" aria-label="A cranky shoulder: the coach swaps in Landmine Press, logged sets stay">
+          <div class="scr-h"><b>Upper</b><small>In progress</small></div>
+          <div class="saved">Synced to WILO ✓</div>
+          <div class="t-ex">
+            <div class="t-name">Incline Push Up</div>
+            <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
+            <div class="t-sets c3">
+              <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name"><span class="b-old">Shoulder Press (Dumbbell)</span><span class="b-new">Landmine Press</span> <span class="t-changed">Changed by coach</span></div>
+            <div class="t-cue"><b>Coach:</b> <span class="b-old">Brace, press straight up.</span><span class="b-new">Press up and forward, same sets.</span></div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Chest Supported Row</div>
+            <div class="t-cue"><b>Coach:</b> Squeeze at the top.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <div class="t-ex">
+            <div class="t-name">Cable Curl</div>
+            <div class="t-cue"><b>Coach:</b> Elbows pinned.</div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+            </div>
+          </div>
+          <span class="t-coach">Coach</span>
+          <div class="t-chat" aria-hidden="true">
+            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+            <div class="t-log">
+              <div class="t-msg me" data-at="1">Shoulder's cranky today.</div>
+              <div class="t-msg coach" data-at="3">Wanna hit your rehab block, or just work around it?</div>
+              <div class="t-msg me" data-at="4">Work around it.</div>
+              <div class="t-msg coach" data-at="6">Loading up Landmine Press instead of Shoulder Press. Your logged sets stay put.</div>
+              <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="5" data-until="6"><i></i><i></i><i></i></div>
+            </div>
+            <div class="t-input">Message your coach</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beat 4: repeat. Each week Wilo reviews the last one in a chat: it calls out what got done and the PRs,
+           asks about what you changed (Bench swapped for Machine Press), then lays out next week.
+           The lines beside the phone light up as the chat says them (script at the bottom). -->
+      <div class="split flip beat">
+        <div>
+          <p class="kicker">4 · Review, plan, repeat</p>
+          <h3 class="beat-copy">Like shampoo, but for gains.</h3>
+          <ul class="w-lines">
+            <li data-l="0">Between workouts, you and Wilo look back before you go again.</li>
+            <li data-l="1">Wilo celebrates your finished workouts and PRs.</li>
+            <li data-l="2">Wilo remembers what you changed.</li>
+            <li data-l="3">Then it plans your next week.</li>
+            <li data-l="4">Then you're back in the gym.</li>
+          </ul>
+        </div>
+        <div class="phone b-wk" aria-label="Wilo reviews last week in a chat, next week's plan lands in the tracker, then back in the gym the first set is ticked">
+          <div class="scr-h"><b>WILO</b><small class="w-mode">Review</small></div>
+          <div class="i-sub w-sub"><b>Today</b><span>Fri · Chest</span></div>
+          <div class="p-tl"><span class="p-step">&lsaquo;</span><div><strong class="w-day"><i>Fri, Nov 13</i><i>Fri, Nov 20</i></strong><span>Chest</span></div><span class="p-step next">&rsaquo;</span></div>
+          <div class="w-last">
+            <div class="w-done">✓ Done · 3 of 3 this week</div>
+            <div class="t-ex">
+              <div class="t-name"><span class="w-struck">Bench Press</span> <span class="w-tag">Swapped mid-workout</span></div>
+              <div class="t-name">Machine Chest Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">90</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Incline DB Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">35</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Cable Fly</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v on">25</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+                <span class="t-no">2</span><span class="t-v on">25</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+                <span class="t-no">3</span><span class="t-v on">25</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Tricep Pushdown</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v on">40</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+                <span class="t-no">2</span><span class="t-v on">40</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+                <span class="t-no">3</span><span class="t-v on">40</span><span class="t-v on">12</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Push Up</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v on">BW</span><span class="t-v on">15</span><span class="t-ck on">✓</span>
+                <span class="t-no">2</span><span class="t-v on">BW</span><span class="t-v on">15</span><span class="t-ck on">✓</span>
+                <span class="t-no">3</span><span class="t-v on">BW</span><span class="t-v on">15</span><span class="t-ck on">✓</span>
+              </div>
+            </div>
+          </div>
+          <div class="w-next">
+            <div class="t-ex">
+              <div class="t-name">Bench Press <span class="w-tag">Back from Machine Press</span></div>
+              <div class="t-cue"><b>Coach:</b> 135 to ease back in. Stop at a clean 8.</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">135</span><span class="t-v">8</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Incline DB Press</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">2</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              <span class="t-no">3</span><span class="t-v">35</span><span class="t-v">10</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Cable Fly</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+                <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+                <span class="t-no">3</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Tricep Pushdown</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v">40</span><span class="t-v">12</span><span class="t-ck">✓</span>
+                <span class="t-no">2</span><span class="t-v">40</span><span class="t-v">12</span><span class="t-ck">✓</span>
+                <span class="t-no">3</span><span class="t-v">40</span><span class="t-v">12</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+            <div class="t-ex">
+              <div class="t-name">Push Up</div>
+              <div class="t-sets">
+                <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+                <span class="t-no">1</span><span class="t-v">BW</span><span class="t-v">15</span><span class="t-ck">✓</span>
+                <span class="t-no">2</span><span class="t-v">BW</span><span class="t-v">15</span><span class="t-ck">✓</span>
+                <span class="t-no">3</span><span class="t-v">BW</span><span class="t-v">15</span><span class="t-ck">✓</span>
+              </div>
+            </div>
+          </div>
+          <span class="t-coach">Coach</span>
+          <div class="t-chat" aria-hidden="true">
+            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
+            <div class="t-log">
+              <div class="t-msg me" data-at="1">Plan next week?</div>
+              <div class="t-msg coach" data-at="3">Great week: 3 of 3 workouts done, and a 🏆 Leg Press PR at 200 × 10.</div>
+              <div class="t-msg coach" data-at="5">Friday you swapped Bench for Machine Press. Keep the machine, or plan for bench?</div>
+              <div class="t-msg me" data-at="6">Back to bench. Shoulder feels good.</div>
+              <div class="t-msg coach" data-at="8">Did you look back over last week? Anything else stand out before I plan?</div>
+              <div class="t-msg me" data-at="9">Legs felt strong. Push them.</div>
+              <div class="t-msg coach" data-at="11">Bench is back Friday at 135 to ease in, and legs go up 10 lbs. Next week's in your tracker.</div>
+              <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="4" data-until="5"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="7" data-until="8"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="10" data-until="11"><i></i><i></i><i></i></div>
+            </div>
+            <div class="t-input">Message your coach</div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Video -->
-  <section class="block">
-    <div class="wrap split">
-      <div>
-        <p class="kicker">Form checks</p>
-        <h2>See it done. Show how you did it.</h2>
-        <p>Every exercise can carry a short demo from your coach. Film a set and attach it, and your coach sees exactly what you saw.</p>
-        <ul class="ticks">
-          <li>10-second coach demos on every exercise</li>
-          <li>Attach a form video or photo to any set</li>
-          <li>Private: only you and your coach can watch yours</li>
-        </ul>
-      </div>
-      <div class="phone" aria-label="A coach demo and a form video on an exercise">
-        <div class="scr-h"><b>Full body</b><small>Yesterday</small></div>
-        <div class="ex">
-          <div class="name">Deadlift (Barbell) <span class="tag">3 × 6</span></div>
-          <div class="cue">2 s negative, every rep</div>
-          <div class="video"><span>Coach demo · 0:09</span></div>
-          <div class="chips"><span class="chip blue">▶ Coach demo</span><span class="chip">🎥 Your set 3</span><span class="chip">+ Video / photo</span></div>
-        </div>
-        <div class="ex">
-          <div class="name">Split Squat <span class="tag">3 × 8</span></div>
-          <div class="cue">Front shin vertical, slow down.</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- For coaches -->
-  <section class="block" id="coaches">
+  <!-- The closing screen: why it's called Wilo, from Thom. The footer lives in here so the page ends on this screen. -->
+  <section class="block why" id="why">
     <div class="wrap">
-      <div class="duo">
-        <div class="card train">
-          <p class="kicker">For lifters</p>
-          <h3>Train with Wilo</h3>
-          <p>You already go to the gym. Wilo makes the plan smarter every week and keeps up when the day doesn't go to plan.</p>
-          <a class="btn" href="index.html?signin">Open the app</a>
-        </div>
-        <div class="card coach">
-          <p class="kicker coach">For coaches</p>
-          <h3>Coach with Wilo</h3>
-          <p>Write a client's next session in plain words, watch their form videos, and see every set they logged, without chasing screenshots in DMs.</p>
-          <a class="btn ghost" href="#read">How it's built</a>
-        </div>
+      <div class="note">
+        <p class="kicker">Why it's called Wilo</p>
+        <p class="big">Someone once told me I was an oak, and that I needed a willow in my life to learn that flexibility is a kind of strength. I named my dog after that. Then I named this.</p>
+        <p>I'm 52. A beat-up powerlifter (yeah, I trained at Westside) with more injuries than you've got "thanks for coming out" meet shirts. Every rigid plan I ever followed eventually broke me. Wilo is the plan that bends.</p>
+        <p>I built it to track my own training while I rehab, lose weight and rebuild my lifts. I hope it helps you as much as it still helps me.</p>
+        <p class="sig">— Thom</p>
+        <a class="btn" href="index.html?signin">Talk to Wilo</a>
       </div>
     </div>
-  </section>
-
-  <!-- Read -->
-  <section class="block" id="read">
-    <div class="wrap">
-      <p class="kicker">Read</p>
-      <h2>Built in the open.</h2>
-      <p>Notes from building an AI coach that people actually train with.</p>
-      <div class="duo">
-        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai/blob/main/docs/case-study-coach-token-cost.md">
-          <small>Case study</small>
-          <h3>Why the coach chat was expensive</h3>
-          <p>Where an AI coach's tokens really go (mostly into re-reading its own tool results) and what cut the bill.</p>
-          <span class="more">Read the case study →</span>
-        </a>
-        <a class="card article" href="https://github.com/CoachThomLamb/wilo_ai">
-          <small>Source</small>
-          <h3>The code</h3>
-          <p>The tracker, the coach's tools and the coaching method, all on GitHub.</p>
-          <span class="more">View on GitHub →</span>
-        </a>
+    <footer>
+      <div class="wrap">
+        <a class="logo" href="#top">WILO<span>.</span></a>
+        <nav>
+          <a href="index.html?signin">App</a>
+          <a href="https://github.com/CoachThomLamb/wilo_ai">Built in the open on GitHub →</a>
+        </nav>
+        <span>© 2026 Wilo</span>
       </div>
-    </div>
+    </footer>
   </section>
 
 </main>
 
-<footer>
-  <div class="wrap">
-    <a class="logo" href="#top">WILO<span>.</span></a>
-    <nav>
-      <a href="index.html?signin">App</a>
-      <a href="#how">How it works</a>
-      <a href="#read">Case study</a>
-      <a href="https://github.com/CoachThomLamb/wilo_ai">GitHub</a>
-    </nav>
-    <span>© 2026 Wilo</span>
-  </div>
-</footer>
-
 <script>
+  // Mobile: scale the phone mockups (drawn 300 px wide) up to the screen's width, no taller than the screen.
+  (() => {
+    const fit = () => {
+      const w = document.documentElement.clientWidth;
+      if (w > 600) return;
+      const pz = (w - 40) / 300;   // .wrap has 20 px side padding
+      document.documentElement.style.setProperty('--pz', pz.toFixed(3));
+      document.documentElement.style.setProperty('--ph', Math.min(633, (innerHeight - 76) / pz).toFixed(0) + 'px');
+    };
+    fit(); addEventListener('resize', fit);
+  })();
+  // Dates in the phones are worked out from the day the page is opened, so they never go stale.
+  const TODAY = new Date(); TODAY.setHours(12, 0, 0, 0);
+  const plus = n => { const d = new Date(TODAY); d.setDate(d.getDate() + n); return d; };
+  const fmtDay = d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });   // "Wed, Nov 18"
+  const wkDay = d => d.toLocaleDateString('en-US', { weekday: 'short' });                                    // "Wed"
+  const NEXT_MON = (TODAY.getDay() + 6) % 7;            // days since this week's Monday
+  const nextWeek = dow => plus(7 - NEXT_MON + (dow + 6) % 7);   // dow: 0 Sun … 6 Sat, in the week after this one
+  // Each phone plays only while it's on screen: its loop starts when the phone scrolls into view and starts over
+  // from the top when it comes back. watch(phone) gives a wait() that bails out (OUT) the moment the phone leaves
+  // view, and visible() that resolves once it's back; run() plays one pass at a time.
+  const OUT = Symbol('out of view');
+  function watch(phone) {
+    let seen = false, pending = [];
+    const flush = () => { const p = pending; pending = []; p.forEach(f => f()); };
+    new IntersectionObserver(([e]) => { seen = e.intersectionRatio >= .5; flush(); }, { threshold: [.5] }).observe(phone);
+    const wait = ms => new Promise((resolve, reject) => {
+      if (!seen) return reject(OUT);
+      const t = setTimeout(() => { pending = pending.filter(f => f !== bail); resolve(); }, ms);
+      const bail = () => { if (!seen) { clearTimeout(t); reject(OUT); } };
+      pending.push(bail);
+    });
+    const visible = () => new Promise(resolve => { const check = () => seen ? resolve() : pending.push(check); check(); });
+    return { wait, visible };
+  }
+  async function run(visible, once) { for (;;) { await visible(); try { await once(); } catch (e) { if (e !== OUT) throw e; } } }
+
+  // Headline: "reality" is crossed out and replaced with "the gym", then "my knee", then back. Reduced motion: still.
+  (() => {
+    const el = document.querySelector('.swap'), word = el && el.querySelector('.w');
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const words = ['reality', 'the gym', 'my knee'];
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    (async () => {
+      for (let i = 1; ; i++) {
+        await wait(2600);
+        el.classList.add('strike'); await wait(800);          // red pen draws through the word
+        el.classList.add('crumple'); await wait(520);         // the word balls up and drops
+        el.classList.remove('strike', 'crumple', 'in'); void el.offsetWidth;
+        word.textContent = words[i % words.length]; el.classList.toggle('alt', i % words.length !== 0); el.classList.add('in');
+      }
+    })();
+  })();
+
   // Hero loop: workout → tap Coach → chat (data-at steps) → chat closes, the change shows → again.
   // With reduced motion it just shows the changed workout, no loop.
   (() => {
@@ -534,10 +839,9 @@
     if (!phone) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('changed'); return; }
     const items = [...phone.querySelectorAll('[data-at]')];
-    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const { wait, visible } = watch(phone);
     const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
-    async function play() {
-      for (;;) {
+    run(visible, async () => {
         phone.classList.remove('chat', 'changed', 'tap'); step(0);
         await wait(2200);
         phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
@@ -545,71 +849,172 @@
         for (const [n, ms] of [[1, 1100], [2, 1300], [3, 1400], [4, 900], [5, 1100], [6, 1500]]) { step(n); await wait(ms); }
         phone.classList.remove('chat'); await wait(450);
         phone.classList.add('changed'); await wait(4200);
-      }
-    }
-    play();
+    });
   })();
 
-  // Second phone: the planning chat in Claude plays one step at a time, newest at the bottom, then again.
+  // Beat 1 (about 10 s a loop): tap Import, past workouts stream in while the count runs to 214, they fold away,
+  // the tracker's Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first Goblet Squat set is ticked.
+  // Reduced motion: that last screen, still.
   (() => {
-    const phone = document.querySelector('.p-plan');
+    const phone = document.querySelector('.b-imp');
     if (!phone) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('still'); return; }
-    const items = [...phone.querySelectorAll('[data-at]')];
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-    // The week the chat saves, drawn like the tracker's exercise rows (planned sets, nothing logged yet).
     const WEEK = [
-      { day: 'Tue, Nov 17', name: 'Lower A', ex: [['Leg Press', 200, 10, '🏆 PR last week: 200 × 10. Match it, clean reps.'], ['Hip Thrust', 135, 8], ['Hamstring Curl', 50, 10], ['Calf Raise', 45, 15]] },
-      { day: 'Thu, Nov 19', name: 'Upper', ex: [['Incline Push Up', '', 12, '🏆 PR last week: 12 reps. Same again, 2 s down.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Cable Curl', 25, 12]] },
-      { day: 'Sat, Nov 21', name: 'Full body', rest: 'Moved to Sunday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
-      { day: 'Sun, Nov 22', name: 'Full body', moved: 'Moved from Saturday', ex: [['Trap Bar Deadlift', 185, 6], ['Goblet Squat', 40, 8], ['Shoulder Press (Dumbbell)', 15, 10], ['Aussie Row', '', 8]] },
+      { day: 'Today', what: wkDay(TODAY) + ' · Lower', ex: [['Goblet Squat', 40, 8, 'To the box. Easy on the left knee.'], ['Leg Press', 180, 10], ['Hamstring Curl', 50, 10], ['Walking Lunge', 20, 10], ['Calf Raise', 45, 15]] },
+      { day: fmtDay(plus(2)), what: 'Upper', ex: [['Incline Push Up', '', 12, '2 s down, every rep.'], ['Chest Supported Row', 30, 12], ['Lat Pulldown', 90, 10], ['Shoulder Press (DB)', 20, 10], ['Cable Curl', 25, 12]] },
+      { day: fmtDay(plus(4)), what: 'Full body', ex: [['Trap Bar Deadlift', 185, 6, 'Push the floor away.'], ['Split Squat', 25, 8], ['Incline DB Press', 35, 10], ['Aussie Row', '', 8], ['Plank', '', '45 s']] },
     ];
-    const next = phone.querySelector('.p-step.next');
-    function showDay(w) {
-      phone.querySelector('.p-tl strong').textContent = w.day;
-      phone.querySelector('.p-tl > div span').textContent = w.name;
-      phone.querySelector('.p-moved').textContent = w.moved || '';
-      phone.classList.toggle('moved', !!w.moved);
-      const box = phone.querySelector('.p-days');
-      box.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> <span class="pr">${cue.slice(0, 2)}</span>${cue.slice(2)}</div>` : ''}<div class="t-sets">
-        <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-        ${[1, 2, 3].map(i => `<span class="t-no">${i}</span><span class="t-v">${lbs}</span><span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
+    const mode = phone.querySelector('.i-mode'), wk = phone.querySelector('.i-wk'), next = phone.querySelector('.i-tl .next');
+    phone.querySelector('.i-sub span').textContent = WEEK[0].what;
+    const stage = st => { phone.classList.remove('s-start', 's-feed', 's-review', 's-train'); phone.classList.add('s-' + st); };
+    // One day drawn like the tracker's exercise rows: Set | lbs | reps | ✓ (no lbs column for bodyweight).
+    function show(w) {
+      phone.querySelector('.i-tl strong').textContent = w.day;
+      phone.querySelector('.i-tl > div span').textContent = w.what;
+      wk.innerHTML = w.ex.map(([n, lbs, reps, cue]) => `<div class="t-ex"><div class="t-name">${n}</div>${cue ? `<div class="t-cue"><b>Coach:</b> ${cue}</div>` : ''}<div class="t-sets${lbs ? '' : ' c3'}">
+        <span class="t-hd">Set</span>${lbs ? '<span class="t-hd">lbs</span>' : ''}<span class="t-hd">reps</span><span class="t-hd">✓</span>
+        ${[1, 2, 3].map(i => `<span class="t-no">${i}</span>${lbs ? `<span class="t-v">${lbs}</span>` : ''}<span class="t-v">${reps}</span><span class="t-ck">✓</span>`).join('')}
       </div></div>`).join('');
-      box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
-      // Longer than the screen: scroll down it slowly, like a thumb in the tracker.
-      unscroll();
-      const over = box.scrollHeight - box.parentElement.clientHeight;
-      if (over > 0) scrollTimer = setTimeout(() => { box.style.transition = 'transform 2.2s ease-in-out'; box.style.transform = `translateY(-${over}px)`; }, 1800);
+      wk.style.animation = 'none'; void wk.offsetWidth; wk.style.animation = '';
     }
-    let scrollTimer;
-    function unscroll() {
-      clearTimeout(scrollTimer);
-      const box = phone.querySelector('.p-days');
-      box.style.transition = 'none'; box.style.transform = '';
-    }
-    // Saturday: the workout clears and the day turns into rest (the tracker's "No workout" screen).
-    function toRest(w) {
-      unscroll();
-      phone.querySelector('.p-tl > div span').textContent = 'Rest';
-      phone.querySelector('.p-days').innerHTML = `<div class="p-rest">No workout<span>${w.rest}</span></div>`;
-    }
-    const pause = { 1: 1200, 2: 600, 3: 600, 4: 900, 5: 3200, 6: 1800, 7: 3800, 8: 900, 9: 900, 10: 3500 };
-    (async () => {
-      for (;;) {
-        for (let n = 1; n <= 10; n++) { items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n)); await wait(pause[n] - (n === 10 ? 1800 : 0)); }
-        // Over to Wilo: the saved week in Review, one day at a time.
-        phone.classList.add('wilo');
-        for (let d = 0; d < WEEK.length; d++) {
-          if (d) { next.classList.add('tap'); await wait(180); next.classList.remove('tap'); }
-          showDay(WEEK[d]);
-          if (WEEK[d].rest) { await wait(1100); toRest(WEEK[d]); }
-          await wait(WEEK[d].rest ? 2200 : 4600);
+    const tick = () => { const ck = wk.querySelector('.t-ck'); ck.classList.add('on'); ck.previousElementSibling.classList.add('on'); ck.previousElementSibling.previousElementSibling.classList.add('on'); return ck; };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { show(WEEK[0]); stage('train'); mode.textContent = 'Review →'; tick(); return; }
+    const { wait, visible } = watch(phone);
+    const tap = async el => { el.classList.remove('i-tap'); void el.offsetWidth; el.classList.add('i-tap'); await wait(320); };
+    const box = phone.querySelector('.i-cards'), count = phone.querySelector('.i-count b');
+    const NAMES = ['Lower A', 'Upper', 'Full body', 'Lower B', 'Push', 'Pull', 'Legs'];
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const TOTAL = 214, FEED = 2000;
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    run(visible, async () => {
+        phone.classList.remove('fold', 'tap', 'chat'); step(0);
+        box.innerHTML = ''; count.textContent = '0'; mode.textContent = 'Import'; stage('start');
+        await wait(900);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap'); await wait(250);
+        // Feed: a card every ~90 ms, while the count eases up to 214.
+        stage('feed');
+        const t0 = performance.now(), d = plus(-1);
+        let i = 0;
+        while (performance.now() - t0 < FEED) {
+          const k = Math.min(1, (performance.now() - t0) / FEED);
+          count.textContent = Math.round(TOTAL * (1 - Math.pow(1 - k, 2)));
+          const c = document.createElement('div'); c.className = 'i-card';
+          c.innerHTML = `<b>${NAMES[i % NAMES.length]}</b><span>${MON[d.getMonth()]} ${d.getDate()} · ${4 + (i * 7) % 3} exercises</span>`;
+          box.prepend(c); if (box.children.length > 16) box.lastChild.remove();
+          d.setDate(d.getDate() - 2 - (i % 2)); i++;
+          await wait(90);
         }
-        phone.classList.remove('wilo', 'moved');
-        items.forEach(el => el.classList.remove('on'));
-        await wait(700);
-      }
-    })();
+        count.textContent = TOTAL; await wait(250);
+        phone.classList.add('fold'); await wait(450);
+        // Wilo asks what to account for before it builds the plan.
+        phone.classList.add('chat'); await wait(500);
+        step(1); await wait(1500);
+        step(2); await wait(1500);
+        step(3); await wait(900);
+        step(4); await wait(2000);
+        phone.classList.remove('chat'); await wait(400);
+        // The tracker, in Review: the new week, one day at a time.
+        mode.textContent = 'Train →'; show(WEEK[0]); stage('review'); await wait(1000);
+        for (const w of WEEK.slice(1)) { await tap(next); show(w); await wait(850); }
+        // Train: today's workout, first set of Goblet Squats ticked.
+        await tap(mode);
+        mode.textContent = 'Review →'; show(WEEK[0]); stage('train'); await wait(600);
+        const ck = wk.querySelector('.t-ck'); await tap(ck); tick();
+        await wait(1300);
+    });
+  })();
+
+  // Beat 2: more reps than planned. The cell turns gold, Wilo calls the PR, a couple of seconds of fireworks.
+  (() => {
+    const phone = document.querySelector('.b-gain');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('more'); return; }
+    const { wait, visible } = watch(phone);
+    // A couple of seconds of fireworks for the PR: a few bursts of gold and white sparks over the screen.
+    function fireworks() {
+      const fw = document.createElement('div'); fw.className = 'b-fw'; phone.appendChild(fw);
+      const W = phone.clientWidth, H = phone.clientHeight;
+      [[.3, .22, 0], [.7, .3, 350], [.45, .14, 700], [.62, .2, 1100], [.35, .32, 1450]].forEach(([x, y, at]) => setTimeout(() => {
+        for (let k = 0; k < 20; k++) {
+          const a = k / 20 * 2 * Math.PI, r = 55 + Math.random() * 30, sp = document.createElement('i');
+          sp.style.left = x * W + 'px'; sp.style.top = y * H + 'px';
+          sp.style.setProperty('--dx', Math.cos(a) * r + 'px'); sp.style.setProperty('--dy', Math.sin(a) * r + 'px');
+          sp.style.setProperty('--c', ['#ffd60a', '#fff3c4', '#ffb800', '#fff'][k % 4]);
+          fw.appendChild(sp);
+        }
+      }, at));
+      setTimeout(() => fw.remove(), 2700);
+    }
+    run(visible, async () => {
+        phone.classList.remove('more', 'pr');
+        await wait(1800);
+        phone.classList.add('more'); await wait(700);
+        phone.classList.add('pr'); fireworks(); await wait(3200);
+        phone.classList.remove('pr'); await wait(2600);
+    });
+  })();
+
+  // Beat 3: cranky shoulder. Tap Coach, rehab block or work around it, Landmine Press swaps in, logged sets stay.
+  (() => {
+    const phone = document.querySelector('.b-fix');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('changed'); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const { wait, visible } = watch(phone);
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    run(visible, async () => {
+        phone.classList.remove('chat', 'changed', 'tap'); step(0);
+        await wait(2000);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
+        phone.classList.add('chat'); await wait(700);
+        for (const [n, ms] of [[1, 1100], [2, 1300], [3, 1700], [4, 900], [5, 1200], [6, 2200]]) { step(n); await wait(ms); }
+        phone.classList.remove('chat'); await wait(450);
+        phone.classList.add('changed'); await wait(4200);
+    });
+  })();
+
+  // Beat 4: last Friday in Review → tap Coach → the weekly chat (each line beside the phone lights up as the chat
+  // says it) → chat closes, › to next Friday: Bench is back → tap Train, the first Bench set is ticked (back in the gym).
+  // Reduced motion: that last screen, still.
+  (() => {
+    const phone = document.querySelector('.b-wk');
+    if (!phone) return;
+    const lastFri = plus(-(((TODAY.getDay() - 5 + 7) % 7) || 7)), nextFri = new Date(lastFri); nextFri.setDate(nextFri.getDate() + 7);
+    const [dLast, dNext] = phone.querySelectorAll('.w-day i'); dLast.textContent = fmtDay(lastFri); dNext.textContent = fmtDay(nextFri);
+    const mode = phone.querySelector('.w-mode'), first = phone.querySelector('.w-next .t-ck');
+    const tick = on => [first, first.previousElementSibling, first.previousElementSibling.previousElementSibling].forEach(el => el.classList.toggle('on', on));
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('next', 'train'); mode.textContent = 'Review →'; tick(true); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const lines = [...phone.closest('.beat').querySelectorAll('.w-lines li')];
+    const next = phone.querySelector('.p-step.next');
+    const { wait, visible } = watch(phone);
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    const light = l => lines.forEach(li => li.classList.toggle('on', +li.dataset.l === l));
+    const tap = async el => { el.classList.remove('i-tap'); void el.offsetWidth; el.classList.add('i-tap'); await wait(320); };
+    run(visible, async () => {
+        phone.classList.remove('chat', 'next', 'train', 'tap'); step(0); light(-1); tick(false); mode.textContent = 'Review';
+        await wait(1200);
+        light(0); await wait(1600);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
+        phone.classList.add('chat'); await wait(600);
+        step(1); await wait(800);
+        step(2); await wait(900);
+        step(3); light(1); await wait(2200);
+        step(4); await wait(900);
+        step(5); light(2); await wait(2400);
+        step(6); await wait(1000);
+        step(7); await wait(900);
+        step(8); light(0); await wait(2200);
+        step(9); await wait(1000);
+        step(10); await wait(900);
+        step(11); light(3); await wait(2000);
+        phone.classList.remove('chat'); await wait(500);
+        next.classList.add('tap'); await wait(180); next.classList.remove('tap');
+        mode.textContent = 'Train →'; phone.classList.add('next'); await wait(2000);
+        await tap(mode);
+        mode.textContent = 'Review →'; phone.classList.add('train'); light(4); await wait(700);
+        await tap(first); tick(true); await wait(2600);
+    });
   })();
 </script>
 </body>
