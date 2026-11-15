@@ -11,7 +11,7 @@ Over HTTP (local test of the remote transport; localhost only):
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
 Workout and profile writes (assign_workout, change_workout, update_profile) are dry runs unless write=True.
-Todo writes save immediately.
+Todo, day and event writes save immediately.
 """
 
 import html
@@ -200,8 +200,35 @@ def update_day(date: str | None = None, retro: str | None = None, grat: list[str
     return wilo_data.update_day(db(), current_uid(), date or _today(), changes, datetime.now(timezone.utc))
 
 
+def list_events(start: str | None = None, days: int = 7) -> dict[str, Any]:
+    """The user's calendar: their events (appointments) from start (YYYY-MM-DD, default today in the user's
+    timezone) for `days` days (at most 62), in order. Each has a docId, date, text, and optionally time (HH:MM,
+    24 hour; none means all day) and notes."""
+    return wilo_data.events(db(), current_uid(), start or _today(), days)
+
+
+def add_event(date: str, text: str, time: str | None = None, notes: str | None = None) -> dict[str, Any]:
+    """Add an event to the user's calendar. date is YYYY-MM-DD; time is HH:MM, 24 hour (leave out for all day);
+    notes is free text (place, what to bring). Shows on the Week and Day pages. Saves immediately (no dry run)."""
+    return wilo_data.add_event(db(), current_uid(), date, text, datetime.now(timezone.utc), time, notes)
+
+
+def update_event(doc_id: str, date: str | None = None, time: str | None = None, text: str | None = None,
+                 notes: str | None = None) -> dict[str, Any]:
+    """Change an event: move it (date, time) or edit its text or notes. Leave a field out to keep it; pass '' to
+    clear time (all day) or notes. Saves immediately (no dry run)."""
+    changes = {'date': date, 'time': time, 'text': text, 'notes': notes}
+    return wilo_data.update_event(db(), current_uid(), doc_id, changes, datetime.now(timezone.utc))
+
+
+def delete_event(doc_id: str) -> dict[str, Any]:
+    """Delete an event for good."""
+    return wilo_data.delete_event(db(), current_uid(), doc_id)
+
+
 TOOLS = [coaching_method, get_profile, update_profile, workout_schema, current_workout, training_summary, recent_workouts, get_workout, exercise_history, exercise_names,
-         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo, get_day, recent_days, update_day]
+         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo, get_day, recent_days, update_day,
+         list_events, add_event, update_event, delete_event]
 
 
 def make_server(provider=None, issuer=None):

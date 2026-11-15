@@ -16,7 +16,8 @@ ME, OTHER = 'thom', 'someone-else'
 TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'current_workout', 'training_summary',
          'recent_workouts', 'get_workout',
          'exercise_history', 'exercise_names', 'assign_workout', 'change_workout',
-         'list_todos', 'add_todo', 'update_todo', 'delete_todo', 'get_day', 'recent_days', 'update_day'}
+         'list_todos', 'add_todo', 'update_todo', 'delete_todo', 'get_day', 'recent_days', 'update_day',
+         'list_events', 'add_event', 'update_event', 'delete_event'}
 
 
 def call(tool, **args):
@@ -146,6 +147,18 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([d['date'] for d in call('recent_days')['days']], [today])
         self.uid = OTHER
         self.assertEqual(call('recent_days')['days'], [])
+
+    def test_events_round_trip_for_current_user_only(self):
+        today = srv._today()
+        eid = call('add_event', date=today, text='dentist', time='14:00')['docId']
+        self.assertIn(f'users/{ME}/events/{eid}', self.db.store)  # no dry run: saved straight away
+        self.assertEqual([e['text'] for e in call('list_events')['events']], ['dentist'])  # default: from today
+        self.assertEqual(call('update_event', doc_id=eid, time='')['event'].get('time'), None)
+        self.uid = OTHER
+        self.assertEqual(call('list_events')['events'], [])
+        self.assertFalse(call('delete_event', doc_id=eid)['ok'])
+        self.uid = ME
+        self.assertTrue(call('delete_event', doc_id=eid)['ok'])
 
     def test_profile_is_a_dry_run_by_default_and_per_user(self):
         path = f'users/{ME}/coach/profile'
