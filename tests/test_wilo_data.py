@@ -486,6 +486,64 @@ class DayTest(unittest.TestCase):
         self.assertFalse(wilo_data.get_day(self.db, OTHER, '2026-11-11')['exists'])
 
 
+class EventTest(unittest.TestCase):
+    def setUp(self):
+        self.db = FakeDB()
+        self.n = 0
+
+    def add(self, date, text, uid=UID, **kw):
+        self.n += 1  # a new doc id each time
+        return wilo_data.add_event(self.db, uid, date, text, NOW + timedelta(seconds=self.n), **kw)
+
+    def test_add_saves_immediately_under_own_uid(self):
+        out = self.add('2026-11-19', '  Dentist ', time='14:00', notes='bring the form')
+        self.assertTrue(out['ok'])
+        saved = self.db.store[f"users/{UID}/events/{out['docId']}"]
+        self.assertEqual((saved['date'], saved['time'], saved['text'], saved['notes']),
+                         ('2026-11-19', '14:00', 'Dentist', 'bring the form'))
+        self.assertNotIn('time', self.add('2026-11-19', 'Mom visits')['event'])  # no time = all day
+
+    def test_add_rejects_bad_dates_times_and_empty_text(self):
+        for date, text, time in (('thursday', 'x', None), ('2026-02-30', 'x', None), ('2026-11-19', ' ', None),
+                                 ('2026-11-19', 'x', '2pm'), ('2026-11-19', 'x', '24:00'), ('2026-11-19', 'x', '9:30')):
+            with self.subTest(date=date, text=text, time=time):
+                self.assertFalse(self.add(date, text, time=time)['ok'])
+        self.assertEqual(self.db.store, {})
+
+    def test_list_is_a_date_window_in_order(self):
+        self.add('2026-11-20', 'late', time='18:00')
+        self.add('2026-11-20', 'early', time='09:00')
+        self.add('2026-11-20', 'all day')
+        self.add('2026-11-16', 'monday')
+        self.add('2026-11-23', 'next week')
+        self.add('2026-11-15', 'last week')
+        week = wilo_data.events(self.db, UID, '2026-11-16')
+        self.assertEqual((week['start'], week['end']), ('2026-11-16', '2026-11-22'))
+        self.assertEqual([e['text'] for e in week['events']], ['monday', 'all day', 'early', 'late'])
+        self.assertEqual([e['text'] for e in wilo_data.events(self.db, UID, '2026-11-23', 1)['events']], ['next week'])
+        self.assertEqual(wilo_data.events(self.db, UID, '2026-11-01', 999)['end'], '2027-01-01')  # capped at 62 days
+        self.assertFalse(wilo_data.events(self.db, UID, 'today')['ok'])
+
+    def test_update_moves_edits_and_clears(self):
+        eid = self.add('2026-11-19', 'Dentist', time='14:00', notes='form')['docId']
+        out = wilo_data.update_event(self.db, UID, eid, {'date': '2026-11-20', 'time': '', 'notes': None}, NOW)
+        self.assertEqual((out['event']['date'], out['event']['notes']), ('2026-11-20', 'form'))
+        self.assertNotIn('time', out['event'])
+        self.assertTrue(out['changes'])
+        for bad in ({'time': 'noon'}, {'date': ''}, {'text': ' '}, {'where': 'x'}):
+            with self.subTest(bad=bad):
+                self.assertFalse(wilo_data.update_event(self.db, UID, eid, bad, NOW)['ok'])
+        self.assertFalse(wilo_data.update_event(self.db, UID, 'nope', {'text': 'x'}, NOW)['ok'])
+        self.assertEqual(self.db.store[f'users/{UID}/events/{eid}']['text'], 'Dentist')
+
+    def test_delete_and_users_only_touch_their_own(self):
+        eid = self.add('2026-11-19', 'Dentist')['docId']
+        self.assertEqual(wilo_data.events(self.db, OTHER, '2026-11-16')['events'], [])
+        self.assertFalse(wilo_data.update_event(self.db, OTHER, eid, {'text': 'x'}, NOW)['ok'])
+        self.assertFalse(wilo_data.delete_event(self.db, OTHER, eid)['ok'])
+        self.assertTrue(wilo_data.delete_event(self.db, UID, eid)['ok'])
+        self.assertFalse(wilo_data.delete_event(self.db, UID, eid)['ok'])
+
 
 class ProfileTest(unittest.TestCase):
     PATH = f'users/{UID}/coach/profile'

@@ -1,6 +1,7 @@
 """
-Read and write workouts in users/{uid}/workouts (#126), todos in users/{uid}/todos (#64) and the
-coaching profile in users/{uid}/coach/profile (#48; no CLI commands for those two yet).
+Read and write workouts in users/{uid}/workouts (#126), todos in users/{uid}/todos (#64), days in
+users/{uid}/days (#156), events in users/{uid}/events (#168) and the coaching profile in
+users/{uid}/coach/profile (#48). Only workouts have CLI commands so far.
 
 A workout is one doc from plan to done: the plan as first written, the coach's diffs to it, the
 plan as it is now (`exercises` = apply_diffs(plan, diffs), written here with each diff), and the
@@ -518,6 +519,92 @@ def update_day(db, uid, date, changes, now):
     new['updatedAt'] = _iso(now)
     ref.set(new)
     return {'ok': True, 'date': date, 'day': new, 'changes': changed}
+
+
+# Events (#168): the user's appointments, one doc each at users/{uid}/events/{id}:
+# {date: YYYY-MM-DD, time?: HH:MM (24 h; none = all day), text, notes?, createdAt, updatedAt}.
+# The Week page (fe/week.html) writes the same shape. No repeats, end times or reminders yet.
+EVENT_FIELDS = ('date', 'time', 'text', 'notes')
+_TIME = re.compile(r'^([01]\d|2[0-3]):[0-5]\d$')
+
+
+def _event_errors(e):
+    errors = []
+    try:
+        if not _DATE.match(str(e.get('date'))):
+            raise ValueError
+        datetime.fromisoformat(e['date'])
+    except ValueError:
+        errors.append(f"date {e.get('date')!r} is not a YYYY-MM-DD date")
+    if 'time' in e and not _TIME.match(str(e['time'])):
+        errors.append(f"time {e['time']!r} is not HH:MM (24 hour, e.g. 09:30 or 14:00)")
+    if not str(e.get('text', '')).strip():
+        errors.append('text is empty')
+    return errors
+
+
+def events(db, uid, start, days=7):
+    """Events from `start` (YYYY-MM-DD) for `days` days (at most 62), by day, then all-day ones, then by time."""
+    try:
+        if not _DATE.match(str(start)):
+            raise ValueError
+        first = datetime.fromisoformat(start).date()
+    except ValueError:
+        return {'ok': False, 'errors': [f'start {start!r} is not a YYYY-MM-DD date']}
+    end = (first + timedelta(days=max(1, min(int(days), 62)) - 1)).isoformat()
+    docs = [{'docId': d.id, **d.to_dict()} for d in collection(db, uid, 'events').stream()]
+    docs = [e for e in docs if start <= e.get('date', '') <= end]
+    docs.sort(key=lambda e: (e['date'], e.get('time', ''), e.get('createdAt', '')))
+    return {'ok': True, 'start': start, 'end': end, 'events': docs}
+
+
+def add_event(db, uid, date, text, now, time=None, notes=None):
+    """Add an event. Saves immediately, like todos."""
+    event = {'date': date, 'text': str(text).strip(), 'createdAt': _iso(now), 'updatedAt': _iso(now)}
+    event.update({k: str(v).strip() for k, v in (('time', time), ('notes', notes)) if v and str(v).strip()})
+    errors = _event_errors(event)
+    if errors:
+        return {'ok': False, 'errors': errors}
+    ref = collection(db, uid, 'events').document(f"event_{int(now.timestamp() * 1000)}")
+    if ref.get().exists:
+        return {'ok': False, 'errors': [f'users/{uid}/events/{ref.get().id} already exists']}
+    ref.set(event)
+    return {'ok': True, 'docId': ref.get().id, 'event': event}
+
+
+def update_event(db, uid, doc_id, changes, now):
+    """Change an event's date, time, text or notes. None leaves a field as is; '' clears time (all day) or notes."""
+    ref = collection(db, uid, 'events').document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'users/{uid}/events/{doc_id} not found']}
+    old = snap.to_dict()
+    new = dict(old)
+    for k, v in changes.items():
+        if k not in EVENT_FIELDS:
+            return {'ok': False, 'errors': [f'unknown field {k!r} (allowed: {", ".join(EVENT_FIELDS)})']}
+        if v is None:
+            continue
+        if not str(v).strip() and k in ('time', 'notes'):
+            new.pop(k, None)
+        else:
+            new[k] = str(v).strip()
+    errors = _event_errors(new)
+    if errors:
+        return {'ok': False, 'errors': errors}
+    changed = diff(old, new)
+    new['updatedAt'] = _iso(now)
+    ref.set(new)
+    return {'ok': True, 'docId': doc_id, 'event': new, 'changes': changed}
+
+
+def delete_event(db, uid, doc_id):
+    ref = collection(db, uid, 'events').document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'users/{uid}/events/{doc_id} not found']}
+    ref.delete()
+    return {'ok': True, 'deleted': {'docId': doc_id, **snap.to_dict()}}
 
 
 # The coaching profile (#48): what's personal to this user, as opposed to the generic method in wilo/coach.md.

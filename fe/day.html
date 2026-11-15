@@ -11,13 +11,15 @@
   - "From last night" is the previous day's `tomorrow`.
   - `retro` is written by the coach (connector), not this page; shown when present.
   - Saves as you type (debounced); "Saved ✓" only after Firestore confirms.
+  - Appointments (#168): the day's events from users/{uid}/events, read only here; the Week page (week.html)
+    adds and edits them.
   - Rules: covered by users/{uid}/{collection}/** in firestore.rules.
 -->
 <html lang="en">
 <head>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getFirestore, setDoc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // Same config as index.html; see the authDomain note there.
   const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
   const app = initializeApp({
@@ -29,7 +31,7 @@
     appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
   });
   getFirestore(app, "wilo");
-  window.__fs = { setDoc, getDoc };
+  window.__fs = { setDoc, getDoc, getDocs, query, where };
   import("./auth.js")
     .then(a => a.onUser(user =>
       window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
@@ -90,6 +92,10 @@
   .watch .k { color: var(--warn); }
   .wilo .k { color: var(--night); }
   .pinned .o b { color: var(--night); }
+  h2 a { color: var(--accent); text-decoration: none; text-transform: none; letter-spacing: 0; }
+  .appt { color: inherit; text-decoration: none; }
+  .appt .k { width: 70px; font-variant-numeric: tabular-nums; }
+  .appt small { display: block; color: var(--dim); font-size: 14px; }
   .sub { margin: 14px 14px 4px; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
 
   /* compact pinned intentions in Day / Night */
@@ -213,6 +219,10 @@
   <button data-mode="day">Day</button>
   <button data-mode="night">☾ Night</button>
 </div>
+
+<!-- Appointments for the day shown, in every mode. The Week page adds and edits them. -->
+<h2>Appointments <a id="weekLink" href="week.html">Week →</a></h2>
+<div class="card" id="appts"><div class="empty">Nothing booked.</div></div>
 
 <!-- MORNING: set the day up -->
 <section id="morning">
@@ -348,6 +358,29 @@
     draw();
   }
 
+  // The shown day's appointments (#168), in the Week page's order: all-day first, then by time.
+  const clock = t => t ? new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'all day';
+  async function loadAppts() {
+    const { getDocs, query, where } = window.__fs, want = shown;
+    $('weekLink').href = 'week.html?d=' + shown;
+    const snap = await getDocs(query(window.__auth.userCol('events'), where('date', '==', shown)));
+    if (want !== shown) return;   // stepped to another day while this one loaded
+    const list = snap.docs.map(d => d.data())
+      .sort((a, b) => (a.time || '').localeCompare(b.time || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
+    $('appts').innerHTML = list.length ? '' : '<div class="empty">Nothing booked.</div>';
+    list.forEach(e => {
+      const r = document.createElement('a');
+      r.className = 'row appt';
+      r.href = 'week.html?d=' + shown;
+      r.innerHTML = '<span class="k"></span><span class="v"></span>';
+      r.querySelector('.k').textContent = clock(e.time);
+      r.querySelector('.v').textContent = e.text;
+      if (e.notes) { const n = document.createElement('small'); n.textContent = e.notes; r.querySelector('.v').appendChild(n); }
+      $('appts').appendChild(r);
+    });
+  }
+  const appts = () => loadAppts().catch(err => { $('appts').innerHTML = '<div class="empty"></div>'; $('appts').firstChild.textContent = "Couldn't load appointments: " + (err.code || err.message); });
+
   function lines(el, list, ph, mark) {
     el.innerHTML = '';
     list.forEach((v, i) => {
@@ -434,6 +467,7 @@
 
   // Talking to Wilo (chat.js). When it wrote to the day, reload so the page shows it, after our own save lands.
   window.addEventListener('wilo-chat-reply', async ev => {
+    if (ev.detail.tools.some(t => /_event$/.test(t))) appts();
     if (!ev.detail.tools.includes('update_day')) return;
     await flush();
     load().catch(err => note("Couldn't reload your day: " + (err.code || err.message), 'err'));
@@ -459,6 +493,7 @@
     shown = next;
     header();
     note('');
+    appts();
     load().catch(err => note("Couldn't load that day: " + (err.code || err.message), 'err'));
   }
   $('prevDay').addEventListener('click', () => step(-1));
@@ -475,7 +510,7 @@
     $('gate').hidden = !!user;
     $('gateBtn').hidden = !!user;
     $('gateMsg').textContent = 'Sign in to see your day.';
-    if (user) load().catch(err => note("Couldn't load your day: " + (err.code || err.message), 'err'));
+    if (user) { appts(); load().catch(err => note("Couldn't load your day: " + (err.code || err.message), 'err')); }
   });
   window.addEventListener('wilo-auth-error', ev => {
     $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';

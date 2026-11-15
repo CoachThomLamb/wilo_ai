@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<!--
+  WILO Week (#168): the calendar. Monday to Sunday at a glance, each day's appointments plus the workout
+  planned for it. ‹ › steps by week, back and forward. week.html?d=YYYY-MM-DD opens the week holding that day.
+
+  - Data: users/{uid}/events/{id}, one doc per appointment, the same shape the connector's event tools use
+    (wilo/data.py): {date: YYYY-MM-DD, time?: HH:MM (24 h; none = all day), text, notes?, createdAt, updatedAt}.
+    Ids made here are event_<ms>, like the connector's.
+  - Workouts are read only (users/{uid}/workouts, by assignedFor); tapping one opens the tracker.
+  - Add with the bar at the bottom (tap a day's name to aim it at that day). Tap an appointment to edit or delete.
+  - No repeats, end times or reminders.
+  - Rules: covered by users/{uid}/{collection}/** in firestore.rules.
+-->
+<html lang="en">
+<head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, getDocs, query, where, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  // Same config as index.html; see the authDomain note there.
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const app = initializeApp({
+    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
+    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
+    projectId: "wilo2-1ee44",
+    storageBucket: "wilo2-1ee44.firebasestorage.app",
+    messagingSenderId: "103580826325",
+    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
+  });
+  getFirestore(app, "wilo");
+  window.__fs = { getDocs, query, where, setDoc, deleteDoc };
+  import("./auth.js")
+    .then(a => a.onUser(user =>
+      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
+    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
+</script>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WILO">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>WILO Week</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000; --panel: #0e0e0f; --field: #1c1c1e; --line: #262628;
+    --text: #f2f2f7; --dim: #7c7c82; --accent: #0a84ff;
+    --done-line: #34c759; --night: #bf5af2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    font: 400 17px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
+  }
+  header { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .date { margin: 2px 0 0; color: var(--dim); font-size: 15px; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .step { border: 0; background: none; color: inherit; font: 500 22px/1 inherit; font-family: inherit; padding: 2px 10px; margin: -4px 0; }
+  .step:first-child { margin-left: -10px; }
+  .back { border: 0; background: none; color: var(--accent); font: inherit; font-size: 15px; padding: 0 0 0 6px; }
+  .acts { flex: none; display: flex; gap: 8px; margin-top: 4px; }
+  .pill { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--field); color: inherit; text-decoration: none; font: 500 15px/1 inherit; font-family: inherit; }
+  .saved { margin: 4px 0 0; font-size: 12px; color: var(--dim); min-height: 15px; }
+  .saved.ok { color: var(--done-line); }
+  .saved.err { color: #ff453a; }
+
+  /* one row per day: its name on the left, what's on it on the right */
+  .d { display: flex; gap: 6px; padding: 6px 16px 6px 8px; border-top: 1px solid var(--line); min-height: 52px; }
+  .d:last-child { border-bottom: 1px solid var(--line); }
+  .d.past { opacity: .55; }
+  .who { flex: none; width: 56px; border: 0; background: none; color: var(--dim); font: inherit; font-size: 13px; text-align: center; padding: 6px 0; border-radius: 10px; align-self: flex-start; }
+  .who b { display: block; font-size: 20px; font-weight: 600; color: var(--text); line-height: 1.15; }
+  .d.today .who, .d.today .who b { color: var(--accent); }
+  .d.aim .who { background: var(--field); }
+  .items { flex: 1; min-width: 0; padding: 2px 0; }
+  .none { color: #4a4a4f; padding: 8px 8px; }
+  .ev {
+    display: flex; gap: 10px; width: 100%; text-align: left; border: 0; background: none; color: inherit;
+    font: inherit; padding: 7px 8px; border-radius: 10px; text-decoration: none;
+  }
+  .ev:active { background: var(--field); }
+  .ev .t { flex: none; width: 70px; color: var(--dim); font-size: 15px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .ev .x { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .ev small { display: block; color: var(--dim); font-size: 14px; }
+  .ev.wo .t { color: var(--night); }
+  .ev.wo.done .t { color: var(--done-line); }
+
+  /* editing one appointment, in place */
+  .edit { background: var(--field); border-radius: 12px; padding: 10px; margin: 4px 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .edit .two { display: flex; gap: 8px; }
+  input { min-width: 0; height: 42px; border: 0; border-radius: 10px; background: var(--field); color: var(--text); padding: 0 12px; font: inherit; font-size: 16px; }
+  .edit input { background: #2c2c2e; width: 100%; }
+  .edit .two input { flex: 1; width: auto; }
+  input:focus { outline: 2px solid var(--accent); }
+  .edit .btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn { flex: none; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: 500 16px/1 inherit; font-family: inherit; }
+  .btn.quiet { background: #3a3a3c; }
+  .btn.del { background: none; color: #ff453a; padding: 0 8px; margin-right: auto; }
+
+  /* the always-there "add an appointment" bar */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(14,14,15,.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+  }
+  .bar form { display: grid; gap: 8px; max-width: 488px; margin: 0 auto; }
+  .bar .two { display: flex; gap: 8px; }
+  .bar .two input { flex: 1; }
+  .bar #addText { flex: 1; border-radius: 21px; padding: 0 16px; }
+
+  .gate {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 24px; text-align: center;
+  }
+  .gate h1 { font-size: 34px; }
+  .gate p { margin: 0; color: var(--dim); font-size: 15px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1>WILO</h1>
+  <p id="gateMsg">Checking sign-in…</p>
+  <button class="btn" id="gateBtn" hidden>Sign in with Google</button>
+</div>
+
+<header>
+  <div>
+    <h1 id="title">This week</h1>
+    <p class="date"><button class="step" id="prev" aria-label="Previous week">‹</button><span id="range"></span><button class="step" id="next" aria-label="Next week">›</button><button class="back" id="back" hidden>This week</button></p>
+    <p class="saved" id="saved"></p>
+  </div>
+  <div class="acts">
+    <a class="pill" href="day.html">Today</a>
+  </div>
+</header>
+
+<main id="week"></main>
+
+<div class="bar">
+  <form id="addForm" autocomplete="off">
+    <div class="two">
+      <input type="date" id="addDate" aria-label="Date" required>
+      <input type="time" id="addTime" aria-label="Time (leave empty for all day)">
+    </div>
+    <div class="two">
+      <input id="addText" placeholder="New appointment…" enterkeyhint="done">
+      <button class="btn" type="submit">Add</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parse = s => new Date(s + 'T12:00');
+  const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(parse(s));
+
+  function addDays(s, n) {
+    const d = parse(s);
+    d.setDate(d.getDate() + n);
+    return localDate(d);
+  }
+  // The Monday of the week a day is in.
+  function mondayOf(s) {
+    return addDays(s, -((parse(s).getDay() + 6) % 7));
+  }
+  // A workout's local day: its assignedFor is a plain date, or a timestamp (same as the tracker's dayOf).
+  function dayOf(v) {
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  // Same order as wilo/data.py events(): all-day first, then by time, then by when it was added.
+  function byTime(a, b) {
+    return (a.time || '').localeCompare(b.time || '') || (a.createdAt || '').localeCompare(b.createdAt || '');
+  }
+  const clock = t => t ? new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'all day';
+
+  const today = localDate(new Date());
+  const asked = new URLSearchParams(location.search).get('d');
+  let aim = isDate(asked) ? asked : today;   // the day the add bar is set to
+  let monday = mondayOf(aim);
+  let events = [], workouts = [], editing = null;   // editing: the docId open for edit
+
+  function note(msg, kind) {
+    $('saved').textContent = msg;
+    $('saved').className = 'saved' + (kind ? ' ' + kind : '');
+  }
+
+  function header() {
+    const a = parse(monday), b = parse(addDays(monday, 6)), now = mondayOf(today);
+    const md = { month: 'short', day: 'numeric' };
+    $('title').textContent = monday === now ? 'This week' : monday === addDays(now, 7) ? 'Next week' : monday === addDays(now, -7) ? 'Last week' : 'Week';
+    $('range').textContent = a.toLocaleDateString(undefined, md) + ' – ' +
+      b.toLocaleDateString(undefined, a.getMonth() === b.getMonth() ? { day: 'numeric' } : md) +
+      (b.getFullYear() !== parse(today).getFullYear() ? ', ' + b.getFullYear() : '');
+    $('back').hidden = monday === now;
+  }
+
+  async function load() {
+    const { getDocs, query, where } = window.__fs, { userCol } = window.__auth;
+    const want = monday, end = addDays(monday, 6);
+    const [ev, wo] = await Promise.all([
+      getDocs(query(userCol('events'), where('date', '>=', monday), where('date', '<=', end))),
+      // a day either side: a timestamp's local day can differ from its UTC date
+      getDocs(query(userCol('workouts'), where('assignedFor', '>=', addDays(monday, -1)), where('assignedFor', '<=', addDays(end, 1) + ''))),
+    ]);
+    if (want !== monday) return;   // stepped to another week while this one loaded
+    events = ev.docs.map(d => ({ docId: d.id, ...d.data() }));
+    workouts = wo.docs.map(d => ({ docId: d.id, day: dayOf(d.data().assignedFor), name: d.data().name, status: d.data().status }));
+    draw();
+  }
+
+  function row(e) {
+    const b = document.createElement('button');
+    b.className = 'ev';
+    b.innerHTML = '<span class="t"></span><span class="x"></span>';
+    b.querySelector('.t').textContent = clock(e.time);
+    b.querySelector('.x').textContent = e.text;
+    if (e.notes) { const s = document.createElement('small'); s.textContent = e.notes; b.querySelector('.x').appendChild(s); }
+    b.addEventListener('click', () => { editing = e.docId; draw(); });
+    return b;
+  }
+
+  function editor(e) {
+    const f = document.createElement('form');
+    f.className = 'edit';
+    f.autocomplete = 'off';
+    f.innerHTML = `<input name="text" aria-label="Appointment">
+      <div class="two"><input type="date" name="date" aria-label="Date" required><input type="time" name="time" aria-label="Time (leave empty for all day)"></div>
+      <input name="notes" placeholder="Notes (place, what to bring)">
+      <div class="btns"><button type="button" class="btn del">Delete</button><button type="button" class="btn quiet">Cancel</button><button class="btn" type="submit">Save</button></div>`;
+    const el = f.elements;
+    el.text.value = e.text; el.date.value = e.date; el.time.value = e.time || ''; el.notes.value = e.notes || '';
+    f.querySelector('.quiet').addEventListener('click', () => { editing = null; draw(); });
+    const del = f.querySelector('.del');
+    del.addEventListener('click', async () => {
+      if (del.textContent === 'Delete') { del.textContent = 'Really delete?'; return; }   // second tap deletes
+      note('Deleting…');
+      try {
+        await window.__fs.deleteDoc(window.__auth.userDoc('events', e.docId));
+        events = events.filter(x => x.docId !== e.docId);
+        editing = null;
+        note('Deleted ✓', 'ok');
+        draw();
+      } catch (err) { note('Delete failed: ' + (err.code || err.message), 'err'); }
+    });
+    f.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const text = el.text.value.trim();
+      if (!text || !isDate(el.date.value)) return;
+      const { docId, ...old } = e;
+      const out = { ...old, date: el.date.value, text, updatedAt: new Date().toISOString() };
+      delete out.time; delete out.notes;
+      if (el.time.value) out.time = el.time.value.slice(0, 5);
+      if (el.notes.value.trim()) out.notes = el.notes.value.trim();
+      note('Saving…');
+      try {
+        await window.__fs.setDoc(window.__auth.userDoc('events', docId), out);   // whole doc: a cleared time or note goes away
+        Object.keys(e).forEach(k => delete e[k]);
+        Object.assign(e, { docId, ...out });
+        editing = null;
+        note('Saved ✓', 'ok');
+        show(out.date);
+      } catch (err) { note('Save failed: ' + (err.code || err.message) + '. Try again.', 'err'); }
+    });
+    return f;
+  }
+
+  function draw() {
+    header();
+    $('week').innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(monday, i), d = parse(day);
+      const box = document.createElement('section');
+      box.className = 'd' + (day === today ? ' today' : day < today ? ' past' : '') + (day === aim ? ' aim' : '');
+      box.innerHTML = '<button class="who"></button><div class="items"></div>';
+      const who = box.querySelector('.who');
+      who.textContent = d.toLocaleDateString(undefined, { weekday: 'short' });
+      who.insertAdjacentHTML('beforeend', `<b>${d.getDate()}</b>`);
+      who.setAttribute('aria-label', 'Add to ' + d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }));
+      who.addEventListener('click', () => { aim = day; $('addDate').value = day; draw(); $('addText').focus(); });
+      const items = box.querySelector('.items');
+      events.filter(e => e.date === day).sort(byTime).forEach(e => items.appendChild(e.docId === editing ? editor(e) : row(e)));
+      workouts.filter(w => w.day === day).forEach(w => {
+        const a = document.createElement('a');
+        a.className = 'ev wo' + (w.status === 'done' ? ' done' : '');
+        a.href = 'index.html';
+        a.innerHTML = '<span class="t"></span><span class="x"></span>';
+        a.querySelector('.t').textContent = w.status === 'done' ? 'Trained ✓' : 'Train';
+        a.querySelector('.x').textContent = w.name || 'Workout';
+        items.appendChild(a);
+      });
+      if (!items.children.length) items.innerHTML = '<div class="none">·</div>';
+      $('week').appendChild(box);
+    }
+  }
+
+  // Go to the week holding `day` (loading it if it isn't the one on screen) and aim the add bar at it.
+  function show(day) {
+    aim = day;
+    $('addDate').value = day;
+    const m = mondayOf(day);
+    if (m === monday) return draw();
+    monday = m; events = []; workouts = []; editing = null;
+    draw();
+    load().catch(err => note("Couldn't load that week: " + (err.code || err.message), 'err'));
+  }
+  // ‹ › keep the aimed weekday, e.g. Thursday stays Thursday.
+  $('prev').addEventListener('click', () => { note(''); show(addDays(aim, -7)); });
+  $('next').addEventListener('click', () => { note(''); show(addDays(aim, 7)); });
+  $('back').addEventListener('click', () => { note(''); show(today); });
+  $('addDate').value = aim;
+  $('addDate').addEventListener('change', () => { if (isDate($('addDate').value)) show($('addDate').value); });
+
+  $('addForm').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const text = $('addText').value.trim(), date = $('addDate').value;
+    if (!text || !isDate(date)) return;
+    const at = new Date();
+    const e = { date, text, createdAt: at.toISOString(), updatedAt: at.toISOString() };
+    if ($('addTime').value) e.time = $('addTime').value.slice(0, 5);
+    const docId = 'event_' + at.getTime();
+    note('Saving…');
+    try {
+      await window.__fs.setDoc(window.__auth.userDoc('events', docId), e);
+      note('Saved ✓', 'ok');
+      $('addText').value = ''; $('addTime').value = '';
+      if (mondayOf(date) === monday) events.push({ docId, ...e });
+      show(date);
+    } catch (err) { note('Save failed: ' + (err.code || err.message) + '. Try again.', 'err'); }
+  });
+
+  // ---- sign-in (same as Day) -----------------------------------------
+  draw();
+  window.addEventListener('wilo-user', ev => {
+    const user = ev.detail;
+    $('gate').hidden = !!user;
+    $('gateBtn').hidden = !!user;
+    $('gateMsg').textContent = 'Sign in to see your week.';
+    if (user) load().catch(err => note("Couldn't load your week: " + (err.code || err.message), 'err'));
+  });
+  window.addEventListener('wilo-auth-error', ev => {
+    $('gateMsg').textContent = "Couldn't load sign-in: " + (ev.detail && ev.detail.message || ev.detail) + '. Check your connection and reload.';
+  });
+  $('gateBtn').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (err) { $('gateMsg').textContent = 'Sign-in failed: ' + (err.code || err.message); }
+  });
+  // Coming back to the page (e.g. after adding one in the Claude app) shows what's there now.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !editing && window.__auth?.currentUser()) load().catch(() => {});
+  });
+</script>
+</body>
+</html>

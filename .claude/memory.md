@@ -16,6 +16,7 @@ Does an AI *plan*, delivered to the phone day by day, make training better? The 
 
 ## Structure
 - `fe/index.html`: tracker. `fe/auth.js`: Google sign-in.
+- `fe/day.html`: the Day page (morning / day / night). `fe/week.html`: the calendar, appointments in `users/{uid}/events` (#168).
 - Coach: the `wilo-workout-coach` skill lives on claude.ai, not in this repo.
 - `firestore.rules`: security rules for the `wilo` database.
 - `docs/`: current reference docs and `docs/sessions/` session logs. `prior-art/`: old experiments and notes (incl. `prior-art/notes/`).
