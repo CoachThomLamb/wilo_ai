@@ -19,6 +19,11 @@ call the WILO tool Claude called, or none. Narrow and measurable, and what the p
 - `score.py`: run the eval against the pod (or Ollama) → right tool %, right tool + args %, per tool.
 - `results/`, `.pod.json`: local, gitignored.
 
+**The real-message files are local only** (the repo is public): `toolcall_eval.jsonl`, `test.jsonl`,
+`seeds.jsonl` and `results/` are gitignored. Rebuild the first three with `build_eval.py` then `split.py`
+(fixed seed, so the split is the same). A backup of the exact files behind the 2026-10-29 scores is kept
+outside the repo. `train_synth.jsonl` and `synth/` are synthetic and stay committed.
+
 ## Run the baseline
 ```bash
 pip install -r ml/requirements.txt

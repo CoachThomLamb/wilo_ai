@@ -84,3 +84,8 @@ __pycache__/
 # Small-model experiment (ml/): local results and the running pod (its URL and API key)
 ml/.pod.json
 ml/out/
+# Real chat messages and per-item results: local only, never committed (the repo is public)
+ml/toolcall_eval.jsonl
+ml/seeds.jsonl
+ml/test.jsonl
+ml/results/

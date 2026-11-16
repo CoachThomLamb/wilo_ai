@@ -8,7 +8,7 @@ Follows `2026-10-28-small-model-experiment.md`. Branch `exp/toolcall-eval` (PR #
   output and the data". Now enforced in code: `ml/train.py` refuses to train without `--hub-repo` and uploads the adapter,
   the exact training data and `run.json` to the private HF repo `Successthom/wilo-toolcall` (`runs/<UTC time>/`), checks
   the weights landed, and exits `UPLOAD_FAILED` otherwise. `train_and_serve.sh` refuses to start without `HF_TOKEN` +
-  `WILO_HF_REPO`. `ml/results/` is committed.
+  `WILO_HF_REPO`. `ml/results/` is committed. (Changed 2026-11-16: `ml/results/` and the real-message files are local only now.)
 - **Retrained** on an A40 (Secure, CA-MTL-1, $0.59/hr; ~30 min training, ~$0.45 total). Saved as
   `runs/20261029-120637`. Loss 5.5 → ~0.06 over 3 epochs, 336 examples (300 synthetic + seeds).
 - **Scores on `ml/test.jsonl` (51 items)**, reproducing the lost run:

@@ -18,9 +18,9 @@ most of Kimi's misses are calling `coaching_method` first, which a multi-call sc
 
 | what | where |
 |---|---|
-| code, prompt, test set, training data | git commit `ac01f2eba1f53db1ad039ebd49cc2206b9201eee` (branch `exp/toolcall-eval`, PR #125) |
+| code, prompt, synthetic training data | git commit `ac01f2eba1f53db1ad039ebd49cc2206b9201eee` (branch `exp/toolcall-eval`, PR #125) |
 | LoRA adapter, the exact training data, run settings | private HF repo `Successthom/wilo-toolcall`, folder `runs/20261029-120637/` |
-| scores | `ml/results/` (committed) |
+| test set, seeds, per-item scores | local only, not in the repo (real chat messages; the repo is public). Rebuild the sets with `build_eval.py` and `split.py`; a backup of the exact files is kept outside the repo |
 
 Training: `ml/train.py` defaults: 3 epochs, lr 1e-4, LoRA rank 16, 336 examples (300 synthetic `train_synth.jsonl`
 + 44 `seeds.jsonl`, minus summary-only labels). A40 48 GB (Secure, CA-MTL-1, $0.59/hr), ~30 min, ~$0.45.
