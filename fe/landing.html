@@ -210,6 +210,7 @@
   .beat { margin-top: 56px; }
   .beat .kicker { color: var(--accent); }
   .beat .beat-sub { margin: 14px 0 0; max-width: 460px; font-size: 17px; line-height: 1.45; color: #c7c7cc; }
+  .beat .beat-note { margin: 12px 0 0; max-width: 460px; font-size: 14px; line-height: 1.45; color: var(--dim); }
   .beat-copy { margin: 0; font-size: clamp(24px, 3vw, 32px); line-height: 1.2; font-weight: 700; letter-spacing: -.01em; max-width: 480px; }
   .t-sets.c3 { grid-template-columns: 26px 1fr 34px; }
   /* Beat 1: import → feed → plan. One stage shows at a time (classes set by the script). */
@@ -262,6 +263,16 @@
   .phone.changed .h-swap .t-name { animation: t-tag 1.6s ease-out; }
   .phone.changed .b-old { display: none; } .phone.changed .b-new { display: inline; }
   .phone.changed .t-name .b-new { animation: t-tag 1.6s ease-out; }
+
+  /* Beat 1: talk. Empty until the chat closes, then the logged sets show. */
+  .b-talk .k-ex { display: none; }
+  .b-talk.logged .k-ex { display: block; animation: t-in .35s ease-out; }
+  .b-talk.logged .k-ex .t-name { animation: t-tag 1.6s ease-out; }
+  .k-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 55%; text-align: center; }
+  .k-empty p { margin: 0; font-size: 15px; font-weight: 600; }
+  .k-empty small { color: var(--dim); font-size: 11px; }
+  .b-talk.logged .k-empty { display: none; }
+  .b-talk.logged .t-changed { opacity: 1; }
 
   /* Beat 4: the weekly review */
   .w-lines { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 12px; }
@@ -459,39 +470,47 @@
   <!-- How we got you: three beats, each a phone that plays itself (scripts at the bottom). -->
   <section class="block" id="how">
     <div class="wrap">
-      <!-- Beat 1: import. Tap Import, past workouts stream in with a counter, they fold into a Mon / Wed / Fri plan.
-           Played by the script at the bottom; with reduced motion it shows the plan only. -->
+      <!-- Beat 1: talk. An empty day: you say what you did in gym language, Wilo logs it, and the sets are in the
+           tracker when the chat closes. Played by the script at the bottom; with reduced motion it shows the logged sets. -->
       <div class="split beat">
         <div>
           <p class="kicker">1 · The start</p>
-          <h3 class="beat-copy">Two minutes from your old tracker to today's workout.</h3>
-          <p class="beat-sub">Bring your training history from any app. Wilo reads it, asks what to account for, and has your plan ready to go.</p>
+          <h3 class="beat-copy">Tell Wilo a few workouts. Then Wilo tells you.</h3>
+          <p class="beat-sub">Say what you did, the way you'd say it at the gym. Wilo logs it and starts learning how you train. A few workouts in, it has your next one ready.</p>
+          <p class="beat-note">You can also import your workout data from other trackers to help Wilo learn more about you.</p>
         </div>
-        <div class="phone b-imp s-start" aria-label="Past workouts imported, the Monday, Wednesday, Friday plan in the tracker, then the first set ticked">
-          <div class="scr-h"><b>WILO</b><small class="i-mode">Import</small></div>
-          <div class="i-start">
-            <p>Bring your training history.</p>
-            <span class="i-btn">Import workouts</span>
-            <small>CSV or export file from any tracker</small>
+        <div class="phone b-talk" aria-label="You tell Wilo what you did in your own words, and the sets are logged in the tracker">
+          <div class="scr-h"><b>Today</b><small>Lower</small></div>
+          <div class="saved">Synced to WILO ✓</div>
+          <div class="k-empty"><p>Nothing logged yet.</p><small>Tell Wilo what you're doing.</small></div>
+          <div class="t-ex k-ex">
+            <div class="t-name">Goblet Squat <span class="t-changed">Logged by Wilo</span></div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">35</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">35</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">40</span><span class="t-v on">5</span><span class="t-ck on">✓</span>
+            </div>
           </div>
-          <div class="i-feed" aria-hidden="true">
-            <div class="i-count"><b>0</b> workouts</div>
-            <div class="i-cards"></div>
+          <div class="t-ex k-ex">
+            <div class="t-name">Leg Press <span class="t-changed">Logged by Wilo</span></div>
+            <div class="t-sets">
+              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+              <span class="t-no">1</span><span class="t-v on">180</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">2</span><span class="t-v on">180</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+              <span class="t-no">3</span><span class="t-v on">180</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
+            </div>
           </div>
-          <!-- The tracker: Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first set is ticked. -->
-          <div class="i-trk">
-            <div class="p-tl i-tl"><span class="p-step">&lsaquo;</span><div><strong></strong><span></span></div><span class="p-step next">&rsaquo;</span></div>
-            <div class="i-sub"><b>Today</b><span>Mon · Lower</span></div>
-            <div class="i-wk"></div>
-          </div>
-          <!-- Before it builds the plan, Wilo asks what to account for. -->
+          <span class="t-coach">Coach</span>
           <div class="t-chat" aria-hidden="true">
             <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
             <div class="t-log">
-              <div class="t-msg coach" data-at="1">214 workouts in. Before I build your plan, anything I should account for?</div>
-              <div class="t-msg me" data-at="2">Left knee hates deep squats. And I can only train 3 days a week.</div>
-              <div class="t-msg coach" data-at="4">Got it: 3 days, and squats to a box at knee-friendly depth. Building your plan now.</div>
-              <div class="t-typing" data-at="3" data-until="4"><i></i><i></i><i></i></div>
+              <div class="t-msg me" data-at="1">Goblet squats, 35 for 5 twice then 40 for 5.</div>
+              <div class="t-msg coach" data-at="3">Logged. 3 sets of goblet squats.</div>
+              <div class="t-msg me" data-at="4">Leg press 180, 3 sets of 10.</div>
+              <div class="t-msg coach" data-at="6">Got it. Both are in your tracker.</div>
+              <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
+              <div class="t-typing" data-at="5" data-until="6"><i></i><i></i><i></i></div>
             </div>
             <div class="t-input">Message your coach</div>
           </div>
@@ -852,7 +871,28 @@
     });
   })();
 
-  // Beat 1 (about 10 s a loop): tap Import, past workouts stream in while the count runs to 214, they fold away,
+  // Beat 1: an empty day → tap Coach → you say what you did, Wilo logs it → chat closes, the sets are in the tracker.
+  // Reduced motion: the logged sets, still.
+  (() => {
+    const phone = document.querySelector('.b-talk');
+    if (!phone) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('logged'); return; }
+    const items = [...phone.querySelectorAll('[data-at]')];
+    const { wait, visible } = watch(phone);
+    const step = n => items.forEach(el => el.classList.toggle('on', +el.dataset.at <= n && (!el.dataset.until || n < +el.dataset.until)));
+    run(visible, async () => {
+        phone.classList.remove('chat', 'logged', 'tap'); step(0);
+        await wait(1600);
+        phone.classList.add('tap'); await wait(350); phone.classList.remove('tap');
+        phone.classList.add('chat'); await wait(700);
+        for (const [n, ms] of [[1, 1400], [2, 1000], [3, 1500], [4, 1300], [5, 1000], [6, 1900]]) { step(n); await wait(ms); }
+        phone.classList.remove('chat'); await wait(450);
+        phone.classList.add('logged'); await wait(4200);
+    });
+  })();
+
+  // The import phone is not on the page right now (import is one line under beat 1); this stays for when it returns.
+  // Import beat (about 10 s a loop): tap Import, past workouts stream in while the count runs to 214, they fold away,
   // the tracker's Review steps ‹ Mon › Wed › Fri, then Train opens today (Mon) and the first Goblet Squat set is ticked.
   // Reduced motion: that last screen, still.
   (() => {
