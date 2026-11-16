@@ -30,18 +30,18 @@ workout → pay).
 | #167 happy path doc | Finish and merge | Thom is reading it. The interview findings are not in it yet |
 | #158 coach.md day mode | Thom's to write | Waiting on Thom |
 | #154 calendar experiment | Close | **Closed.** Branch `exp/calendar` kept, in case drag to move is wanted |
-| #124 Wilo knows the workout on screen | Probably close | Being checked: its base (#123) was closed unmerged and it conflicts with `main`. How much of it reached `main` another way is not known yet |
+| #124 Wilo knows the workout on screen | Close (waiting on Thom's word) | Checked: its base (#123) was closed unmerged, it conflicts with `main`, and it reads workouts the pre-#126 way. The role prompt and the server ping reached `main`; the rest is in #171 |
 | #118 Hevy import | Close, keep #111 | Not acted on. It writes to the pre-#126 layout, so it needs a rewrite, not a rebase. The landing page promises import and this is the only import code |
-| #125, #130 `ml/` experiment | Ship without the real-chat data | In progress, see below |
+| #125, #130 `ml/` experiment | Ship without the real-chat data | Done, see below |
 
 **`ml/` and data.** The two PRs touch no app code, but they held about 1.3 MB of Thom's own real chats
 (95 messages with the replies around them), and the repo is public. Thom: take the data out, then ship.
 - Removed from the PR: the eval set, the seeds, the test split and the per-item results. Kept: the
   synthetic training data and the code.
 - Squash-merged so the files never enter `main`'s history.
-- **In progress at time of writing.** The squash commit was on `main` when this note was written, with only
-  the synthetic file among its data files, but the final checks (CI on `main`, both PR states, the backup)
-  were not in yet. Check before relying on it.
+- Done: #130 squash-merged, #125 closed as shipped inside it, checks and the deploy run on `main` passed,
+  and the backup's checksums match. The two branches were kept, so the data is still public there and in
+  GitHub's PR refs; removing those takes a request to GitHub support.
 - Thom assumed the data is all in Firestore. Only about half is (the tracker chats). The rest came from
   claude.ai and Claude Code exports, so a copy was made outside the repo before removing anything.
 - The branches are kept because the experiment write-up cites a commit on them, so the data is still
@@ -67,8 +67,7 @@ workout → pay).
   (early October) and should point to it.
 
 ## Next
-1. Confirm the `ml/` merge finished clean.
-2. Add the interview findings to #167 (no names), Thom reads, merge.
-3. Finish the #124 check, then close or salvage it. Close #118 if Thom agrees.
-4. Thom: write #158; coach.md lines so Wilo says what it can do next; the follow-up to the interviewed user.
-5. Decide `coaching-evals/traces.jsonl`.
+1. Add the interview findings to #167 (no names), Thom reads, merge.
+2. Close #124 (its missing pieces are in #171) and #118, if Thom agrees.
+3. Thom: write #158; coach.md lines so Wilo says what it can do next; the follow-up to the interviewed user.
+4. Decide `coaching-evals/traces.jsonl`.
