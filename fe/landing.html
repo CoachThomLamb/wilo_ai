@@ -14,7 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>WILO Coach</title>
-<meta name="description" content="Wilo, because no plan survives contact with reality. Like the willow, it bends in the strongest winds and doesn't break.">
+<meta name="description" content="Stop guessing what you did last time. Tell Wilo, and your next workout builds on it.">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -369,19 +369,14 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <h1>Wilo, because<br><em>no plan survives contact with <span class="swap"><span class="w">reality</span><svg class="pen" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M2,60 C14,50 24,66 38,56 S60,46 72,58 S90,54 99,44" pathLength="1"/></svg></span>.</em></h1>
-        <ul class="h-lines">
-          <li>Leg press occupied? Wilo shifts your workout for you.</li>
-          <li>Slept on your shoulder funny and it's bench day? Wilo loads up your rehab.</li>
-          <li>Just wanna train chest and bis because your gym crush is there? Bro, <b>WE GOT YOU!</b></li>
-        </ul>
-        <p class="lede">Wilo, like the willow. It bends in the strongest winds and doesn't break.</p>
+        <h1>Stop guessing what you did <em>last time.</em></h1>
+        <p class="lede">Tell Wilo, and your next workout builds on it.</p>
         <div class="ctas">
-          <a class="btn" href="index.html?signin">Open the app</a>
+          <a class="btn" href="index.html?signin">Talk to Wilo</a>
           <a class="btn ghost" href="#how">See how it works</a>
         </div>
       </div>
-      <div class="phone" aria-label="The Wilo tracker during a workout">
+      <div class="phone h-look" aria-label="You ask Wilo what you did on leg press last time, and today's sets are set from it">
         <div class="scr-h"><b>Lower A</b><small>Today</small></div>
         <div class="saved">Synced to WILO ✓</div>
         <!-- Drawn like the tracker's exercise list (fe/index.html .exercise): flat rows, blue name,
@@ -397,27 +392,14 @@
           </div>
           <div class="t-chips"><span class="t-chip demo">▶ Coach demo</span><span class="t-chip">+ Video / photo</span></div>
         </div>
-        <!-- Leg Press is taken: the coach swaps the order, Hack Squat now, Leg Press after (CSS order on .changed). -->
-        <div class="h-swap">
-          <div class="t-ex h-lp">
-            <div class="t-name">Leg Press <span class="t-changed">Moved by coach</span></div>
-            <div class="t-cue"><b>Coach:</b> Full range, don't lock out.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">3</span><span class="t-v">180</span><span class="t-v">10</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <div class="t-ex h-hs">
-            <div class="t-name">Hack Squat <span class="t-changed">Moved by coach</span></div>
-            <div class="t-cue"><b>Coach:</b> Control the bottom.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">3</span><span class="t-v">90</span><span class="t-v">10</span><span class="t-ck">✓</span>
-            </div>
+        <!-- Leg Press has no numbers yet: you ask what you did last time, add 10, and Wilo fills today's sets in. -->
+        <div class="t-ex">
+          <div class="t-name">Leg Press <span class="t-changed">Set by Wilo</span></div>
+          <div class="t-sets">
+            <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
+            <span class="t-no">1</span><span class="t-v"><span class="b-old">–</span><span class="b-new">190</span></span><span class="t-v"><span class="b-old">–</span><span class="b-new">10</span></span><span class="t-ck">✓</span>
+            <span class="t-no">2</span><span class="t-v"><span class="b-old">–</span><span class="b-new">190</span></span><span class="t-v"><span class="b-old">–</span><span class="b-new">10</span></span><span class="t-ck">✓</span>
+            <span class="t-no">3</span><span class="t-v"><span class="b-old">–</span><span class="b-new">190</span></span><span class="t-v"><span class="b-old">–</span><span class="b-new">10</span></span><span class="t-ck">✓</span>
           </div>
         </div>
         <div class="t-ex">
@@ -454,10 +436,10 @@
         <div class="t-chat" aria-hidden="true">
           <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
           <div class="t-log">
-            <div class="t-msg me" data-at="1">Leg press is taken.</div>
-            <div class="t-msg coach" data-at="3">No worries. Do hack squats first and I'll move leg press to 3rd.</div>
-            <div class="t-msg me" data-at="4">Ok</div>
-            <div class="t-msg coach" data-at="6">Done. It's in your tracker.</div>
+            <div class="t-msg me" data-at="1">What did I do on leg press last time?</div>
+            <div class="t-msg coach" data-at="3">Last Tuesday: 180 for 10, 3 sets. You said it felt easy.</div>
+            <div class="t-msg me" data-at="4">Add 10.</div>
+            <div class="t-msg coach" data-at="6">190 for 10 today. It's in your tracker.</div>
             <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
             <div class="t-typing" data-at="5" data-until="6"><i></i><i></i><i></i></div>
           </div>
@@ -467,15 +449,16 @@
     </div>
   </section>
 
-  <!-- How we got you: three beats, each a phone that plays itself (scripts at the bottom). -->
+  <!-- How it works: two beats, each a phone that plays itself (scripts at the bottom). The PR beat and the swap beat
+       are off this version of the page; their scripts and styles stay in the file, idle. -->
   <section class="block" id="how">
     <div class="wrap">
       <!-- Beat 1: talk. An empty day: you say what you did in gym language, Wilo logs it, and the sets are in the
            tracker when the chat closes. Played by the script at the bottom; with reduced motion it shows the logged sets. -->
       <div class="split beat">
         <div>
-          <p class="kicker">1 · The start</p>
-          <h3 class="beat-copy">Tell Wilo a few workouts. Then Wilo tells you.</h3>
+          <p class="kicker">1 · You talk</p>
+          <h3 class="beat-copy">Tell Wilo a few workouts. Then Wilo tells you what's next.</h3>
           <p class="beat-sub">Say what you did, the way you'd say it at the gym. Wilo logs it and starts learning how you train. A few workouts in, it has your next one ready.</p>
           <p class="beat-note">You can also import your workout data from other trackers to help Wilo learn more about you.</p>
         </div>
@@ -517,130 +500,16 @@
         </div>
       </div>
 
-      <!-- Beat 2: progress. More reps than planned: the cell turns gold, Wilo calls the PR, fireworks. -->
-      <div class="split flip beat">
-        <div>
-          <p class="kicker">2 · Progress</p>
-          <h3 class="beat-copy">The work is working. Wilo helps you see it.</h3>
-          <p class="beat-sub">Progress is easy to miss and easy to doubt. Wilo catches every PR, so you know your effort is paying off.</p>
-        </div>
-        <div class="phone b-in b-gain" aria-label="More reps than planned: Wilo calls the PR">
-          <div class="scr-h"><b>Upper</b><small>In progress</small></div>
-          <div class="saved">Synced to WILO ✓</div>
-          <div class="t-ex">
-            <div class="t-name">Incline Push Up</div>
-            <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
-            <div class="t-sets c3">
-              <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
-              <span class="t-no">2</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
-              <span class="t-no">3</span><span class="t-v b-reps"><i>8</i><i>10</i></span><span class="t-ck b-ck">✓</span>
-            </div>
-          </div>
-          <div class="b-pr" aria-hidden="true"><b>Wilo</b>🏆 10 reps. That's a PR. Nice work.<small>3rd PR this month</small></div>
-          <div class="t-ex">
-            <div class="t-name">Shoulder Press (Dumbbell)</div>
-            <div class="t-cue"><b>Coach:</b> Brace, press straight up.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">20</span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">20</span><span class="t-v">10</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <div class="t-ex">
-            <div class="t-name">Chest Supported Row</div>
-            <div class="t-cue"><b>Coach:</b> Squeeze at the top.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <div class="t-ex">
-            <div class="t-name">Cable Curl</div>
-            <div class="t-cue"><b>Coach:</b> Elbows pinned.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Beat 3: flow. A cranky shoulder, sorted with the coach mid-workout; the logged sets stay put, no data entry. -->
-      <div class="split beat">
-        <div>
-          <p class="kicker">3 · Flow</p>
-          <h3 class="beat-copy">A great workout is flow, not data entry.</h3>
-          <p class="beat-sub">Tell your coach what's up. Wilo bends the plan, and your tracker keeps up.</p>
-        </div>
-        <div class="phone b-in b-fix" aria-label="A cranky shoulder: the coach swaps in Landmine Press, logged sets stay">
-          <div class="scr-h"><b>Upper</b><small>In progress</small></div>
-          <div class="saved">Synced to WILO ✓</div>
-          <div class="t-ex">
-            <div class="t-name">Incline Push Up</div>
-            <div class="t-cue"><b>Coach:</b> 2 s down, every rep.</div>
-            <div class="t-sets c3">
-              <span class="t-hd">Set</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
-              <span class="t-no">2</span><span class="t-v on">8</span><span class="t-ck on">✓</span>
-              <span class="t-no">3</span><span class="t-v on">10</span><span class="t-ck on">✓</span>
-            </div>
-          </div>
-          <div class="t-ex">
-            <div class="t-name"><span class="b-old">Shoulder Press (Dumbbell)</span><span class="b-new">Landmine Press</span> <span class="t-changed">Changed by coach</span></div>
-            <div class="t-cue"><b>Coach:</b> <span class="b-old">Brace, press straight up.</span><span class="b-new">Press up and forward, same sets.</span></div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v"><span class="b-old">20</span><span class="b-new">25</span></span><span class="t-v">10</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <div class="t-ex">
-            <div class="t-name">Chest Supported Row</div>
-            <div class="t-cue"><b>Coach:</b> Squeeze at the top.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">30</span><span class="t-v">12</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <div class="t-ex">
-            <div class="t-name">Cable Curl</div>
-            <div class="t-cue"><b>Coach:</b> Elbows pinned.</div>
-            <div class="t-sets">
-              <span class="t-hd">Set</span><span class="t-hd">lbs</span><span class="t-hd">reps</span><span class="t-hd">✓</span>
-              <span class="t-no">1</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
-              <span class="t-no">2</span><span class="t-v">25</span><span class="t-v">12</span><span class="t-ck">✓</span>
-            </div>
-          </div>
-          <span class="t-coach">Coach</span>
-          <div class="t-chat" aria-hidden="true">
-            <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
-            <div class="t-log">
-              <div class="t-msg me" data-at="1">Shoulder's cranky today.</div>
-              <div class="t-msg coach" data-at="3">Wanna hit your rehab block, or just work around it?</div>
-              <div class="t-msg me" data-at="4">Work around it.</div>
-              <div class="t-msg coach" data-at="6">Loading up Landmine Press instead of Shoulder Press. Your logged sets stay put.</div>
-              <div class="t-typing" data-at="2" data-until="3"><i></i><i></i><i></i></div>
-              <div class="t-typing" data-at="5" data-until="6"><i></i><i></i><i></i></div>
-            </div>
-            <div class="t-input">Message your coach</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Beat 4: repeat. Each week Wilo reviews the last one in a chat: it calls out what got done and the PRs,
+      <!-- Beat 2: Wilo plans. Each week Wilo reviews the last one in a chat: it calls out what got done and the PRs,
            asks about what you changed (Bench swapped for Machine Press), then lays out next week.
            The lines beside the phone light up as the chat says them (script at the bottom). -->
       <div class="split flip beat">
         <div>
-          <p class="kicker">4 · Review, plan, repeat</p>
+          <p class="kicker">2 · Wilo plans</p>
           <h3 class="beat-copy">Like shampoo, but for gains.</h3>
           <ul class="w-lines">
             <li data-l="0">Between workouts, you and Wilo look back before you go again.</li>
-            <li data-l="1">Wilo celebrates your finished workouts and PRs.</li>
+            <li data-l="1">Wilo sees what you got done.</li>
             <li data-l="2">Wilo remembers what you changed.</li>
             <li data-l="3">Then it plans your next week.</li>
             <li data-l="4">Then you're back in the gym.</li>
@@ -752,7 +621,7 @@
             <div class="t-chat-h"><span>New</span><b>Coach</b><span>Close</span></div>
             <div class="t-log">
               <div class="t-msg me" data-at="1">Plan next week?</div>
-              <div class="t-msg coach" data-at="3">Great week: 3 of 3 workouts done, and a 🏆 Leg Press PR at 200 × 10.</div>
+              <div class="t-msg coach" data-at="3">Great week: 3 of 3 workouts done.</div>
               <div class="t-msg coach" data-at="5">Friday you swapped Bench for Machine Press. Keep the machine, or plan for bench?</div>
               <div class="t-msg me" data-at="6">Back to bench. Shoulder feels good.</div>
               <div class="t-msg coach" data-at="8">Did you look back over last week? Anything else stand out before I plan?</div>
@@ -851,10 +720,10 @@
     })();
   })();
 
-  // Hero loop: workout → tap Coach → chat (data-at steps) → chat closes, the change shows → again.
+  // Hero loop: workout → tap Coach → "what did I do last time?" (data-at steps) → chat closes, today's sets are filled in → again.
   // With reduced motion it just shows the changed workout, no loop.
   (() => {
-    const phone = document.querySelector('.phone[aria-label="The Wilo tracker during a workout"]');
+    const phone = document.querySelector('.h-look');
     if (!phone) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { phone.classList.add('changed'); return; }
     const items = [...phone.querySelectorAll('[data-at]')];
