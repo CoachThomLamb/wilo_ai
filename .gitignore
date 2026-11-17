@@ -89,3 +89,9 @@ ml/toolcall_eval.jsonl
 ml/seeds.jsonl
 ml/test.jsonl
 ml/results/
+
+# Real chats and workouts: local only (backup: ~/Documents/wilo-ml-data/coaching-evals/). The repo is public.
+coaching-evals/traces.jsonl
+coaching-evals/tracker_traces.jsonl
+coaching-evals/completed.json
+coaching-evals/notes.json
