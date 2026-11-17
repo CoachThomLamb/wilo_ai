@@ -9,9 +9,10 @@
     touches localStorage.
   - Provision: on every sign-in, merge-writes users/{uid} with profile
     fields. createdAt is only set the first time.
-  - Data: userCol('completed') -> users/{uid}/completed, etc. Pages swap
-    collection(db, 'completed') for userCol('completed'); the security rule
-    on users/{uid}/** does the per-user filtering server-side.
+  - Data: userCol('workouts') -> users/{uid}/workouts, userDoc('days', id)
+    -> users/{uid}/days/{id}, etc. Pages never touch top-level collections;
+    the security rules on users/{uid}/** do the per-user filtering
+    server-side.
 
   Usage:
     import { onUser, signIn, signOut, userCol, userDoc } from './auth.js';
