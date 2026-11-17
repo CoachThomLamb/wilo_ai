@@ -1163,7 +1163,11 @@
 
   // ---- reset ---------------------------------------------------------
   // Without this the only way to clear a stale draft is the Files app.
-  // Resets to the workout currently loaded from Firestore.
+  // Resets to the plan of the workout loaded from Firestore (#183): fresh, so a
+  // log already synced to the doc doesn't come back, and nothing ticked (a
+  // workout logged by talking has its plan's sets marked done). If the doc
+  // has a log, the cleared one is saved back as planned, or the next load
+  // would bring the old sets back.
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (!loadedWorkout) { note('No workout loaded'); return; }
     const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
@@ -1172,9 +1176,18 @@
       : 'Reset to the assigned workout?';
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
-    loadWorkout(loadedWorkout);
+    loadWorkout(loadedWorkout, true);
+    state.exercises.forEach(x => x.sets.forEach(s => { s.done = false; }));
+    state.finished = false;
+    state.finishedAt = null;
     draw();
     note('Reset to ' + (state.workoutName || 'assigned'));
+    if ((loadedWorkout.log || []).length || loadedWorkout.status !== 'planned') {
+      const mark = sig();
+      saveWorkout('planned', new Date())
+        .then(() => { savedSig = mark; })
+        .catch(err => note("Reset here, but couldn't save it (" + (err.code || err.message || err) + ')', 'err'));
+    }
   });
 
   // Boot: restore any saved draft. The next workout loads once sign-in
