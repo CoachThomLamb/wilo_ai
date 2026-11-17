@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from wilo import data  # noqa: E402
+from firebase_admin import auth as firebase_auth  # noqa: E402
 
 TZ = ZoneInfo('America/Toronto')
 # $ per million tokens: input, output, cache read, cache write 5 min (1.25x input), cache write 1 hour (2x input)
@@ -48,6 +49,7 @@ def main():
     db = data.connect()
     day = collections.defaultdict(lambda: collections.Counter())
     chats = collections.defaultdict(lambda: collections.Counter())
+    users = collections.defaultdict(lambda: collections.Counter())
     unpriced = set()
     for t in db.collection('chat_threads').stream():
         for u in t.reference.collection('usage').stream():
@@ -55,15 +57,18 @@ def main():
             local = datetime.fromisoformat(d['at']).astimezone(TZ).date().isoformat()
             if a.since and local < a.since:
                 continue
-            for key, bucket in ((local, day), (t.id, chats)):
+            uid = d.get('uid', '?')
+            for key, bucket in ((local, day), (t.id, chats), (uid, users)):
                 bucket[key]['requests'] += 1
+            users[uid]['days'] = max(users[uid]['days'] or '', local)  # last active day
+            users[uid]['first'] = min(users[uid]['first'] or '9999', local)
             for c in d.get('calls', []):
                 tk = tokens(c.get('usage', {}))
                 cost = dollars(c.get('model', ''), tk)
                 if cost is None:
                     unpriced.add(c.get('model'))
                     cost = 0
-                for bucket in (day[local], chats[t.id]):
+                for bucket in (day[local], chats[t.id], users[uid]):
                     bucket['calls'] += 1
                     bucket['in'] += tk[0]; bucket['read'] += tk[1]; bucket['write'] += tk[2] + tk[3]; bucket['out'] += tk[4]
                     bucket['$'] += cost
@@ -83,6 +88,14 @@ def main():
         print('\nwhere the dollars go (at Sonnet 5.5 prices):',
               ', '.join(f'{k} {100 * total[k] * p / 1e6 / total["$"]:.0f}%'
                         for k, p in zip(('in', 'read', 'write', 'out'), (2.00, 0.20, 4.00, 10.00))))
+    print('\nper user (email from Firebase Auth, printed here only):')
+    for uid, v in sorted(users.items(), key=lambda kv: -kv[1]['$']):
+        try:
+            who = firebase_auth.get_user(uid).email or uid
+        except Exception:  # deleted user or no uid on old records
+            who = uid
+        print(f'  {who:32} {v["first"]} to {v["days"]}  {v["requests"]:>4} msgs  ${v["$"]:>7.2f}  '
+              f'${v["$"] / v["requests"]:.3f}/msg')
     print(f'\ncostliest {a.chats} chats:')
     for cid, v in sorted(chats.items(), key=lambda kv: -kv[1]['$'])[:a.chats]:
         print(f'  {v["day"]} {cid[:12]}  {v["requests"]} msgs, {v["calls"]} calls, ${v["$"]:.3f}')
