@@ -106,7 +106,7 @@ sequenceDiagram
 | Path | What | Written by |
 |---|---|---|
 | `users/{uid}/workouts/{docId}` | One doc per workout from plan to done (#126): `plan` (as first written), `diffs` (the coach's changes), `exercises` (plan with diffs applied), `log` (what was done), `status` planned / in progress / done | Plan: connector. Log, status: tracker (the rules allow it nothing else) |
-| `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py`; left in place as the backup until a cleanup (#53) | Nothing |
+| `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py` (deleted after it ran, #195; in git history); left in place as the backup until a cleanup (#53) | Nothing |
 | `users/{uid}/todos/{docId}` | Todos for the Today page | Connector, Today page |
 | `users/{uid}/coach/profile` | Coaching profile: `preferences`, `limitations`, `plan`, `notes` (free text) | Connector (`update_profile`) |
 | `chat_threads/{chatId}` (+ `turns`, `usage`), `chat_usage` | Coach chat: history, the API's token counts per request (#143; `scripts/token-cost/usage_report.py`), daily caps | Connector (`/chat`) |
@@ -281,7 +281,7 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 | 2 | **Infrastructure isn't in code**: Render settings exist only in its dashboard, deps are unpinned (MCP v2 is required), the base image is a moving tag, rules are deployed by hand | A rebuild may produce something different, or break on a new SDK | #50 |
 | 3 | **Keys and access**: a duplicate admin key on the laptop; the github-action account has broad roles; no rotation; one human owner everywhere; the Firebase browser key isn't restricted by referrer | A lost laptop or account locks out the project; a leaked key does a lot of damage | #51 |
 | 4 | **Data upkeep**: legacy top-level collections still hold data (locked, unused); stale plans pile up in `workouts` (one doc per workout since #126, so there are no more stray completed copies), and the old `assigned` / `completed` collections stay as the pre-#126 backup; **no delete through the connector**, so cleanup needs the Firebase console | Wrong "next workout", messy history, cleanup outside the one path to the data | #53 |
-| 5 | **Stale docs**: README (dev mode, `tracker.html`), `data/README.md`, `migrate_firestore.py`, older design docs in `docs/` | Confusing for a new person or LLM | #53 |
+| 5 | **Stale docs**: README (dev mode, `tracker.html`), `data/README.md`, older design docs in `docs/` | Confusing for a new person or LLM | #53 |
 | 6 | **No tests in CI** | Broken code can merge and auto-deploy to Render | #46 |
 | 7 | **No billing account**: Cloud Run, backups and Blaze features are unavailable; the old budget sits on a closed credit account | Limits options; no alert if billing comes back | Part of #49 / #51 |
 
