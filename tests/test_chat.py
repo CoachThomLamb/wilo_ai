@@ -207,7 +207,7 @@ class ChatTest(unittest.TestCase):
 
     def test_unpriced_model_counts_at_the_dearest_price(self):
         call = {'model': 'claude-unknown', 'usage': {'input_tokens': 1_000_000}}
-        self.assertEqual(chat.token_cost.call_cost(call), 4.00)
+        self.assertEqual(chat.token_cost.call_cost(call), max(p[0] for p in chat.token_cost.PRICES.values()))
 
     def test_cors_preflight_only_for_tracker_hosts(self):
         ok = self.http.options('/chat', headers={'Origin': 'https://wilo2-1ee44--pr-12-abc.web.app'})
@@ -215,6 +215,11 @@ class ChatTest(unittest.TestCase):
         self.assertIn('Authorization', ok.headers['access-control-allow-headers'])
         bad = self.http.options('/chat', headers={'Origin': 'https://evil.example'})
         self.assertNotIn('access-control-allow-origin', bad.headers)
+        for host in ('https://hiwilo.com', 'https://www.hiwilo.com'):  # the live domain serves the tracker too
+            r = self.http.options('/chat', headers={'Origin': host})
+            self.assertEqual(r.headers['access-control-allow-origin'], host)
+        fake = self.http.options('/chat', headers={'Origin': 'https://hiwilo.com.evil.example'})
+        self.assertNotIn('access-control-allow-origin', fake.headers)
 
     def test_runaway_loop_stops(self):
         self.claude(*[message('tool_use', tool_use('exercise_names', {}, id=f't{i}')) for i in range(chat.MAX_STEPS)])

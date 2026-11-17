@@ -62,7 +62,8 @@ IDLE = timedelta(hours=1)
 BETAS = ['server-side-fallback-2026-07-01']  # with fallbacks='default': a declined request reruns on another model
 
 # The tracker's own hosts (live and PR previews) and local testing.
-ORIGIN = re.compile(r'https://wilo2-1ee44(--[a-z0-9-]+)?\.(web\.app|firebaseapp\.com)|http://(localhost|127\.0\.0\.1)(:\d+)?')
+ORIGIN = re.compile(r'https://wilo2-1ee44(--[a-z0-9-]+)?\.(web\.app|firebaseapp\.com)|https://(www\.)?hiwilo\.com'
+                    r'|http://(localhost|127\.0\.0\.1)(:\d+)?')
 
 # Where this chat runs (client-specific). How to coach lives only in coach.md, appended below.
 ROLE = """You are Wilo, chatting with the user inside the WILO Tracker on their phone, often at the gym.
