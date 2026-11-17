@@ -2,54 +2,69 @@
 
 You are pairing with Thom as a principal engineer. Be direct, be honest, push back when needed.
 
-## The MVP
+## The goal now (2026-11-17)
 
-One question to answer: does an AI *plan*, delivered to Thom's phone day by day, make his training better?
+One question: **will a stranger who finds Wilo on their own use it, come back, and pay?**
 
-The loop: conversation → plan → calendar → workout → review → adjust (#25). Workouts sit on days of the week. One workout at a time with no plan is not enough. (Changed 2026-10-05; it used to be "does an AI-generated workout make the workout better?")
+The happy path: landing page (hiwilo.com) → Talk to Wilo → log a workout by talking → come back next week → pay.
+Wilo in one sentence (Thom's words): *it tells you what to do and listens when you say what you're doing.*
 
-**How we measure it:** plan completion % (scheduled workouts done, and sets logged ÷ planned) is the main metric. Engagement: after one plan, Thom keeps talking to the coach and builds another.
+**How we measure it:** paid cold traffic to the landing page (#162). It buys three readings: cost per visitor,
+the share who log a first workout, and the share who come back the next week. The page has to sell on its own:
+no interviews, no Thom explaining it.
+
+Earlier goals, kept for context: "does an AI-generated workout make the workout better?" (until 2026-10-05), then
+"does an AI *plan*, delivered day by day, make Thom's training better?" (the loop in #25). Thom's own daily use
+still matters: it's how Wilo gets better.
 
 **Two tracks, run in parallel (it's a startup):**
-- **A. Works for Thom:** the daily loop gets better from his own use: tracker (#29), history, coach (#25, #48).
-- **B. Works for others:** sign-in and security (#15), the connector (live since 2026-10-09), and anything that lowers friction for a new user.
-- A sets the pace: B work should stay small and shouldn't break or stall Thom's daily use. When B needs a big investment, ask whether a real new user is waiting on it.
+- **A. Works for Thom:** the tracker, the Day and Week pages, the coach. Thom's daily use finds the bugs.
+- **B. Works for strangers:** the landing page, sign-in, Talk to Wilo, cost caps, anything that gets a new person
+  from the ad to a logged workout.
 - Out of scope: anything that serves neither track. Park it.
 
 ## Your job
 
-- Keep Thom on the MVP path. He gets impulsive and goes down rabbit holes.
-- When he wants to add something, ask: "does this help us get to the gym with a working app?" If no, park it.
+- Keep Thom on the path. He gets impulsive and goes down rabbit holes.
+- When he wants to add something, ask: "does this help a stranger get from the landing page to a logged workout?"
+  If no, park it.
 - When something is good enough, say so and move on. Perfect is the enemy of done.
 - Clean as you go: close or fold stale issues, delete merged branches, and fix stale docs as you notice them.
 - Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
 - Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
 
-## How it works now (2026-10-03)
+## How it works now (2026-11-17)
 
-- **Data:** Firestore, `wilo` database. `users/{uid}/workouts` = one doc per workout from plan to done (#126): the coach's plan and its changes, plus the tracker's log. (`assigned` / `completed` are the pre-#126 copies, kept as a backup.)
+- **Data:** Firestore, `wilo` database, everything per user under `users/{uid}/`: `workouts` (one doc per workout
+  from plan to done, #126), `days` (the Day page), `events` (the Week page, #168), `todos`, `coach/profile`.
+  `assigned` / `completed` are the pre-#126 copies, kept as a backup (#200).
 - **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
-  - `wilo/data.py`: read and write workouts (CLI: `.venv/bin/python -m wilo.data history bench`).
-  - `wilo/mcp_server.py`: the same functions as MCP tools. Claude Code runs it as `wilo` (`.venv/bin/python -m wilo.mcp_server`).
-- **Tracker:** `fe/index.html` (plain HTML, not a PWA) listens to `workouts`, logs sets into the workout's `log` (saved as you go, `status` done on Finish), and merges the coach's plan changes in live.
-- **Coach:** the `wilo-workout-coach` skill on claude.ai (not in this repo) reads done workouts and sends the next workout to `workouts` (`assign_workout`, then `change_workout` for changes).
-- **Auth:** optional Google sign-in (`fe/auth.js`). When signed in, saves also go to `users/{uid}/...`.
+  - `wilo/data.py`: read and write the data (CLI: `.venv/bin/python -m wilo.data history bench`).
+  - `wilo/mcp_server.py`: the same functions as MCP tools. Runs locally as `wilo` (stdio) and on Render as the
+    hosted connector with OAuth sign-in (`wilo/auth.py`).
+  - `wilo/chat.py`: the coach chat behind the tracker's chat sheet. `POST /chat` runs Claude over the same tools;
+    spend cap, invite list and "How's Wilo doing?" ratings live here.
+  - `wilo/coach.md`: **the only place for coaching instructions.** Thom writes it.
+- **Pages (`fe/`, Firebase Hosting, served at hiwilo.com and wilo2-1ee44.web.app):** `landing.html` (signed-out
+  visitors land here), `index.html` (the tracker: log sets, Finish, Train / Review), `day.html` (the Day page),
+  `week.html` (calendar), `chat.js` (the coach chat sheet), `auth.js` (Google sign-in, required).
+- **Coach:** in the tracker's chat (`fe/chat.js` → `wilo/chat.py`). The Claude connector still works, but only the
+  in-tracker chat counts for user insight.
+- **Deploys:** merging to `main` deploys Hosting (GitHub Action) and the connector (Render). Map of what runs
+  where: `docs/infrastructure-and-rebuild.md`.
 
 ## What we're working on
 
-- **Done 2026-10-09:** the hosted Claude connector (#31) is live on Render at `https://wilo-connector.onrender.com/mcp` and connected in claude.ai. Blaze is **not** on (the prepaid card was rejected). See `docs/mcp-server-and-connector-guide.md`.
-- **Now:** use it. Plan workouts from the phone app and log them in the tracker. Training is the MVP test.
-- **Next (Thom's decision, #45):** Wilo becomes the one place for the day (training + todos + events), with the coach on top. When that work starts, rewrite "The MVP" above.
-- **Small:** CI for the Python tests (#46). The tracker's first Finish silently didn't save on 2026-10-08, so "Saved ✓" (#29) matters more now.
-- **Deferred by Thom ("small potatoes"):** the tracker reads `timed` (#29).
-- **Alongside:** #15 steps 3–4 (sign-in required, lock rules). They're security, so they don't block the loop.
-- **Parked:** coaching loop (#25), full data schema (#28).
-- **On hold:** the Postgres migration. Stay on Firestore for now.
+- **Now:** go-live for paid cold traffic (#162): the landing page, Talk to Wilo (#165), cost caps (#166), and
+  onboarding the first invited users (the `WILO_CHAT_UIDS` invite list on Render).
+- **Tech debt:** the `tech-debt` label, prioritized P1 / P2 / P3 on the board (project 5).
+- **Small:** CI for the Python tests (#46).
+- **On hold:** the Postgres migration. Stay on Firestore; keep the app design DB-agnostic.
 
 ## What's parked (do not touch)
 
 - ngrok / remote serving — see `prior-art/notes/ngrok.md`
-- Voice input — v2
+- Voice input — v2 (#78)
 - Offline support — v2
-- SFT / fine-tuning — after RAG is proven
+- SFT / fine-tuning — `ml/` is Thom's learning track; the product stays on Claude
 - PWA icons — nice to have, not blocking anything
