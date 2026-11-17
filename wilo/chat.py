@@ -23,7 +23,7 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
                                         token counts; scripts/token-cost/usage_report.py adds them up).
     chat_usage/{uid}_{date}             count: requests today
     chat_spend/{uid}                    usd: what this user's chat has cost in total (for the spend cap)
-    chat_feedback/{chatId}              uid, chatId, rating (bad|meh|good), note?, at: "How's Wilo doing?"
+    chat_feedback/{chatId}              uid, chatId, rating (bad|good|great), note?, at: "How's Wilo doing?"
 
 Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
 (default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
@@ -59,7 +59,7 @@ SPEND_LIMIT_REPLY = ("You've used up the free coaching for now. Your workouts ar
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
 MAX_STEPS = 12  # model calls per message: enough for a read-heavy plan, a stop for a runaway loop
 MAX_MESSAGE = 4000
-RATINGS = ('bad', 'meh', 'good')  # "How's Wilo doing?" in the chat (POST /chat/feedback)
+RATINGS = ('bad', 'good', 'great')  # "How's Wilo doing?" in the chat (POST /chat/feedback)
 # After an hour with no message the chat's cache has expired, so carrying the chat on would rewrite all of it at 2x
 # (#143: a chat kept all day cost more after each gap than the rest of it). Start a fresh one instead; the coach
 # reads the user's data through the tools anyway.
@@ -231,7 +231,7 @@ def add_chat_routes(s):
 
     @s.custom_route('/chat/feedback', methods=['POST', 'OPTIONS'])
     async def feedback(request):
-        """The user rates a chat: {"chatId", "rating": bad|meh|good, "note"?: what Wilo should do better}. One doc
+        """The user rates a chat: {"chatId", "rating": bad|good|great, "note"?: what to do better or what made it great}. One doc
         per chat in chat_feedback/{chatId}; rating again or adding the note updates it."""
         headers = cors(request)
         if request.method == 'OPTIONS':

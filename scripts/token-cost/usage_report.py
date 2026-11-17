@@ -79,7 +79,7 @@ def main():
     ratings = [f.to_dict() for f in db.collection('chat_feedback').stream()]
     ratings = [r for r in ratings if not a.since or r.get('at', '')[:10] >= a.since]
     print(f'\n"How\'s Wilo doing?": {len(ratings)} rated chats,',
-          ', '.join(f'{k} {sum(r.get("rating") == k for r in ratings)}' for k in ('good', 'meh', 'bad')))
+          ', '.join(f'{k} {sum(r.get("rating") == k for r in ratings)}' for k in ('great', 'good', 'bad')))
     for r in sorted(ratings, key=lambda r: r.get('at', '')):
         if r.get('note'):
             print(f'  {r["at"][:10]} {r["rating"]:5} {r["chatId"][:12]}  {r["note"]}')

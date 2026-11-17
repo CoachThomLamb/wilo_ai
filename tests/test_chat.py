@@ -194,15 +194,15 @@ class ChatTest(unittest.TestCase):
         chat_id = self.post({'message': 'hello'}).json()['chatId']
         rate = lambda body, token='my-token': self.http.post(
             '/chat/feedback', json=body, headers={'Authorization': f'Bearer {token}', 'Origin': TRACKER})
-        self.assertEqual(rate({'chatId': chat_id, 'rating': 'meh'}).status_code, 200)
-        self.assertEqual(rate({'chatId': chat_id, 'rating': 'meh', 'note': ' too many questions '}).status_code, 200)
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'great'}).status_code, 200)
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'great', 'note': ' knew my last leg day '}).status_code, 200)
         doc = self.db.store[f'chat_feedback/{chat_id}']
-        self.assertEqual((doc['uid'], doc['rating'], doc['note']), (ME, 'meh', 'too many questions'))
-        self.assertEqual(rate({'chatId': chat_id, 'rating': 'great'}).status_code, 400)
+        self.assertEqual((doc['uid'], doc['rating'], doc['note']), (ME, 'great', 'knew my last leg day'))
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'meh'}).status_code, 400)  # not one of the three
         self.assertEqual(rate({'chatId': chat_id, 'rating': 'bad'}, token='other-token').status_code, 404)
         self.assertEqual(rate({'chatId': 'nope', 'rating': 'bad'}).status_code, 404)
         self.assertEqual(rate({'chatId': chat_id, 'rating': 'bad'}, token='forged').status_code, 401)
-        self.assertEqual(self.db.store[f'chat_feedback/{chat_id}']['rating'], 'meh')
+        self.assertEqual(self.db.store[f'chat_feedback/{chat_id}']['rating'], 'great')
 
     def test_daily_cap(self):
         saved, chat.DAILY_LIMIT = chat.DAILY_LIMIT, 1

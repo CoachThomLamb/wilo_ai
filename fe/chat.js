@@ -67,8 +67,8 @@ function draw() {
 }
 
 // ---- "How's Wilo doing?" ---------------------------------------------
-// After Wilo's second reply in a chat, ask once: Bad / Meh / Good. Bad or Meh asks what Wilo should do better
-// (optional). Saved per chat on the server (chat_feedback/{chatId}); chat.rated stops it asking again.
+// After Wilo's second reply in a chat, ask once: Bad / Good / Great. Bad asks what Wilo should do better, Great
+// asks what made it great (both optional); Good just says thanks. Saved per chat on the server (chat_feedback/{chatId}); chat.rated stops it asking again.
 const ASK_AFTER = 2;   // Wilo replies in a chat before asking
 const style = document.createElement("style");
 style.textContent = `
@@ -102,7 +102,7 @@ function askRating() {
   box.className = "rate";
   const row = document.createElement("div");
   row.className = "row";
-  for (const [rating, label] of [["bad", "Bad"], ["meh", "Meh"], ["good", "Good"]]) {
+  for (const [rating, label] of [["bad", "Bad"], ["good", "Good"], ["great", "Great"]]) {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = label;
@@ -131,7 +131,7 @@ function rated(rating, box) {
     if (note.value.trim()) postRating(rating, note.value.trim());
     box.replaceChildren("Thanks, that helps.");
   });
-  box.replaceChildren("Thanks. Anything Wilo should do better?", f);
+  box.replaceChildren(rating === "great" ? "Nice! What made it great?" : "Thanks. What should Wilo do better?", f);
   note.focus();
 }
 
