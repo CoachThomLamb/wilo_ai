@@ -76,6 +76,13 @@ def main():
             who = uid
         print(f'  {who:32} {v["first"]} to {v["days"]}  {v["requests"]:>4} msgs  ${v["$"]:>7.2f}  '
               f'${v["$"] / v["requests"]:.3f}/msg')
+    ratings = [f.to_dict() for f in db.collection('chat_feedback').stream()]
+    ratings = [r for r in ratings if not a.since or r.get('at', '')[:10] >= a.since]
+    print(f'\n"How\'s Wilo doing?": {len(ratings)} rated chats,',
+          ', '.join(f'{k} {sum(r.get("rating") == k for r in ratings)}' for k in ('good', 'meh', 'bad')))
+    for r in sorted(ratings, key=lambda r: r.get('at', '')):
+        if r.get('note'):
+            print(f'  {r["at"][:10]} {r["rating"]:5} {r["chatId"][:12]}  {r["note"]}')
     print(f'\ncostliest {a.chats} chats:')
     for cid, v in sorted(chats.items(), key=lambda kv: -kv[1]['$'])[:a.chats]:
         print(f'  {v["day"]} {cid[:12]}  {v["requests"]} msgs, {v["calls"]} calls, ${v["$"]:.3f}')

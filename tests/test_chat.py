@@ -189,6 +189,21 @@ class ChatTest(unittest.TestCase):
         refused = self.post({'message': 'hi'}, token='other-token')  # trying to chat anyway: same words
         self.assertEqual((refused.status_code, refused.json()['error']), (403, chat.WAITLIST_REPLY))
 
+    def test_feedback_is_saved_per_chat_for_its_owner_only(self):
+        self.claude(message('end_turn', text('hi')))
+        chat_id = self.post({'message': 'hello'}).json()['chatId']
+        rate = lambda body, token='my-token': self.http.post(
+            '/chat/feedback', json=body, headers={'Authorization': f'Bearer {token}', 'Origin': TRACKER})
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'meh'}).status_code, 200)
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'meh', 'note': ' too many questions '}).status_code, 200)
+        doc = self.db.store[f'chat_feedback/{chat_id}']
+        self.assertEqual((doc['uid'], doc['rating'], doc['note']), (ME, 'meh', 'too many questions'))
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'great'}).status_code, 400)
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'bad'}, token='other-token').status_code, 404)
+        self.assertEqual(rate({'chatId': 'nope', 'rating': 'bad'}).status_code, 404)
+        self.assertEqual(rate({'chatId': chat_id, 'rating': 'bad'}, token='forged').status_code, 401)
+        self.assertEqual(self.db.store[f'chat_feedback/{chat_id}']['rating'], 'meh')
+
     def test_daily_cap(self):
         saved, chat.DAILY_LIMIT = chat.DAILY_LIMIT, 1
         try:

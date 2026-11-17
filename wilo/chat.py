@@ -23,6 +23,7 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
                                         token counts; scripts/token-cost/usage_report.py adds them up).
     chat_usage/{uid}_{date}             count: requests today
     chat_spend/{uid}                    usd: what this user's chat has cost in total (for the spend cap)
+    chat_feedback/{chatId}              uid, chatId, rating (bad|meh|good), note?, at: "How's Wilo doing?"
 
 Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
 (default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
@@ -58,6 +59,7 @@ SPEND_LIMIT_REPLY = ("You've used up the free coaching for now. Your workouts ar
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
 MAX_STEPS = 12  # model calls per message: enough for a read-heavy plan, a stop for a runaway loop
 MAX_MESSAGE = 4000
+RATINGS = ('bad', 'meh', 'good')  # "How's Wilo doing?" in the chat (POST /chat/feedback)
 # After an hour with no message the chat's cache has expired, so carrying the chat on would rewrite all of it at 2x
 # (#143: a chat kept all day cost more after each gap than the rest of it). Start a fresh one instead; the coach
 # reads the user's data through the tools anyway.
@@ -226,6 +228,37 @@ def cors(request):
 
 def add_chat_routes(s):
     from starlette.responses import JSONResponse, Response
+
+    @s.custom_route('/chat/feedback', methods=['POST', 'OPTIONS'])
+    async def feedback(request):
+        """The user rates a chat: {"chatId", "rating": bad|meh|good, "note"?: what Wilo should do better}. One doc
+        per chat in chat_feedback/{chatId}; rating again or adding the note updates it."""
+        headers = cors(request)
+        if request.method == 'OPTIONS':
+            return Response(status_code=204, headers=headers)
+        from firebase_admin import auth as firebase_auth
+        db = srv.db()
+        try:
+            token = request.headers.get('authorization', '').removeprefix('Bearer ').strip()
+            uid = firebase_auth.verify_id_token(token)['uid']
+        except Exception:
+            return JSONResponse({'error': 'sign in again'}, status_code=401, headers=headers)
+        try:
+            body = await request.json()
+            chat_id, rating, note = body['chatId'], body['rating'], body.get('note')
+            assert isinstance(chat_id, str) and rating in RATINGS
+            assert note is None or (isinstance(note, str) and len(note) <= MAX_MESSAGE)
+        except Exception:
+            return JSONResponse({'error': f'send {{"chatId", "rating": {"|".join(RATINGS)}, "note"?}}'},
+                                status_code=400, headers=headers)
+        snap = db.collection('chat_threads').document(chat_id).get()
+        if not snap.exists or snap.to_dict().get('uid') != uid:
+            return JSONResponse({'error': 'chat not found'}, status_code=404, headers=headers)
+        doc = {'uid': uid, 'chatId': chat_id, 'rating': rating, 'at': datetime.now(timezone.utc).isoformat()}
+        if note and note.strip():
+            doc['note'] = note.strip()
+        db.collection('chat_feedback').document(chat_id).set(doc, merge=True)
+        return JSONResponse({'ok': True}, headers=headers)
 
     @s.custom_route('/chat/access', methods=['GET', 'OPTIONS'])
     async def access(request):
