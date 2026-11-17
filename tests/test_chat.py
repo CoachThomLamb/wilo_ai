@@ -216,7 +216,7 @@ class ChatTest(unittest.TestCase):
     def test_spend_cap(self):
         # A user's chat stops answering once it has cost SPEND_LIMIT dollars; the owner has no cap.
         saved = chat.SPEND_LIMIT, chat.uncapped_uids
-        chat.SPEND_LIMIT, chat.uncapped_uids = 0.0001, lambda: set()
+        chat.SPEND_LIMIT, chat.uncapped_uids = 1e-6, lambda: set()   # below one message at any model's price
         try:
             self.claude(message('end_turn', text('hi')))
             self.assertEqual(self.post({'message': 'one'}).status_code, 200)
