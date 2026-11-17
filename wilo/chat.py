@@ -94,8 +94,13 @@ def spent(db, uid):
 
 
 def add_spend(db, uid, calls, now):
-    total = spent(db, uid) + sum(token_cost.call_cost(c) for c in calls)
-    db.collection('chat_spend').document(uid).set({'uid': uid, 'usd': total, 'updated': now.isoformat()})
+    """Add this request's cost atomically (Increment on the server), so two messages finishing together can't
+    overwrite each other's spend. The check before a message is a plain read: concurrent messages can overshoot the
+    cap by at most one message each, since the cost is only known after Claude answers."""
+    from google.cloud.firestore import Increment
+    cost = sum(token_cost.call_cost(c) for c in calls)
+    db.collection('chat_spend').document(uid).set({'uid': uid, 'usd': Increment(cost), 'updated': now.isoformat()},
+                                                  merge=True)
 
 
 async def tools():

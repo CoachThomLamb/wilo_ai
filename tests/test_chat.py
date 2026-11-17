@@ -205,6 +205,17 @@ class ChatTest(unittest.TestCase):
         finally:
             chat.SPEND_LIMIT, chat.uncapped_uids = saved
 
+    def test_spend_adds_up_across_messages(self):
+        saved, chat.uncapped_uids = chat.uncapped_uids, lambda: set()
+        try:
+            self.claude(message('end_turn', text('a')), message('end_turn', text('b')))
+            self.post({'message': 'one'})
+            once = self.db.store[f'chat_spend/{ME}']['usd']
+            self.post({'message': 'two'})
+            self.assertAlmostEqual(self.db.store[f'chat_spend/{ME}']['usd'], 2 * once)
+        finally:
+            chat.uncapped_uids = saved
+
     def test_unpriced_model_counts_at_the_dearest_price(self):
         call = {'model': 'claude-unknown', 'usage': {'input_tokens': 1_000_000}}
         self.assertEqual(chat.token_cost.call_cost(call), max(p[0] for p in chat.token_cost.PRICES.values()))

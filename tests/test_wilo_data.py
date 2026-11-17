@@ -43,8 +43,11 @@ class Ref:
     def get(self):
         return Snap(self.path, self.store.get(self.path))
 
-    def set(self, doc):
-        self.store[self.path] = doc
+    def set(self, doc, merge=False):
+        old = self.store.get(self.path, {}) if merge else {}
+        # Firestore's Increment sentinel: add to the stored number (0 when missing), as the server does.
+        doc = {k: (old.get(k, 0) + v.value if type(v).__name__ == 'Increment' else v) for k, v in doc.items()}
+        self.store[self.path] = {**old, **doc}
 
     def update(self, fields):
         if self.path not in self.store:
