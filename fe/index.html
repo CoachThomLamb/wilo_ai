@@ -815,17 +815,11 @@
       state.exercises = saved.state.exercises;
       state.workoutId = saved.state.workoutId || null;
       state.workoutName = saved.state.workoutName || '';
-      state.docId = saved.state.docId || null;   // a draft from before #126 has none: found by workoutId
+      state.docId = saved.state.docId || null;
       state.logBase = saved.state.logBase || 0;
       state.finished = !!saved.state.finished;
       state.finishedAt = saved.state.finishedAt || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
-      state.exercises.forEach(ex => {
-        if (!ex.instanceId) ex.instanceId = uid();
-        if (!ex.exId) ex.exId = userExId();
-        if (ex.timed === undefined) ex.timed = false;
-        if (ex.swapped === undefined) ex.swapped = false;
-      });
       const t = new Date(saved.savedAt).toLocaleString([], {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
       });
@@ -974,14 +968,13 @@
   }
 
   // Pure, tested in tests/fe/timeline_test.mjs. workouts: [{ docId, doc }] from
-  // users/{uid}/workouts, one doc per workout (#126). draft: { docId, workoutId, key }.
+  // users/{uid}/workouts, one doc per workout (#126). draft: { docId, key }.
   // Done (status 'done') or planned (planned / in progress). A stop's day is
   // its assignedFor, or the day it was finished if it has none.
   // The stop that is the draft gets live: true; if none is, a 'draft' stop is
   // added on the draft's day, so the editor is always on the timeline.
   function buildTimeline(workouts, draft) {
-    // A draft from before #126 knows its workout only by id.
-    const isDraft = s => draft.docId ? s.docId === draft.docId : !!draft.workoutId && s.doc.id === draft.workoutId;
+    const isDraft = s => !!draft.docId && s.docId === draft.docId;
     const stops = workouts.map(w => ({
       kind: w.doc.status === 'done' ? 'done' : 'plan',
       key: dayOf(w.doc.assignedFor || w.doc.finishedAt),
@@ -1001,7 +994,6 @@
   function rebuild() {
     timeline = buildTimeline(fetched ? fetched.workouts : [], {
       docId: state.docId,
-      workoutId: state.workoutId,
       key: dayOf((loadedWorkout && loadedWorkout.assignedFor) || new Date().toISOString()),
     });
     at = timeline.findIndex(s => s.live);
@@ -1014,21 +1006,6 @@
   async function onWorkouts(snap) {
     fetched = { workouts: snap.docs.map(d => ({ docId: d.id, doc: d.data() })) };
     let redraw = false;
-    // A draft from before #126 knows its workout only by id, and its exIds came
-    // from the exercise names: take the plan's, so the coach's changes find them.
-    if (!state.docId && state.workoutId) {
-      const w = fetched.workouts.find(x => x.doc.id === state.workoutId);
-      if (w) {
-        state.docId = w.docId;
-        state.logBase = (w.doc.diffs || []).length;
-        const free = [...(w.doc.exercises || [])];
-        state.exercises.forEach(ex => {
-          const i = free.findIndex(p => p.name === ex.name);
-          if (i >= 0) ex.exId = free.splice(i, 1)[0].exId;
-        });
-        persist();
-      }
-    }
     const cur = state.docId && fetched.workouts.find(w => w.docId === state.docId);
     if (cur) {
       const prev = loadedWorkout && loadedWorkout.docId === cur.docId ? loadedWorkout : null;
