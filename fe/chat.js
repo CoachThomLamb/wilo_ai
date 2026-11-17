@@ -63,6 +63,76 @@ function draw() {
   else if (!chat.messages.length)
     bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
   for (const m of chat.messages) bubble(m.role, m.text);
+  askRating();
+}
+
+// ---- "How's Wilo doing?" ---------------------------------------------
+// After Wilo's second reply in a chat, ask once: Bad / Good / Great. Bad asks what Wilo should do better, Great
+// asks what made it great (both optional); Good just says thanks. Saved per chat on the server (chat_feedback/{chatId}); chat.rated stops it asking again.
+const ASK_AFTER = 2;   // Wilo replies in a chat before asking
+const style = document.createElement("style");
+style.textContent = `
+  .rate { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;
+          padding: 10px 0 4px; color: var(--dim); font-size: 14px; text-align: center; }
+  .rate .row { display: flex; gap: 8px; }
+  .rate button { background: var(--field); color: var(--text); border: 0; border-radius: 999px;
+                 padding: 8px 16px; font: inherit; font-size: 15px; }
+  .rate form { display: flex; gap: 8px; width: 100%; }
+  .rate input { flex: 1; min-width: 0; background: var(--field); color: var(--text); border: 0;
+                border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 16px; }`;
+document.head.appendChild(style);
+
+async function postRating(rating, note) {
+  const user = window.__auth && window.__auth.currentUser();
+  if (!user || !chat.chatId) return;
+  try {
+    await fetch(SERVER + "/chat/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
+      body: JSON.stringify({ chatId: chat.chatId, rating, note }),
+    });
+  } catch {}   // feedback is best effort; never get in the way of the chat
+}
+
+function askRating() {
+  log.querySelectorAll(".rate").forEach(el => el.remove());
+  const replies = chat.messages.filter(m => m.role === "coach").length;
+  if (waitlist || !chat.chatId || chat.rated || replies < ASK_AFTER) return;
+  const box = document.createElement("div");
+  box.className = "rate";
+  const row = document.createElement("div");
+  row.className = "row";
+  for (const [rating, label] of [["bad", "Bad"], ["good", "Good"], ["great", "Great"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => rated(rating, box));
+    row.append(b);
+  }
+  box.append("How's Wilo doing?", row);
+  log.append(box);
+  log.scrollTop = log.scrollHeight;
+}
+
+function rated(rating, box) {
+  chat.rated = rating;
+  save();
+  postRating(rating);
+  if (rating === "good") { box.replaceChildren("Thanks!"); return; }
+  const f = document.createElement("form");
+  const note = document.createElement("input");
+  note.placeholder = "Optional";
+  note.enterKeyHint = "send";
+  const send = document.createElement("button");
+  send.textContent = "Send";
+  f.append(note, send);
+  f.addEventListener("submit", ev => {
+    ev.preventDefault();
+    if (note.value.trim()) postRating(rating, note.value.trim());
+    box.replaceChildren("Thanks, that helps.");
+  });
+  box.replaceChildren(rating === "great" ? "Nice! What made it great?" : "Thanks. What should Wilo do better?", f);
+  note.focus();
 }
 
 function wake() {
@@ -96,6 +166,7 @@ async function send(text) {
     chat.messages.push({ role: "coach", text: reply });
     wait.className = "msg coach";
     wait.textContent = reply;
+    askRating();
     // The page can refresh what the coach wrote (day.html reloads the day after update_day).
     window.dispatchEvent(new CustomEvent("wilo-chat-reply", { detail: { tools: body.tools || [] } }));
   } catch (err) {
