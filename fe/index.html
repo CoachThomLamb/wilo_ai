@@ -16,6 +16,7 @@
     The timeline is live: no refetching, no Update bar.
   - Log: sets/reps/lbs per exercise; timed exercises (dead hang) log secs.
     Optional custom_name per exercise adds a 4th column for free-form data.
+    Its name field shows only once set, or after tapping "+ Field" (#187).
   - Swap: exercises with a `fallback` get a button to switch to the easier
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
@@ -521,8 +522,8 @@
         ${ex.cue ? `<div class="ex-cue">${esc(ex.cue)}</div>` : ''}
         <input class="ex-note" value="${esc(ex.note)}" placeholder="Add note"
                data-id="${ex.instanceId}" data-k="note">
-        <input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
-               data-id="${ex.instanceId}" data-k="custom_name">
+        ${ex.custom_name || ex.showField ? `<input class="ex-note" value="${esc(ex.custom_name || '')}" placeholder="Custom field name (e.g. incline height)"
+               data-id="${ex.instanceId}" data-k="custom_name">` : ''}
         <table>
           <thead><tr><th>Set</th>${ex.timed ? '' : '<th>lbs</th>'}<th>${unit}</th>${ex.custom_name ? `<th>${esc(ex.custom_name)}</th>` : ''}<th>&check;</th></tr></thead>
           <tbody>${ex.sets.map((s, i) => `
@@ -539,6 +540,7 @@
           <span class="demo-slot" data-demo-name="${esc(ex.name)}"></span>
           ${(ex.media || []).map((m, i) => `<button class="chip" data-view="${ex.instanceId}" data-mi="${i}">${m.type === 'video' ? '▶ Video' : '▣ Photo'} ${i + 1}</button>`).join('')}
           <button class="chip" data-upload="form" data-ex="${ex.instanceId}">+ Video / photo</button>
+          ${ex.custom_name || ex.showField ? '' : `<button class="chip" data-field="${ex.instanceId}">+ Field</button>`}
           ${media.coach && ex.name ? `<button class="chip coach" data-upload="demo" data-ex="${ex.instanceId}">Upload demo</button>` : ''}
         </div>
         ${ex.fallback || ex.swapped
@@ -609,6 +611,15 @@
   }
 
   list.addEventListener('click', e => {
+    const field = e.target.closest('[data-field]');
+    if (field) {   // show the custom field's name input (#187); the column appears once it has a name
+      const ex = state.exercises.find(x => x.instanceId === field.dataset.field);
+      if (!ex) return;
+      ex.showField = true;
+      draw();
+      const input = list.querySelector(`[data-id="${ex.instanceId}"][data-k="custom_name"]`);
+      return input && input.focus();
+    }
     const up = e.target.closest('[data-upload]');
     if (up) {
       const ex = state.exercises.find(x => x.instanceId === up.dataset.ex);
