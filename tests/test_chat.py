@@ -187,12 +187,50 @@ class ChatTest(unittest.TestCase):
         finally:
             chat.DAILY_LIMIT = saved
 
+    def test_spend_cap(self):
+        # A user's chat stops answering once it has cost SPEND_LIMIT dollars; the owner has no cap.
+        saved = chat.SPEND_LIMIT, chat.uncapped_uids
+        chat.SPEND_LIMIT, chat.uncapped_uids = 0.0001, lambda: set()
+        try:
+            self.claude(message('end_turn', text('hi')))
+            self.assertEqual(self.post({'message': 'one'}).status_code, 200)
+            self.assertGreater(self.db.store[f'chat_spend/{ME}']['usd'], 0)
+            r = self.post({'message': 'two'})
+            self.assertEqual(r.status_code, 402)
+            self.assertEqual(r.json()['error'], chat.SPEND_LIMIT_REPLY)
+            self.assertEqual(len(chat._client.requests), 1)  # the capped message never reached Claude
+            chat.uncapped_uids = lambda: {ME}
+            self.claude(message('end_turn', text('hi')))
+            self.assertEqual(self.post({'message': 'three'}).status_code, 200)
+        finally:
+            chat.SPEND_LIMIT, chat.uncapped_uids = saved
+
+    def test_spend_adds_up_across_messages(self):
+        saved, chat.uncapped_uids = chat.uncapped_uids, lambda: set()
+        try:
+            self.claude(message('end_turn', text('a')), message('end_turn', text('b')))
+            self.post({'message': 'one'})
+            once = self.db.store[f'chat_spend/{ME}']['usd']
+            self.post({'message': 'two'})
+            self.assertAlmostEqual(self.db.store[f'chat_spend/{ME}']['usd'], 2 * once)
+        finally:
+            chat.uncapped_uids = saved
+
+    def test_unpriced_model_counts_at_the_dearest_price(self):
+        call = {'model': 'claude-unknown', 'usage': {'input_tokens': 1_000_000}}
+        self.assertEqual(chat.token_cost.call_cost(call), max(p[0] for p in chat.token_cost.PRICES.values()))
+
     def test_cors_preflight_only_for_tracker_hosts(self):
         ok = self.http.options('/chat', headers={'Origin': 'https://wilo2-1ee44--pr-12-abc.web.app'})
         self.assertEqual(ok.status_code, 204)
         self.assertIn('Authorization', ok.headers['access-control-allow-headers'])
         bad = self.http.options('/chat', headers={'Origin': 'https://evil.example'})
         self.assertNotIn('access-control-allow-origin', bad.headers)
+        for host in ('https://hiwilo.com', 'https://www.hiwilo.com'):  # the live domain serves the tracker too
+            r = self.http.options('/chat', headers={'Origin': host})
+            self.assertEqual(r.headers['access-control-allow-origin'], host)
+        fake = self.http.options('/chat', headers={'Origin': 'https://hiwilo.com.evil.example'})
+        self.assertNotIn('access-control-allow-origin', fake.headers)
 
     def test_runaway_loop_stops(self):
         self.claude(*[message('tool_use', tool_use('exercise_names', {}, id=f't{i}')) for i in range(chat.MAX_STEPS)])
