@@ -22,9 +22,11 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
                                         it, tools called). Every request, refusals included (#143: the real
                                         token counts; scripts/token-cost/usage_report.py adds them up).
     chat_usage/{uid}_{date}             count: requests today
+    chat_spend/{uid}                    usd: what this user's chat has cost in total (for the spend cap)
 
 Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
-(default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_TZ (default America/Toronto).
+(default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
+default 5), WILO_CHAT_UNCAPPED (no spend cap; default the config uid), WILO_TZ (default America/Toronto).
 """
 
 import json
@@ -37,6 +39,7 @@ from zoneinfo import ZoneInfo
 import anthropic
 
 from wilo import data as wilo_data
+from wilo import token_cost
 
 # The chat's cache lasts an hour, not the default 5 minutes (#143). A message after a rest longer than 5 minutes
 # rewrote the whole chat at 1.25x input price: 54% of the bill. A 1-hour write costs 2x, once; reads are 0.1x.
@@ -44,6 +47,11 @@ CHAT_CACHE = {'type': 'ephemeral', 'ttl': '1h'}
 MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-opus-5-5')
 EFFORT = os.environ.get('WILO_CHAT_EFFORT', 'medium')
 DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
+# Total a user's chat may cost us, in dollars, before the coach stops answering. A setting, not code: change it on
+# Render. The owner (WILO_CHAT_UNCAPPED, default the uid in config/wilo.json) has no cap.
+SPEND_LIMIT = float(os.environ.get('WILO_CHAT_SPEND_LIMIT', 5))
+SPEND_LIMIT_REPLY = ("You've used up the free coaching for now. Your workouts are all saved. "
+                     "Thom will get in touch about keeping Wilo going.")
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
 MAX_STEPS = 12  # model calls per message: enough for a read-heavy plan, a stop for a runaway loop
 MAX_MESSAGE = 4000
@@ -72,6 +80,21 @@ def client():
 
 def allowed_uids():
     return {u.strip() for u in os.environ.get('WILO_CHAT_UIDS', wilo_data.CONFIG['uid']).split(',') if u.strip()}
+
+
+def uncapped_uids():
+    return {u.strip() for u in os.environ.get('WILO_CHAT_UNCAPPED', wilo_data.CONFIG['uid']).split(',') if u.strip()}
+
+
+def spent(db, uid):
+    """Dollars this user's chat has cost so far (counted since the cap shipped; earlier chats aren't in it)."""
+    snap = db.collection('chat_spend').document(uid).get()
+    return ((snap.to_dict() or {}).get('usd', 0) if snap.exists else 0)
+
+
+def add_spend(db, uid, calls, now):
+    total = spent(db, uid) + sum(token_cost.call_cost(c) for c in calls)
+    db.collection('chat_spend').document(uid).set({'uid': uid, 'usd': total, 'updated': now.isoformat()})
 
 
 async def tools():
@@ -221,6 +244,9 @@ def add_chat_routes(s):
         except Exception:
             return fail(400, f'send {{"message": "...", "chatId": optional}}, message up to {MAX_MESSAGE} characters')
         now = datetime.now(timezone.utc)
+        capped = uid not in uncapped_uids()
+        if capped and spent(db, uid) >= SPEND_LIMIT:
+            return fail(402, SPEND_LIMIT_REPLY)
         if not use_quota(db, uid, now):
             return fail(429, f"that's {DAILY_LIMIT} messages today; the coach is back tomorrow")
         thread = load_thread(db, uid, chat_id, now)
@@ -236,6 +262,8 @@ def add_chat_routes(s):
         finally:
             srv.CHAT_UID.reset(reset)
         ref.collection('usage').document(now.isoformat()).set({'uid': uid, 'at': now.isoformat(), 'calls': calls})
+        if capped:
+            add_spend(db, uid, calls, now)
         if new:
             n = len(list(ref.collection('turns').stream())) + 1
             ref.collection('turns').document(f'{n:04d}').set({'messages': json.dumps(new), 'at': now.isoformat()})

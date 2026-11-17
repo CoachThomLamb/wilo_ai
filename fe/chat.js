@@ -83,6 +83,8 @@ async function send(text) {
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one
+    // 402: the user's spend cap. Show the server's words as they are, not as a connection error.
+    if (res.status === 402) throw Object.assign(new Error(body.error), { plain: true });
     if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
     chat.chatId = body.chatId;
     const reply = body.reply || "(no reply)";
@@ -93,7 +95,7 @@ async function send(text) {
     window.dispatchEvent(new CustomEvent("wilo-chat-reply", { detail: { tools: body.tools || [] } }));
   } catch (err) {
     wait.className = "msg err";
-    wait.textContent = "Couldn't reach the coach: " + (err.message || err);
+    wait.textContent = err.plain ? err.message : "Couldn't reach the coach: " + (err.message || err);
   } finally {
     clearTimeout(slow);
     save();

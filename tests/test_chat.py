@@ -187,6 +187,28 @@ class ChatTest(unittest.TestCase):
         finally:
             chat.DAILY_LIMIT = saved
 
+    def test_spend_cap(self):
+        # A user's chat stops answering once it has cost SPEND_LIMIT dollars; the owner has no cap.
+        saved = chat.SPEND_LIMIT, chat.uncapped_uids
+        chat.SPEND_LIMIT, chat.uncapped_uids = 0.0001, lambda: set()
+        try:
+            self.claude(message('end_turn', text('hi')))
+            self.assertEqual(self.post({'message': 'one'}).status_code, 200)
+            self.assertGreater(self.db.store[f'chat_spend/{ME}']['usd'], 0)
+            r = self.post({'message': 'two'})
+            self.assertEqual(r.status_code, 402)
+            self.assertEqual(r.json()['error'], chat.SPEND_LIMIT_REPLY)
+            self.assertEqual(len(chat._client.requests), 1)  # the capped message never reached Claude
+            chat.uncapped_uids = lambda: {ME}
+            self.claude(message('end_turn', text('hi')))
+            self.assertEqual(self.post({'message': 'three'}).status_code, 200)
+        finally:
+            chat.SPEND_LIMIT, chat.uncapped_uids = saved
+
+    def test_unpriced_model_counts_at_the_dearest_price(self):
+        call = {'model': 'claude-unknown', 'usage': {'input_tokens': 1_000_000}}
+        self.assertEqual(chat.token_cost.call_cost(call), 4.00)
+
     def test_cors_preflight_only_for_tracker_hosts(self):
         ok = self.http.options('/chat', headers={'Origin': 'https://wilo2-1ee44--pr-12-abc.web.app'})
         self.assertEqual(ok.status_code, 204)
