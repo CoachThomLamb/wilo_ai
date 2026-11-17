@@ -76,7 +76,19 @@ async function boot() {
   catch (e) { document.getElementById('users').innerHTML = `<div class="empty err">${esc(e.message)}</div>`; return; }
   document.getElementById('users').innerHTML = users.map((u, i) =>
     `<div class="row" data-i="${i}" onclick="pickUser(${i})"><b>${esc(u.name || u.email || u.uid)}</b>
-     <small>${esc(u.email || '')}</small><small>${esc(u.uid)}</small></div>`).join('') || '<div class="empty">No users.</div>';
+     <small>${esc(u.email || '')}</small>${usageLine(u)}
+     <small><a href="view?uid=${encodeURIComponent(u.uid)}" target="_blank" onclick="event.stopPropagation()">Open their tracker ↗</a></small></div>`).join('')
+    || '<div class="empty">No users.</div>';
+}
+
+// #176: plan completion = done ÷ (done + missed); sets = logged ÷ planned on done workouts.
+const pct = x => x == null ? '–' : Math.round(x * 100) + '%';
+function usageLine(u) {
+  const s = u.usage || {};
+  return `<small title="done · missed · upcoming">${s.done ?? 0} done · ${s.missed ?? 0} missed · ${s.upcoming ?? 0} upcoming</small>
+    <small>plan ${pct(s.completion)} · sets ${pct(s.sets)}</small>
+    <small>last done ${esc(s.lastDone || '–')} · joined ${esc(day(u.createdAt).slice(0, 10) || '–')}</small>
+    <small>last sign-in ${esc(day(u.lastSignIn) || '–')}</small>`;
 }
 
 async function pickUser(i) {
