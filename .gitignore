@@ -68,7 +68,6 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 
-prior-art/runpod/venv
 .agents/
 .claude/skills/*
 !.claude/skills/wilo-*/

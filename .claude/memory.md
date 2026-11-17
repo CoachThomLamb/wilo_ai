@@ -21,7 +21,7 @@ Earlier: does an AI *plan* make Thom's training better (#25, from 2026-10-05).
 - Pages are plain HTML, not a PWA (no service worker).
 - `wilo/coach.md` is the only place for coaching instructions; Thom writes it.
 - The repo is public: no other users' data in git.
-- `prior-art/`: old RunPod/Qwen experiments, kept for reference (#194).
+- Old RunPod/Qwen experiments (`prior-art/`) were deleted in #194; they're in git history (`git checkout c6bb0bb -- prior-art`).
 
 ## Structure
 - `fe/landing.html`: landing page. `fe/index.html`: tracker. `fe/chat.js`: coach chat. `fe/auth.js`: Google sign-in.
@@ -29,4 +29,4 @@ Earlier: does an AI *plan* make Thom's training better (#25, from 2026-10-05).
   `users/{uid}/events` (#168).
 - `wilo/`: data, MCP server, connector sign-in, coach chat, `coach.md`.
 - `firestore.rules`: security rules for the `wilo` database.
-- `docs/`: current reference docs and `docs/sessions/` session logs. `prior-art/`: old experiments and notes.
+- `docs/`: current reference docs and `docs/sessions/` session logs.
