@@ -50,6 +50,9 @@ DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
 # Total a user's chat may cost us, in dollars, before the coach stops answering. A setting, not code: change it on
 # Render. The owner (WILO_CHAT_UNCAPPED, default the uid in config/wilo.json) has no cap.
 SPEND_LIMIT = float(os.environ.get('WILO_CHAT_SPEND_LIMIT', 5))
+# What a signed-in account that isn't on WILO_CHAT_UIDS sees, right after sign-in and if it tries to chat.
+WAITLIST_REPLY = ("Thanks for signing up! If you're on the invite list, your account will be activated shortly. "
+                  "If you aren't, stay tuned: we'll email you once Wilo goes into public beta.")
 SPEND_LIMIT_REPLY = ("You've used up the free coaching for now. Your workouts are all saved. "
                      "Thom will get in touch about keeping Wilo going.")
 TZ = ZoneInfo(os.environ.get('WILO_TZ', 'America/Toronto'))
@@ -217,12 +220,30 @@ def cors(request):
     if not ORIGIN.fullmatch(origin):
         return {}
     return {'Access-Control-Allow-Origin': origin, 'Vary': 'Origin',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600'}
 
 
 def add_chat_routes(s):
     from starlette.responses import JSONResponse, Response
+
+    @s.custom_route('/chat/access', methods=['GET', 'OPTIONS'])
+    async def access(request):
+        """Is the coach chat open for this account? The tracker asks right after sign-in, so a new account hears
+        it's on the waitlist before it types anything. {"open": bool, "message": the words to show when closed}."""
+        headers = cors(request)
+        if request.method == 'OPTIONS':
+            return Response(status_code=204, headers=headers)
+        from firebase_admin import auth as firebase_auth
+        srv.db()  # initialises the Firebase app the token check needs
+        try:
+            token = request.headers.get('authorization', '').removeprefix('Bearer ').strip()
+            uid = firebase_auth.verify_id_token(token)['uid']
+        except Exception:
+            return JSONResponse({'error': 'sign in again'}, status_code=401, headers=headers)
+        if uid in allowed_uids():
+            return JSONResponse({'open': True}, headers=headers)
+        return JSONResponse({'open': False, 'message': WAITLIST_REPLY}, headers=headers)
 
     @s.custom_route('/chat', methods=['POST', 'OPTIONS'])
     async def chat(request):
@@ -241,7 +262,7 @@ def add_chat_routes(s):
         except Exception:
             return fail(401, 'sign in again')
         if uid not in allowed_uids():
-            return fail(403, 'the coach chat is not open for this account yet')
+            return fail(403, WAITLIST_REPLY)
         try:
             body = await request.json()
             message, chat_id = body['message'], body.get('chatId')

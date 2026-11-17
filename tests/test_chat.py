@@ -178,6 +178,17 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(self.post({'message': 'x' * (chat.MAX_MESSAGE + 1)}).status_code, 400)
         self.assertEqual(chat._client.requests, [])
 
+    def test_access_tells_a_new_account_it_is_on_the_waitlist(self):
+        get = lambda token: self.http.get('/chat/access', headers={'Authorization': f'Bearer {token}', 'Origin': TRACKER})
+        self.assertEqual(get('my-token').json(), {'open': True})
+        closed = get('other-token')
+        self.assertEqual(closed.json(), {'open': False, 'message': chat.WAITLIST_REPLY})
+        self.assertEqual(closed.headers['access-control-allow-origin'], TRACKER)
+        self.assertEqual(get('forged').status_code, 401)
+        self.claude()
+        refused = self.post({'message': 'hi'}, token='other-token')  # trying to chat anyway: same words
+        self.assertEqual((refused.status_code, refused.json()['error']), (403, chat.WAITLIST_REPLY))
+
     def test_daily_cap(self):
         saved, chat.DAILY_LIMIT = chat.DAILY_LIMIT, 1
         try:

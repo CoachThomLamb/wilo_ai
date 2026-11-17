@@ -54,9 +54,13 @@ function bubble(role, text) {
   return el;
 }
 
+// Accounts not yet on the invite list (the server decides): Wilo's waitlist words, else null.
+let waitlist = null;
+
 function draw() {
   log.replaceChildren();
-  if (!chat.messages.length)
+  if (waitlist) bubble("coach", waitlist);
+  else if (!chat.messages.length)
     bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
   for (const m of chat.messages) bubble(m.role, m.text);
 }
@@ -83,8 +87,9 @@ async function send(text) {
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one
-    // 402: the user's spend cap. Show the server's words as they are, not as a connection error.
-    if (res.status === 402) throw Object.assign(new Error(body.error), { plain: true });
+    // 402: the user's spend cap; 403: not on the invite list. Show the server's words as they are, not as a
+    // connection error.
+    if ((res.status === 402 || res.status === 403) && body.error) throw Object.assign(new Error(body.error), { plain: true });
     if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
     chat.chatId = body.chatId;
     const reply = body.reply || "(no reply)";
@@ -157,6 +162,29 @@ log.addEventListener("pointerup", async () => {
 });
 // Android opens a context menu on long press; the hold already copies.
 log.addEventListener("contextmenu", ev => { if (ev.target.closest(".msg")) ev.preventDefault(); });
+
+// ---- invite list ----------------------------------------------------
+// Right after sign-in, ask the server whether the chat is open for this account. If not, open the sheet once
+// (per account, per phone) with Wilo's waitlist message, so a new person hears it before typing anything.
+let checkedFor = null;
+async function checkAccess(user) {
+  if (!user || checkedFor === user.uid) return;
+  checkedFor = user.uid;
+  try {
+    const res = await fetch(SERVER + "/chat/access", { headers: { Authorization: "Bearer " + await user.getIdToken() } });
+    const body = await res.json();
+    if (!res.ok) return;
+    waitlist = body.open ? null : body.message;
+  } catch { return; }   // server asleep or offline: the 403 on the first message says the same
+  if (!waitlist) return;
+  const seen = "wilo-waitlist-seen-" + user.uid;
+  let shown = false;
+  try { shown = !!localStorage.getItem(seen); localStorage.setItem(seen, "1"); } catch {}
+  draw();
+  if (!shown) sheet.classList.add("open");
+}
+window.addEventListener("wilo-user", ev => ev.detail ? checkAccess(ev.detail) : (waitlist = null, checkedFor = null));
+if (window.__auth && window.__auth.currentUser()) checkAccess(window.__auth.currentUser());
 
 $("chatBtn").addEventListener("click", () => {
   if (!current(chat)) chat = load();
