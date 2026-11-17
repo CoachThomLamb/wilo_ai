@@ -43,6 +43,24 @@ class Usage(unittest.TestCase):
         self.assertEqual((u['done'], u['completion'], u['sets'], u['lastDone']), (0, None, None, None))
 
 
+class ChatItems(unittest.TestCase):
+    def test_text_and_tool_calls_no_thinking_or_results(self):
+        messages = [
+            {'role': 'user', 'content': 'plan legs for tomorrow'},
+            {'role': 'assistant', 'content': [
+                {'type': 'thinking', 'thinking': 'secret'},
+                {'type': 'text', 'text': 'On it.'},
+                {'type': 'tool_use', 'id': 't1', 'name': 'assign_workout', 'input': {'name': 'legs'}}]},
+            {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 't1', 'content': 'ok'}]},
+            {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Done: legs is on Wednesday.'}]},
+        ]
+        items = serve.chat_items(messages, '2026-11-17T09:00:00')
+        self.assertEqual([(i['who'], i['text']) for i in items], [
+            ('user', 'plan legs for tomorrow'), ('coach', 'On it.'),
+            ('tool', 'assign_workout {"name": "legs"}'), ('coach', 'Done: legs is on Wednesday.')])
+        self.assertTrue(all(i['at'] == '2026-11-17T09:00:00' for i in items))
+
+
 class ViewerPage(unittest.TestCase):
     def setUp(self):
         self.html = serve.TRACKER.read_text()

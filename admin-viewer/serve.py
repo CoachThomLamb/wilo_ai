@@ -7,6 +7,7 @@ training data: it binds 127.0.0.1 and is never deployed.
 
 GET /api/users                 every user: uid, email, name, last sign-in, usage numbers (#176)
 GET /api/workouts?uid=<uid>    that user's workouts from each workout collection, newest first
+GET /api/chats?uid=<uid>       that user's in-app coach chats, newest first (#176)
 GET /view?uid=<uid>            that user's real tracker (fe/index.html), read-only (#176)
 """
 import json
@@ -45,6 +46,34 @@ def users():
                     'createdAt': d.get('createdAt'), 'lastSignIn': d.get('lastSignIn'),
                     'usage': usage(workouts(ref.id), date.today().isoformat())})
     return sorted(out, key=lambda u: str(u['lastSignIn'] or ''), reverse=True)
+
+
+def chats(uid):
+    """The user's in-app coach chats (wilo/chat.py: chat_threads/{id}/turns), newest first, as readable lines.
+    Claude-app chats (through the connector) live in the user's Claude account, not here."""
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    out = []
+    for snap in db().collection('chat_threads').where(filter=FieldFilter('uid', '==', uid)).stream():
+        turns = sorted(snap.reference.collection('turns').stream(), key=lambda s: s.id)
+        items = [item for t in turns for item in chat_items(json.loads(t.to_dict()['messages']), t.to_dict().get('at'))]
+        out.append({'chatId': snap.id, 'createdAt': snap.to_dict().get('createdAt'), 'items': items})
+    return sorted(out, key=lambda c: str(c['createdAt'] or ''), reverse=True)
+
+
+def chat_items(messages, at=None):
+    """API messages → what a person reads: {'who': 'user'|'coach'|'tool', 'text', 'at'}. Thinking and tool
+    results are left out; a tool call shows as its name and input."""
+    items = []
+    for m in messages:
+        content = m.get('content')
+        blocks = [{'type': 'text', 'text': content}] if isinstance(content, str) else content or []
+        for b in blocks:
+            if b.get('type') == 'text' and b.get('text', '').strip():
+                items.append({'who': 'user' if m.get('role') == 'user' else 'coach', 'text': b['text'], 'at': at})
+            elif b.get('type') == 'tool_use':
+                items.append({'who': 'tool', 'text': f"{b.get('name')} {json.dumps(b.get('input') or {}, ensure_ascii=False)}",
+                              'at': at})
+    return items
 
 
 def usage(ws, today):
@@ -142,6 +171,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(users())
             if url.path == '/api/workouts':
                 return self._json(workouts(parse_qs(url.query)['uid'][0]))
+            if url.path == '/api/chats':
+                return self._json(chats(parse_qs(url.query)['uid'][0]))
             if url.path == '/view':
                 uid = parse_qs(url.query).get('uid', [''])[0]
                 if not UID.match(uid):

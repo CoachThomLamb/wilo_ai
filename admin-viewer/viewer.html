@@ -39,13 +39,27 @@
   pre { font-size:12px; white-space:pre-wrap; background:var(--tool); border-radius:6px; padding:8px; }
   .empty { color:var(--mut); padding:40px; text-align:center; }
   .err { color:#dc2626; }
+  /* #176: Tracker + chats (default) or the workout docs. */
+  body.both #list, body.both #view, body:not(.both) #phone, body:not(.both) #chats { display:none; }
+  #phone { width:420px; flex:none; } #phone iframe { width:100%; height:100%; border:0; display:block; }
+  #chats { flex:1; overflow:auto; padding:16px; }
+  .thread { max-width:720px; margin-bottom:24px; }
+  .thread h3 { font-size:12px; color:var(--mut); font-weight:500; margin:0 0 8px; border-bottom:1px solid var(--line); }
+  .msg { padding:6px 10px; border-radius:8px; margin:4px 0; white-space:pre-wrap; max-width:85%; }
+  .msg.user { background:var(--sel); margin-left:auto; }
+  .msg.coach { background:var(--panel); border:1px solid var(--line); }
+  .msg.tool { font:11px ui-monospace, monospace; color:var(--mut); background:var(--tool); max-width:100%; overflow-wrap:anywhere; }
+  header button { font:inherit; font-size:12px; padding:2px 8px; border:1px solid var(--line); border-radius:4px; background:var(--panel); color:var(--fg); cursor:pointer; }
+  header button.on { background:var(--sel); }
   @media (max-width: 900px) { main { flex-direction:column; } .pane { width:auto !important; max-height:22vh; border-right:0; border-bottom:1px solid var(--line); } }
 </style>
 </head>
-<body>
+<body class="both">
 <header>
   <b>WILO admin viewer</b>
   <span class="mut">read-only</span>
+  <button id="modeBoth" class="on" onclick="setMode(true)">Tracker + chats</button>
+  <button id="modeDocs" onclick="setMode(false)">Workout docs</button>
   <span id="status" class="mut"></span>
   <span class="mut">Alt+↑/↓ step workouts</span>
 </header>
@@ -53,6 +67,8 @@
   <div id="users" class="pane"><div class="empty">Loading…</div></div>
   <div id="list" class="pane"></div>
   <div id="view"><div class="empty">Pick a user.</div></div>
+  <div id="phone" class="pane"><div class="empty">Pick a user.</div></div>
+  <div id="chats"></div>
 </main>
 <script>
 let users = [], workouts = [], uidSel = null, cur = -1;
@@ -95,13 +111,34 @@ async function pickUser(i) {
   uidSel = users[i].uid;
   document.querySelectorAll('#users .row').forEach(r => r.classList.toggle('sel', +r.dataset.i === i));
   const st = document.getElementById('status');
+  const uid = encodeURIComponent(uidSel);
+  document.getElementById('phone').innerHTML = `<iframe src="view?uid=${uid}" title="their tracker"></iframe>`;
+  loadChats(uid);
   st.textContent = 'loading workouts…';
-  try { workouts = await get('api/workouts?uid=' + encodeURIComponent(uidSel)); }
+  try { workouts = await get('api/workouts?uid=' + uid); }
   catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; return; }
   st.textContent = `${workouts.length} workouts`;
   cur = -1;
   renderList();
   show(0);
+}
+
+// #176: their in-app coach chats, newest first. Claude-app chats aren't stored by WILO.
+async function loadChats(uid) {
+  const box = document.getElementById('chats');
+  box.innerHTML = '<div class="empty">Loading chats…</div>';
+  let threads;
+  try { threads = await get('api/chats?uid=' + uid); }
+  catch (e) { box.innerHTML = `<div class="empty err">${esc(e.message)}</div>`; return; }
+  box.innerHTML = threads.map(t => `<div class="thread"><h3>${esc(day(t.createdAt))} · ${t.items.filter(m => m.who === 'user').length} messages</h3>
+    ${t.items.map(m => `<div class="msg ${m.who}" title="${esc(day(m.at))}">${m.who === 'tool' ? '→ ' : ''}${esc(m.text)}</div>`).join('')}</div>`).join('')
+    || '<div class="empty">No in-app chats. (Chats in the Claude app aren\'t stored by WILO.)</div>';
+}
+
+function setMode(both) {
+  document.body.classList.toggle('both', both);
+  document.getElementById('modeBoth').classList.toggle('on', both);
+  document.getElementById('modeDocs').classList.toggle('on', !both);
 }
 
 function renderList() {
