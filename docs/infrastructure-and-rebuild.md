@@ -223,10 +223,10 @@ Ordered so that each step only depends on earlier ones. Secrets are **generated*
 - [ ] `.venv/bin/python -m unittest discover tests` → 100 OK.
 
 **2. Firebase project** (skip if `wilo2-1ee44` still exists)
-- [ ] Create the project. Add a **web app** and copy its config into the `initializeApp({...})` blocks in `fe/index.html` and `wilo/login.html`.
+- [ ] Create the project. Add a **web app** and copy its config into `fe/firebase.js` (shared by the pages) and the `initializeApp({...})` block in `wilo/login.html`.
 - [ ] Firestore: create the **named database `wilo`** in `northamerica-northeast2`, Native mode. Turn on **delete protection**.
 - [ ] Auth: enable the **Google** provider.
-- [ ] **OAuth redirect URIs** (Google Cloud console → APIs & Services → Credentials → the web client Firebase uses, "Web client (auto created by Google Service)"): add `https://<project>.web.app/__/auth/handler`. The tracker signs in through its own domain (`authDomain` = the page's host, needed for in-app browsers), so **every domain the tracker runs on needs its handler URI here**, including the PR preview host `wilo2-1ee44--dev-<hash>.web.app` (#115: one fixed host for all PRs, registered once). A missing one gives `Error 400: redirect_uri_mismatch`.
+- [ ] **OAuth redirect URIs** (Google Cloud console → APIs & Services → Credentials → the web client Firebase uses, "Web client (auto created by Google Service)"): add `https://<project>.web.app/__/auth/handler`. The tracker signs in through its own domain (`authDomain` = the page's host, needed for in-app browsers), so **every domain the tracker runs on needs its handler URI here**, including `https://hiwilo.com/__/auth/handler` and the PR preview host `wilo2-1ee44--dev-<hash>.web.app` (#115: one fixed host for all PRs, registered once). A missing one gives `Error 400: redirect_uri_mismatch`.
 - [ ] Update `.firebaserc` and `config/wilo.json` (`project`).
 - [ ] `firebase deploy --only firestore:rules` and `firebase deploy --only hosting`.
 - [ ] `firebase init hosting:github`. It recreates the github-action service account and the `FIREBASE_SERVICE_ACCOUNT_…` secret. Fix the secret name in both workflow files if the project ID changed.

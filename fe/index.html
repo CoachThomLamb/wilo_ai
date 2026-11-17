@@ -43,34 +43,11 @@
 <html lang="en">
 <head>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-  // authDomain = this page's own host on Firebase Hosting (live, the
-  // hiwilo.com custom domain and PR previews all serve /__/auth/handler). Otherwise redirect sign-in breaks in
-  // Safari's in-app browsers (Camera, Claude app): the handler on another
-  // domain loses its state ("missing initial state"). Each host must be an
-  // Authorized redirect URI (https://<host>/__/auth/handler) on the OAuth
-  // web client in Google Cloud. Elsewhere (localhost) use the default.
-  const onHosting = /\.web\.app$|\.firebaseapp\.com$|^hiwilo\.com$/.test(location.hostname);
-  const app = initializeApp({
-    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
-    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
-    projectId: "wilo2-1ee44",
-    storageBucket: "wilo2-1ee44.firebasestorage.app",
-    messagingSenderId: "103580826325",
-    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
-  });
-  getFirestore(app, "wilo");
-  // Only per-user paths: every read and write goes through auth.js's
-  // userCol / userDoc (users/{uid}/...). No top-level collection access.
+  import "./firebase.js";   // the app, the wilo database and sign-in (fe/firebase.js)
+  import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   window.__setDoc = setDoc;
   window.__updateDoc = updateDoc;
   window.__onSnapshot = onSnapshot;
-  // auth.js calls getApp() at load, so import it after initializeApp.
-  import("./auth.js")
-    .then(a => a.onUser(user =>
-      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
-    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
