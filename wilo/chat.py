@@ -7,7 +7,8 @@ and returns the reply. Claude never picks whose data it touches: the uid comes f
 handed to the tools through mcp_server.CHAT_UID.
 
     POST /chat   Authorization: Bearer <Firebase ID token>
-                 {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>"}
+                 {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>",
+                  "screen": <optional: the workout on the tracker's screen, see screen_line>}
               →  {"chatId": "...", "reply": "...", "tools": ["recent_workouts", ...]}
 
 Who may use it: WILO_CHAT_UIDS (comma-separated), default the uid in config/wilo.json. It spends our API key,
@@ -176,6 +177,28 @@ def load_thread(db, uid, chat_id, now):
     return chat_id, ref, snap.to_dict()['context'], [m for t in turns for m in json.loads(t.to_dict()['messages'])]
 
 
+def screen_line(screen):
+    """What the tracker has on screen (fe/index.html window.__screen) as one line before the user's message, so the
+    coach knows which workout they mean and where they are in it (replaces #124). Per message, not frozen with the
+    chat: one chat a day can span workouts. Facts only; how to use them is coach.md's business. '' when there's no
+    workout on screen or it doesn't parse: a bad screen never blocks a message."""
+    if not isinstance(screen, dict) or not screen.get('docId'):
+        return ''
+    clean = lambda v, n=80: ' '.join(str(v).split())[:n]
+    try:
+        parts = [f'workout "{clean(screen.get("name") or "")}" (docId {clean(screen["docId"], 128)})']
+        at = screen.get('at')
+        if screen.get('finished'):
+            parts.append('finished')
+        elif isinstance(at, dict):
+            parts.append(f"next up: exercise {int(at['index'])} of {int(screen['exercises'])}, {clean(at['name'])}, "
+                         f"set {int(at['set'])} of {int(at['sets'])}")
+        parts.append(f"{int(screen['done'])} of {int(screen['sets'])} sets done")
+    except (KeyError, TypeError, ValueError):
+        return ''
+    return '[Tracker app, not typed by the user: ' + '; '.join(parts) + ']'
+
+
 def reply_text(content):
     return '\n\n'.join(b['text'] for b in content if b.get('type') == 'text' and b.get('text')).strip()
 
@@ -280,9 +303,10 @@ def add_chat_routes(s):
         if thread is None:
             return fail(404, 'chat not found; start a new one')
         chat_id, ref, ctx, history = thread
+        line = screen_line(body.get('screen'))
         reset = srv.CHAT_UID.set(uid)
         try:
-            new, reply, used, calls = await turn(ctx, history, message.strip())
+            new, reply, used, calls = await turn(ctx, history, f'{line}\n{message.strip()}' if line else message.strip())
         except anthropic.APIError as err:
             print(f'chat: API error {err!r}', flush=True)
             return fail(502, 'the coach is unavailable right now; try again in a minute')

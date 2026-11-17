@@ -69,6 +69,11 @@ function wake() {
   fetch(SERVER + "/chat", { method: "OPTIONS" }).catch(() => {});
 }
 
+// The tracker's workout on screen (index.html window.__screen); null on pages without one (day.html).
+function screen() {
+  try { return window.__screen ? window.__screen() : null; } catch { return null; }
+}
+
 async function send(text) {
   const user = window.__auth && window.__auth.currentUser();
   if (!user) { bubble("err", "Sign in first."); return; }
@@ -83,7 +88,7 @@ async function send(text) {
     const res = await fetch(SERVER + "/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + await user.getIdToken() },
-      body: JSON.stringify({ message: text, chatId: chat.chatId }),
+      body: JSON.stringify({ message: text, chatId: chat.chatId, screen: screen() }),
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 404) chat.chatId = null;   // chat gone: the next message starts a new one

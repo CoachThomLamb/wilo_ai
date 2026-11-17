@@ -89,6 +89,26 @@ class ChatTest(unittest.TestCase):
         self.assertIn('Today is', req['system'][1]['text'])
         self.assertEqual({t['name'] for t in req['tools']}, {t.name for t in __import__('asyncio').run(srv.server.list_tools())})
 
+    def test_the_workout_on_screen_goes_before_the_message(self):
+        fake = self.claude(message('end_turn', text('Go.')))
+        screen = {'docId': 'legs-1', 'name': 'Legs', 'finished': False, 'exercises': 4, 'sets': 12, 'done': 4,
+                  'at': {'index': 2, 'name': 'Back Squat', 'set': 2, 'sets': 3}}
+        self.post({'message': 'too heavy?', 'screen': screen})
+        self.assertEqual(fake.requests[0]['messages'][0]['content'],
+                         '[Tracker app, not typed by the user: workout "Legs" (docId legs-1); next up: exercise 2 of 4, '
+                         'Back Squat, set 2 of 3; 4 of 12 sets done]\ntoo heavy?')
+
+    def test_screen_line(self):
+        done = {'docId': 'd', 'name': 'Push\nDay', 'finished': True, 'exercises': 3, 'sets': 9, 'done': 9, 'at': None}
+        self.assertEqual(chat.screen_line(done),
+                         '[Tracker app, not typed by the user: workout "Push Day" (docId d); finished; 9 of 9 sets done]')
+        # No workout, or junk: no line, and the message still goes through.
+        for junk in (None, {}, 'x', {'docId': 'd'}, {**done, 'sets': 'many'}, {**done, 'finished': False, 'at': {'index': 1}}):
+            self.assertEqual(chat.screen_line(junk), '', junk)
+        fake = self.claude(message('end_turn', text('ok')))
+        self.assertEqual(self.post({'message': 'hi', 'screen': {'docId': 'd', 'sets': 'many'}}).status_code, 200)
+        self.assertEqual(fake.requests[0]['messages'][0]['content'], 'hi')
+
     def test_tool_calls_act_on_the_signed_in_user(self):
         self.claude(message('tool_use', text('Checking.'), tool_use('exercise_history', {'name': 'bench'})),
                     message('end_turn', text('Last bench: 135 x 10.')))

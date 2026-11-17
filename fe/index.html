@@ -495,6 +495,19 @@
   const media = { coach: false, demos: {}, asked: false };
   const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, exercises: [] };
 
+  // The workout on screen and where you are in it, sent with each coach chat message (chat.js → wilo/chat.py
+  // screen_line), so the coach knows which workout you mean. "Next up" is the first set not ticked. null with
+  // no saved workout loaded.
+  window.__screen = () => {
+    if (!state.docId) return null;
+    const exs = state.exercises.filter(x => !x.removed);
+    const sets = exs.flatMap(x => x.sets || []);
+    const i = exs.findIndex(x => (x.sets || []).some(s => !s.done));
+    const at = i < 0 ? null : { index: i + 1, name: exs[i].name, set: exs[i].sets.findIndex(s => !s.done) + 1, sets: exs[i].sets.length };
+    return { docId: state.docId, name: state.workoutName || '', finished: !!state.finished,
+             exercises: exs.length, sets: sets.length, done: sets.filter(s => s.done).length, at };
+  };
+
   const list = document.getElementById('list');
   const sheet = document.getElementById('sheet');
   let last = 'state';
