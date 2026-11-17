@@ -97,4 +97,4 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
   which we can't read and which aren't kept. Since #143's usage logging, every request saves the API's counts
   next to its chat (`chat_threads/{id}/usage`); `scripts/token-cost/usage_report.py` turns them into $ per day,
   per message and per chat.
-- Scripts: `scripts/token-cost/` (run `PYTHONPATH=. .venv/bin/python scripts/token-cost/<script>.py`). Read-only.
+- Scripts: `scripts/token-cost/usage_report.py` (ongoing cost) and `replay_tool_versions.py` stay (run `PYTHONPATH=. .venv/bin/python scripts/token-cost/<script>.py`, read-only). The one-off analysis scripts behind this study were removed in #196; get them back with `git checkout c6bb0bb -- scripts/token-cost/`.
