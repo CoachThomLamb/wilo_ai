@@ -152,7 +152,9 @@ function show(i) {
   if (i < 0 || i >= workouts.length) return;
   cur = i;
   const w = workouts[i];
-  const exs = (w.exercises || []).map(x => {
+  // #126: `log` is what they did, `exercises` the plan as it is now. Imported (Hevy) and hand-logged workouts
+  // have only a log. Show the log, plus the plan until the workout is done.
+  const draw = list => (list || []).map(x => {
     const custom = x.custom_name ? `<th>${esc(x.custom_name)}</th>` : '';
     const rows = (x.sets || []).map((s, j) => `<tr class="${s.done ? 'isdone' : ''}"><td>${j + 1}</td>
       <td>${esc(s.reps)}${x.timed ? ' s' : ''}</td><td>${esc(s.lbs)}</td>${x.custom_name ? `<td>${esc(s.custom)}</td>` : ''}
@@ -161,6 +163,8 @@ function show(i) {
       ${x.cue ? `<div class="cue">Coach: ${esc(x.cue)}</div>` : ''}${x.note ? `<div class="note">You: ${esc(x.note)}</div>` : ''}
       <table><tr><th>Set</th><th>${x.timed ? 'Secs' : 'Reps'}</th><th>Lbs</th>${custom}<th>Done</th></tr>${rows}</table></div>`;
   }).join('');
+  const logged = draw(w.log), plan = status(w) !== 'done' ? draw(w.exercises) : '';
+  const exs = (logged ? `<h3>Logged</h3>${logged}` : '') + (plan ? `<h3>Plan</h3>${plan}` : '');
   document.getElementById('view').innerHTML = `<div class="wrap">
     <h2>${esc(w.name || '(no name)')}</h2>
     <div class="meta">${chip(status(w))} ${esc(w.collection)}/${esc(w.docId)}
