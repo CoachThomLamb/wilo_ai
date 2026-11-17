@@ -45,13 +45,13 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
   import { getFirestore, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-  // authDomain = this page's own host on Firebase Hosting (live and PR
-  // previews serve /__/auth/handler). Otherwise redirect sign-in breaks in
+  // authDomain = this page's own host on Firebase Hosting (live, the
+  // hiwilo.com custom domain and PR previews all serve /__/auth/handler). Otherwise redirect sign-in breaks in
   // Safari's in-app browsers (Camera, Claude app): the handler on another
   // domain loses its state ("missing initial state"). Each host must be an
   // Authorized redirect URI (https://<host>/__/auth/handler) on the OAuth
   // web client in Google Cloud. Elsewhere (localhost) use the default.
-  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$|^hiwilo\.com$/.test(location.hostname);
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
     authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
