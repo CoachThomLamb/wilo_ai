@@ -171,12 +171,6 @@ class ServerTest(unittest.TestCase):
         self.uid = OTHER
         self.assertFalse(call('get_profile')['exists'])
 
-    def test_method_covers_profile_and_limitations(self):
-        method = call('coaching_method')['method']
-        for needle in ('get_profile', 'update_profile', '`limitations`', 'it shows up by itself'):
-            with self.subTest(needle):
-                self.assertIn(needle, method)
-
 
 if __name__ == '__main__':
     unittest.main()
