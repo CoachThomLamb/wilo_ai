@@ -97,6 +97,9 @@ DRAFT for Thom's review. Tracking issue: #143. One-page version: `docs/case-stud
 - Changing how data is stored doesn't change what the model reads; the tools decide that.
 - Don't steer a model by stuffing its context. Give it only what the task needs; shape behavior with evals and, where
   it pays, fine-tuning (in progress: a smaller model trained on eval data, `ml/`).
+- Let the model take a first pass before writing instructions. A long instruction doc written up front is its own
+  bloat. Keep the instructions short, as guardrails that correct what you don't want, while fine-tuning (in
+  progress) improves the model itself.
 
 ## How we measured
 

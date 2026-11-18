@@ -49,5 +49,8 @@ prove a smaller model coaches as well.
 - A cache is an entry fee: it pays back on every read within its window and loses on a write nobody reads.
 - Don't steer a model by stuffing its context. Give it only what the task needs; shape behavior with evals and,
   where it pays, fine-tuning (in progress: a smaller model trained on eval data).
+- Let the model take a first pass before writing instructions. A long instruction doc written up front is its own
+  bloat. Keep the instructions short, as guardrails that correct what you don't want, while fine-tuning (in
+  progress) improves the model itself.
 
 **Stack:** Python, Claude API (tool use, prompt caching), MCP, Firestore, Render, Firebase Hosting.
