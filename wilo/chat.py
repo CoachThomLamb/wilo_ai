@@ -25,7 +25,7 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
     chat_spend/{uid}                    usd: what this user's chat has cost in total (for the spend cap)
     chat_feedback/{chatId}              uid, chatId, rating (bad|good|great), note?, at: "How's Wilo doing?"
 
-Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-opus-5-5), WILO_CHAT_EFFORT
+Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-sonnet-5-5), WILO_CHAT_EFFORT
 (default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
 default 5), WILO_CHAT_UNCAPPED (no spend cap; default the config uid), WILO_TZ (default America/Toronto).
 """
@@ -45,7 +45,7 @@ from wilo import token_cost
 # The chat's cache lasts an hour, not the default 5 minutes (#143). A message after a rest longer than 5 minutes
 # rewrote the whole chat at 1.25x input price: 54% of the bill. A 1-hour write costs 2x, once; reads are 0.1x.
 CHAT_CACHE = {'type': 'ephemeral', 'ttl': '1h'}
-MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-opus-5-5')
+MODEL = os.environ.get('WILO_CHAT_MODEL', 'claude-sonnet-5-5')
 EFFORT = os.environ.get('WILO_CHAT_EFFORT', 'medium')
 DAILY_LIMIT = int(os.environ.get('WILO_CHAT_DAILY_LIMIT', 100))
 # Total a user's chat may cost us, in dollars, before the coach stops answering. A setting, not code: change it on
