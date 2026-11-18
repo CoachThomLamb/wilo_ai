@@ -63,7 +63,7 @@ still matters: it's how Wilo gets better.
 
 ## What's parked (do not touch)
 
-- ngrok / remote serving — see `prior-art/notes/ngrok.md`
+- ngrok / remote serving — notes were in `prior-art/notes/ngrok.md` (deleted in #194; `git show c6bb0bb:prior-art/notes/ngrok.md`)
 - Voice input — v2 (#78)
 - Offline support — v2
 - SFT / fine-tuning — `ml/` is Thom's learning track; the product stays on Claude
