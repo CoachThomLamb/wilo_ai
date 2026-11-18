@@ -1,6 +1,6 @@
 # Case study: why the coach chat was expensive
 
-DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
+DRAFT for Thom's review. Tracking issue: #143. One-page version: `docs/case-study-coach-token-cost-summary.md`.
 
 ## The problem
 
@@ -38,7 +38,11 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 - All four are lookups or arithmetic. None needs judgment.
 - We were paying an LLM to read raw JSON and do what a few lines of Python do exactly, for free.
 - Principle: **Python answers the facts, the AI makes the judgment.** (Matches WILO's coach design: scripts do everything deterministic.)
-- TODO Thom: your take. Why it happened (tools were built as thin DB reads early on?), and what it says about building with LLMs.
+- Why it happened (Thom): the first tools were a rough first draft. We didn't know what we didn't know: they read a lot of
+  extra data, and we didn't realize what that did to the context. Early on we also threw everything at the model on
+  purpose, to steer its behavior with more context.
+- Found by debugging: stepping through whole chats showed the tool calls, not the prompt, made the bloat. The fix was more
+  Python: targeted tools, so the chat only gets the information it needs and nothing else.
 
 ## The fix
 
@@ -63,7 +67,7 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 - **Step 4, shipped in #149: we couldn't see the real numbers.** The API's token counts were only printed to the Render log, which we can't read and which isn't kept. Every request now saves them next to its chat, and `usage_report.py` turns them into dollars.
 - **Step 5, PR #150 (found with step 4's log on day one):** the chat lasted all day, so after any gap of over an hour the expired cache rewrote the whole day's chat at 2×. The first evening message wrote 16.9k tokens: 9.1k fixed prefix (coach.md + profile + 16 tools; checked with the token counter and real calls) + 7.8k of the morning's chat. Fix: an idle hour starts a fresh chat (the coach still reads the data through the tools).
 - Parked: embeddings (workout data is structured, so exact filters do the job; maybe later for free-text notes), model/effort changes (quality risk, needs evals).
-- TODO Thom: how the decision felt (why tools first, why not just switch to Haiku).
+- Why tools first, not a cheaper model: the waste was in the data, not the model. A smaller model risks coaching quality, and there were no evals yet to check it.
 
 ## Result
 
@@ -78,7 +82,10 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 
   Input −48%, output −11%. With the 1-hour cache most resent input is a cheap read, so dollars fall less than volume.
 - **Real, first logged chat (2026-11-05, 2 messages):** $0.096, $0.048 per message. Baseline: $9.83 for the 179 messages before the fixes ≈ $0.055 per message. 84% of the new chat's cost was cache writes (the all-day-chat rewrite, fixed in #150).
-- TODO: re-measure ~2026-11-12 with `usage_report.py` (real $ per message and per user per month vs the $1–2 target), cross-checked against the Console CSV.
+- **Re-measured 2026-11-18** (`usage_report.py`, Nov 5–17, 4 users, 102 messages): **$2.41 total, $0.024 per message**,
+  down from $0.055 before the fixes (**−56%**). Where the dollars go now: cache writes 62%, cache reads 21%, output 17%.
+  The heaviest user (Thom, 70 messages in 13 days) runs ~$4/month, so the $1–2 target holds for light users, not yet for
+  daily ones. Next lever: cache writes. Not yet cross-checked against the Console CSV.
 
 ## Lessons
 
@@ -88,7 +95,11 @@ DRAFT (bullets for Thom to flesh out). Tracking issue: #143.
 - A cache is an entry fee: it pays back with every read within the hour, and loses when one write is never read.
 - Design reads from the real data, not the test fakes.
 - Changing how data is stored doesn't change what the model reads; the tools decide that.
-- TODO Thom.
+- Don't steer a model by stuffing its context. Give it only what the task needs; shape behavior with evals and, where
+  it pays, fine-tuning (in progress: a smaller model trained on eval data, `ml/`).
+- Let the model take a first pass before writing instructions. A long instruction doc written up front is its own
+  bloat. Keep the instructions short, as guardrails that correct what you don't want, while fine-tuning (in
+  progress) improves the model itself.
 
 ## How we measured
 
