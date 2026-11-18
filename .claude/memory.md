@@ -1,22 +1,32 @@
 # WILO Memory
 
-## MVP Goal
-Does an AI *plan*, delivered to the phone day by day, make training better? The loop: conversation → plan → calendar → workout → review → adjust (#25). Changed 2026-10-05: one workout at a time with no plan wasn't enough.
+## Goal
+Will a stranger who finds Wilo on their own use it, come back, and pay? Measured with paid cold traffic (#162).
+Earlier: does an AI *plan* make Thom's training better (#25, from 2026-10-05).
 
-## Status (2026-10-09)
-- Workouts flow through Firestore as one doc per workout (#126): Claude (via the `wilo` tools) → `users/{uid}/workouts` (plan) → `fe/index.html` (adds the log, merges coach changes live) → same doc → Claude.
-- The Claude connector is live on Render (`https://wilo-connector.onrender.com/mcp`) and usable from the phone app. Locally, Claude Code uses the `wilo` stdio server.
-- Thom's direction (#45): Wilo becomes the one place for the day (training + todos + events), coach on top.
-- Postgres migration on hold (2026-10-06): stay on Firestore, but don't over-invest in Firestore-only infrastructure.
+## Status (2026-11-17)
+- hiwilo.com serves the landing page and the app. Signed-out visitors land on `landing.html`.
+- The coach lives in the tracker's chat (`fe/chat.js` → `wilo/chat.py` on Render). Usage is recorded per request
+  (#143); each user has a spend cap (`WILO_CHAT_SPEND_LIMIT`, default $5) and new accounts wait on an invite list
+  (`WILO_CHAT_UIDS`).
+- Workouts flow through Firestore as one doc per workout (#126): the coach plans → `users/{uid}/workouts` → the
+  tracker logs into the same doc → the coach reads it back.
+- The Claude connector (`https://wilo-connector.onrender.com/mcp`) still works; locally, Claude Code uses the
+  `wilo` stdio server.
+- Postgres migration on hold (since 2026-10-06): stay on Firestore, but don't over-invest in Firestore-only
+  infrastructure.
 
 ## Decisions
-- No Qdrant, no admin agent. Firestore holds the workouts.
-- The tracker is plain HTML, not a PWA (no service worker).
-- `prior-art/`: old RunPod/Qwen experiments, kept for reference.
+- No Qdrant, no admin agent. Firestore holds the data.
+- Pages are plain HTML, not a PWA (no service worker).
+- `wilo/coach.md` is the only place for coaching instructions; Thom writes it.
+- The repo is public: no other users' data in git.
+- `prior-art/`: old RunPod/Qwen experiments, kept for reference (#194).
 
 ## Structure
-- `fe/index.html`: tracker. `fe/auth.js`: Google sign-in.
-- `fe/day.html`: the Day page (morning / day / night). `fe/week.html`: the calendar, appointments in `users/{uid}/events` (#168).
-- Coach: the `wilo-workout-coach` skill lives on claude.ai, not in this repo.
+- `fe/landing.html`: landing page. `fe/index.html`: tracker. `fe/chat.js`: coach chat. `fe/auth.js`: Google sign-in.
+- `fe/day.html`: the Day page (morning / day / night). `fe/week.html`: the calendar, appointments in
+  `users/{uid}/events` (#168).
+- `wilo/`: data, MCP server, connector sign-in, coach chat, `coach.md`.
 - `firestore.rules`: security rules for the `wilo` database.
-- `docs/`: current reference docs and `docs/sessions/` session logs. `prior-art/`: old experiments and notes (incl. `prior-art/notes/`).
+- `docs/`: current reference docs and `docs/sessions/` session logs. `prior-art/`: old experiments and notes.
