@@ -1,6 +1,6 @@
 # Case study: cutting an AI coach's cost per message by 56%
 
-*Thom Lamb, WILO (hiwilo.com). DRAFT for review. Deep dive with all the numbers: `case-study-coach-token-cost.md`.*
+*Thom Lamb, WILO (hiwilo.com). Deep dive with all the numbers: `case-study-coach-token-cost.md`.*
 
 ## The problem
 

@@ -1,6 +1,6 @@
 # Case study: why the coach chat was expensive
 
-DRAFT for Thom's review. Tracking issue: #143. One-page version: `docs/case-study-coach-token-cost-summary.md`.
+Tracking issue: #143. One-page version: `docs/case-study-coach-token-cost-summary.md`.
 
 ## The problem
 
