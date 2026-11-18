@@ -89,3 +89,18 @@ ml/toolcall_eval.jsonl
 ml/seeds.jsonl
 ml/test.jsonl
 ml/results/
+
+# Local only, never committed (the repo is public): chat transcripts, traces, phone photos and videos
+transcript.txt
+/wilo_workout_traces.jsonl
+coaching-evals/tracker_traces.jsonl
+/*.jpg
+/*.JPG
+/*.png
+/*.PNG
+/*.mov
+/*.MOV
+/*.heic
+/*.HEIC
+# Claude Code worktrees
+.claude/worktrees/
