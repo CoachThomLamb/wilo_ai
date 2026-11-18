@@ -55,7 +55,7 @@ flowchart LR
 | Piece | What it is | Where it lives | Config is in | Deploys how | Cost |
 |---|---|---|---|---|---|
 | **Repo** `CoachThomLamb/wilo_ai` | All code, docs, rules | GitHub (**public**) | `main` | — | $0 |
-| **Tracker** `fe/index.html` (+ `today.html`, `auth.js`) | Plain HTML pages: the tracker (opens the next unfinished workout, ‹ › through done and planned ones, log sets, Finish) and the Today page (todos). Sign-in required | Firebase Hosting `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; PRs deploy to one fixed preview channel `dev` (#115) | $0 (Spark) |
+| **Pages** `fe/` (`landing.html`, `index.html`, `day.html`, `week.html`, `chat.js`, `auth.js`) | Plain HTML pages: the landing page (signed-out visitors), the tracker (opens the next unfinished workout, ‹ › through done and planned ones, log sets, Finish), the Day page, the Week page (appointments) and the coach chat. Sign-in required except the landing page | Firebase Hosting `https://hiwilo.com` and `https://wilo2-1ee44.web.app` | `firebase.json` | GitHub Action on merge to `main`; PRs deploy to one fixed preview channel `dev` (#115) | $0 (Spark) |
 | **Firestore** database `wilo` | All workout data, todos, coach profiles + sign-in tokens | GCP `northamerica-northeast2` (Toronto) | `firestore.rules`, `config/wilo.json` | Rules: **manually** with `firebase deploy --only firestore:rules` (last 2026-10-12) | $0 (free quota) |
 | **Firebase Auth** | Google sign-in, one uid per person | Firebase project `wilo2-1ee44` | Console only (provider: Google; authorized domains) | Console | $0 |
 | **Data engine** `wilo/data.py` | All Firestore logic + CLI | Repo (runs wherever it's imported) | `config/wilo.json`, `schema/workout.schema.json` | With the connector | — |
@@ -107,7 +107,7 @@ sequenceDiagram
 |---|---|---|
 | `users/{uid}/workouts/{docId}` | One doc per workout from plan to done (#126): `plan` (as first written), `diffs` (the coach's changes), `exercises` (plan with diffs applied), `log` (what was done), `status` planned / in progress / done | Plan: connector. Log, status: tracker (the rules allow it nothing else) |
 | `users/{uid}/assigned`, `users/{uid}/completed` | **Before #126.** Copied into `workouts` by `migrate_to_workouts.py` (deleted after it ran, #195; in git history); left in place as the backup until a cleanup (#53) | Nothing |
-| `users/{uid}/todos/{docId}` | Todos for the Today page | Connector, Today page |
+| `users/{uid}/todos/{docId}` | Todos (no page shows them since the Today page was removed, #188; see #190) | Connector |
 | `users/{uid}/coach/profile` | Coaching profile: `preferences`, `limitations`, `plan`, `notes` (free text) | Connector (`update_profile`) |
 | `chat_threads/{chatId}` (+ `turns`, `usage`), `chat_usage` | Coach chat: history, the API's token counts per request (#143; `scripts/token-cost/usage_report.py`), daily caps | Connector (`/chat`) |
 | `oauth_clients`, `oauth_pending`, `oauth_codes`, `oauth_access`, `oauth_refresh` | Connector sign-in state, sha256-hashed | Connector |
