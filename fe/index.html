@@ -247,34 +247,11 @@
   .tl-mid strong { font-size: 16px; font-weight: 600; }
   .tl-mid span { font-size: 12px; color: var(--dim); }
 
-  /* JSON sheet */
-  .json-btn {
-    position: fixed; right: 16px; bottom: 20px; z-index: 3;
-    background: var(--field); border: 1px solid var(--line); color: var(--text);
-    padding: 11px 18px; border-radius: 999px;
-    font: 500 15px ui-monospace, SFMono-Regular, Menlo, monospace;
-    box-shadow: 0 4px 16px rgba(0,0,0,.6);
-  }
-  .sheet {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
-    background: var(--panel); border-top: 1px solid var(--line);
-    height: 55vh; display: flex; flex-direction: column;
-    transform: translateY(100%); transition: transform .28s cubic-bezier(.3,.8,.4,1);
-  }
-  .sheet.open { transform: translateY(0); }
-  @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
   .sheet-head {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 16px; border-bottom: 1px solid var(--line); flex: none;
   }
-  .sheet-head span { font-size: 13px; color: var(--dim); }
-  .sheet-head .last { color: var(--accent); font-family: ui-monospace, Menlo, monospace; }
   .sheet-head button { background: none; border: 0; color: var(--accent); font-family: inherit; font-size: 16px; }
-  pre {
-    flex: 1; overflow: auto; margin: 0; padding: 12px 16px;
-    font: 400 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: #a8d5ff; white-space: pre-wrap;
-  }
   /* coach chat (chat.js): full-height sheet that shrinks with the keyboard (--vvh) */
   .chat-btn {
     position: fixed; left: 16px; bottom: 20px; z-index: 3;
@@ -345,7 +322,6 @@
 
 <header>
   <div>
-    <div style="font-size:11px;color:#4caf50;margin-bottom:4px;">v2026-11-06-media</div>
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
     <button class="who" id="authBtn" hidden>Sign in</button>
@@ -368,7 +344,6 @@
 <div class="no-today" id="noToday" hidden>No workout today</div>
 <div class="list" id="list"></div>
 
-<button class="json-btn" id="jsonBtn">{ }</button>
 <button class="chat-btn" id="chatBtn">Coach</button>
 
 <div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Coach chat">
@@ -382,14 +357,6 @@
     <textarea id="chatInput" rows="1" placeholder="Message your coach" enterkeyhint="send"></textarea>
     <button class="finish" type="submit">Send</button>
   </form>
-</div>
-
-<div class="sheet" id="sheet">
-  <div class="sheet-head">
-    <span class="last" id="last">state</span>
-    <button id="closeSheet">Close</button>
-  </div>
-  <pre id="state"></pre>
 </div>
 
 <script>
@@ -497,8 +464,6 @@
   const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, exercises: [] };
 
   const list = document.getElementById('list');
-  const sheet = document.getElementById('sheet');
-  let last = 'state';
 
   // Draws the workout in the tracker: whichever day is on screen is the one you log.
   function draw() {
@@ -591,10 +556,8 @@
       const up = await window.__media.upload(file, { kind: job.kind, docId: state.docId || 'draft', exId: job.ex.exId, exercise: job.ex.name });
       if (job.kind === 'demo') {
         delete media.demos[job.ex.name];
-        last = `${job.ex.name}: demo uploaded`;
       } else {
         job.ex.media = [...(job.ex.media || []), { key: up.key, type: up.type, at: new Date().toISOString() }];
-        last = `${job.ex.name}.media += ${up.type}`;
       }
       drawDraft();   // saves the log, so the coach can see the new video
     } catch (err) {
@@ -643,8 +606,6 @@
   function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
   function sync() {
-    document.getElementById('state').textContent = JSON.stringify(state, null, 2);
-    document.getElementById('last').textContent = last;
     drawNav();
     queueSave();
     queueCloudSave();
@@ -664,11 +625,9 @@
     if (el.dataset.i !== undefined) {
       const i = +el.dataset.i;
       ex.sets[i][k] = k === 'custom' ? el.value : (el.value === '' ? 0 : +el.value);
-      last = `${ex.name}.sets[${i}].${k} = ${ex.sets[i][k]}`;
       sync();
     } else {
       ex[k] = el.value;   // a rename keeps the exId, so the coach's changes still find it
-      last = `${ex.name}.${k}`;
       sync();
     }
   });
@@ -682,7 +641,6 @@
       const s = ex.sets[i];
       s.done = !s.done;
       chk.closest('tr').classList.toggle('done', s.done);
-      last = `${ex.name}.sets[${i}].done = ${s.done}`;
       return sync();
     }
     const add = e.target.closest('[data-add]');
@@ -693,7 +651,6 @@
       const sets = ex.sets;
       const p = sets[sets.length - 1];
       sets.push({ lbs: p ? p.lbs : 45, reps: p ? p.reps : 5, done: false, custom: null });
-      last = `${ex.name}.sets.push()`;
       return draw();
     }
     const sw = e.target.closest('[data-swap]');
@@ -714,7 +671,6 @@
         ex.swapped = false;
         ex.original = null;
       }
-      last = `${ex.name}.swapped = ${ex.swapped}`;
       return draw();
     }
     const kill = e.target.closest('[data-kill]');
@@ -726,7 +682,6 @@
       // One from the plan is only hidden, so the coach's next change doesn't bring it back.
       if (gone.exId.startsWith('u-')) state.exercises.splice(idx, 1);
       else gone.removed = true;
-      last = `${gone.name}.removed`;
       return draw();
     }
     if (e.target.id === 'addEx') {
@@ -744,15 +699,12 @@
         removed: false,
         sets: [{ lbs: 45, reps: 5, done: false, custom: null }]
       });
-      last = `exercises.push() \u2192 ${state.exercises.length}`;
       draw();
       const inputs = list.querySelectorAll('.ex-name');
       inputs[inputs.length - 1].focus();
     }
   });
 
-  document.getElementById('jsonBtn').addEventListener('click', () => sheet.classList.toggle('open'));
-  document.getElementById('closeSheet').addEventListener('click', () => sheet.classList.remove('open'));
 
   // Lock the app to the visual viewport: the keyboard shrinks the scroll
   // area instead of displacing the whole layout.
@@ -1024,7 +976,6 @@
       if (!state.finished && (cur.doc.diffs || []).length > state.logBase) {
         const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
         mergeWorkout(loadedWorkout, prev);
-        last = 'coach changed ' + state.docId;
         redraw = true;
         note(`Coach updated the plan${logged ? `, kept ${logged} logged set${logged === 1 ? '' : 's'}` : ''}`, 'ok');
       }
@@ -1111,7 +1062,6 @@
       const s = timeline[i];
       if (!(await saveBeforeLeaving())) return;
       openStop(s);
-      last = 'opened ' + (state.workoutId || s.docId);
       draw();
       list.scrollTop = 0;
     } finally { moving = false; }
@@ -1211,7 +1161,6 @@
     if (!confirm(msg)) return;
     try { localStorage.removeItem(KEY); } catch {}
     loadWorkout(loadedWorkout);
-    last = 'reset to ' + (state.workoutId || 'workout');
     draw();
     note('Reset to ' + (state.workoutName || 'assigned'));
   });
