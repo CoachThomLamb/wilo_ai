@@ -301,7 +301,8 @@ function open(half) {
   wake();
 }
 const close = () => sheet.classList.remove("open", "half");
-$("chatBtn").addEventListener("click", () => open(false));
+// With a workout on screen the chat opens half, so you still see it; otherwise (empty day, the Day page) full.
+$("chatBtn").addEventListener("click", () => { const w = screen(); open(!!(w && w.exercises)); });
 $("chatClose").addEventListener("click", close);
 sheet.querySelector(".sheet-head strong").addEventListener("click", () => {
   if (sheet.classList.contains("open")) sheet.classList.toggle("half");
