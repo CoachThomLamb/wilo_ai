@@ -306,7 +306,6 @@
     <button class="who mode-link" id="modeLink">Review →</button>
   </div>
   <div class="hbtns">
-    <button class="ghost" id="resetBtn">Reset</button>
     <button class="finish" id="finish">Finish</button>
   </div>
 </header>
@@ -376,8 +375,7 @@
   }
 
   // w: a doc from users/{uid}/workouts, plus its docId (#126).
-  // fresh: start from the plan even if the doc has a log (Reset).
-  function loadWorkout(w, fresh = false) {
+  function loadWorkout(w) {
     if (!w || !w.docId) throw new Error('invalid workout');
     loadedWorkout = w;
     state.docId = w.docId;
@@ -386,7 +384,7 @@
     state.workoutId = w.id || null;
     state.workoutName = w.name;
     // Picking up a workout started on another phone: carry on from its log.
-    const log = !fresh && (w.log || []).length ? w.log : null;
+    const log = (w.log || []).length ? w.log : null;
     state.logBase = log ? w.logBase || 0 : (w.diffs || []).length;
     state.exercises = (log || w.exercises || []).map(makeExercise);
     // The coach changed the plan since this log last saw it: merge it in now.
@@ -1137,22 +1135,6 @@
     const a = window.__auth;
     if (!a || !a.currentUser()) return;
     if (confirm('Sign out of ' + a.currentUser().email + '? Your draft stays on this phone.')) { await a.signOut(); location.replace('landing.html'); }
-  });
-
-  // ---- reset ---------------------------------------------------------
-  // Without this the only way to clear a stale draft is the Files app.
-  // Resets to the workout currently loaded from Firestore.
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    if (!loadedWorkout) { note('No workout loaded'); return; }
-    const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
-    const msg = logged
-      ? `Discard ${logged} logged set${logged === 1 ? '' : 's'} and start this workout over?`
-      : 'Reset to the assigned workout?';
-    if (!confirm(msg)) return;
-    try { localStorage.removeItem(KEY); } catch {}
-    loadWorkout(loadedWorkout);
-    draw();
-    note('Reset to ' + (state.workoutName || 'assigned'));
   });
 
   // Boot: restore any saved draft. The next workout loads once sign-in
