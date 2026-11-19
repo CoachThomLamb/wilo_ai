@@ -91,6 +91,7 @@
     background: var(--accent); color: #fff; border: 0;
     padding: 8px 20px; border-radius: 999px; font-size: 16px; font-weight: 500;
   }
+  #finish.is-done { background: var(--done); color: var(--done-line); }
 
   .ghost {
     background: var(--field); color: var(--text); border: 1px solid var(--line);
@@ -1057,6 +1058,11 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
+    // Finished: the button says so and does nothing. Edits after that save quietly.
+    const fin = document.getElementById('finish');
+    fin.textContent = state.finished ? 'Done ✓' : 'Finish';
+    fin.classList.toggle('is-done', !!state.finished);
+    fin.disabled = !!state.finished;
   }
 
   let moving = false;
