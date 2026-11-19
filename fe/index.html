@@ -91,9 +91,8 @@
     background: var(--accent); color: #fff; border: 0;
     padding: 8px 20px; border-radius: 999px; font-size: 16px; font-weight: 500;
   }
+  #finish.is-done { background: var(--done); color: var(--done-line); }
 
-  .hbtns { display: flex; align-items: center; gap: 8px; }
-  .who { background: none; border: 0; padding: 4px 0 0; color: var(--accent); font-family: inherit; font-size: 12px; }
   .ghost {
     background: var(--field); color: var(--text); border: 1px solid var(--line);
     padding: 8px 14px; border-radius: 999px; font-family: inherit; font-size: 15px;
@@ -199,19 +198,36 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
-  /* #136: Train / Review */
-  .who.mode-link { color: var(--accent); border: 0; background: none; padding: 0 0 0 10px; font-size: inherit; }
-  body.train .tl { display: none; }
-  .whoa { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
-  .whoa[hidden] { display: none; }
-  .whoa .box { background: var(--card, #1e1e1e); border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: 340px; text-align: center; }
-  .whoa h3 { margin: 0 0 8px; font-size: 22px; }
-  .whoa p { margin: 0 0 18px; color: var(--dim); font-size: 16px; }
-  .whoa button { width: 100%; height: 46px; border-radius: 10px; border: 0; background: var(--accent); color: #000; font-weight: 700; font-size: 16px; font-family: inherit; }
-  .no-today { padding: 48px 16px; text-align: center; color: var(--dim); font-size: 18px; }
+  /* top nav: ‹ Today · ⋯ */
+  header.bar {
+    position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); flex: none; border-bottom: 0;
+  }
+  .back { color: var(--accent); text-decoration: none; font-size: 16px; padding: 6px 4px; min-width: 72px; }
+  .more {
+    min-width: 72px; text-align: right; background: none; border: 0; color: var(--text);
+    font-family: inherit; font-size: 22px; letter-spacing: 1px; line-height: 1; padding: 4px 4px 10px;
+  }
+  .menu {
+    position: absolute; right: 12px; top: calc(100% - 4px); z-index: 6; min-width: 200px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  }
+  .menu[hidden] { display: none; }
+  .menu button {
+    display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 16px; padding: 11px 12px;
+  }
+  .menu [hidden] { display: none; }
+  .menu .ver { color: var(--dim); font-size: 11px; padding: 8px 12px 4px; }
+  .sess {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 16px 12px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .sess-l { flex: 1; min-width: 0; }
 
   /* timeline: ‹ day › under the header */
-  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex: none; }
   .tl-step {
     flex: none; width: 48px; height: 40px; background: var(--field); border: 1px solid var(--line);
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 26px; line-height: 1; padding: 0 0 3px;
@@ -297,16 +313,13 @@
   <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
 </div>
 
-<header>
-  <div>
-    <input id="sessName" class="sess-name-input" value="WILO">
-    <p class="saved" id="saved">Not saved yet</p>
-    <button class="who" id="authBtn" hidden>Sign in</button>
-    <a class="who" href="day.html" style="text-decoration:none">Today →</a>
-    <button class="who mode-link" id="modeLink">Review →</button>
-  </div>
-  <div class="hbtns">
-    <button class="finish" id="finish">Finish</button>
+<!-- top nav: back and ⋯, then the ‹ day › stepper, then the workout -->
+<header class="bar">
+  <a class="back" href="day.html">&lsaquo; Today</a>
+  <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
+  <div class="menu" id="menu" hidden>
+    <button id="authBtn" hidden>Sign out</button>
+    <div class="ver">v2026-11-19-nav</div>
   </div>
 </header>
 
@@ -316,8 +329,14 @@
   <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
 </nav>
 
-<div class="whoa" id="whoa" hidden><div class="box"><h3>Whoa 🛑</h3><p>Focus on your training — we'll review later. Go get those gains!</p><button id="whoaOk">Back to training</button></div></div>
-<div class="no-today" id="noToday" hidden>No workout today</div>
+<div class="sess">
+  <div class="sess-l">
+    <input id="sessName" class="sess-name-input" value="WILO">
+    <p class="saved" id="saved">Not saved yet</p>
+  </div>
+  <button class="finish" id="finish">Finish</button>
+</div>
+
 <div class="list" id="list"></div>
 
 <button class="chat-btn" id="chatBtn">Coach</button>
@@ -977,8 +996,8 @@
       } else note('No workout planned — ask your coach to plan one');
       redraw = true;
     }
-    // PROTOTYPE #136: Train opens on today's workout (once, at startup).
-    if (mode === 'train' && !trainSynced && timeline.length) { trainSynced = true; await jumpToday(); redraw = true; }
+    // Open on today's workout, once, at startup.
+    if (!openedToday && timeline.length) { openedToday = true; await jumpToday(); redraw = true; }
     if (redraw || !firstSnap) draw(); else drawNav();
     firstSnap = true;
   }
@@ -1039,7 +1058,11 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
-    applyMode();
+    // Finished: the button says so and does nothing. Edits after that save quietly.
+    const fin = document.getElementById('finish');
+    fin.textContent = state.finished ? 'Done ✓' : 'Finish';
+    fin.classList.toggle('is-done', !!state.finished);
+    fin.disabled = !!state.finished;
   }
 
   let moving = false;
@@ -1057,34 +1080,22 @@
   tlPrev.addEventListener('click', () => goTo(at - 1));
   tlNext.addEventListener('click', () => goTo(at + 1));
 
-  // ---- PROTOTYPE #136: Train / Review ---------------------------------
-  // Train (default): today's workout only, no ‹ ›. Review: the ‹ › timeline.
-  let mode = 'train', trainSynced = false;
-  const todayKey = () => dayOf(new Date().toISOString());
-  const todayIdx = () => timeline.findIndex(s => s.key === todayKey());
-  const midWorkout = () => !state.finished && state.exercises.some(x => x.sets.some(s => s.done));
+  // At startup, jump to today's workout (if there is one), unless sets are
+  // already ticked on the one restored from the draft.
+  let openedToday = false;
   async function jumpToday() {
-    if (midWorkout()) return;   // you're training: stay on this workout
-    const i = todayIdx();
+    if (!state.finished && state.exercises.some(x => x.sets.some(s => s.done))) return;
+    const i = timeline.findIndex(s => s.key === dayOf(new Date().toISOString()));
     if (i >= 0) await goTo(i);
   }
-  function applyMode() {
-    document.body.classList.toggle('train', mode === 'train');
-    document.getElementById('modeLink').innerHTML = (mode === 'train' ? 'Review →' : 'Train →');
-    const empty = mode === 'train' && !!fetched && todayIdx() < 0 && !midWorkout();
-    document.getElementById('noToday').hidden = !empty;
-    list.style.display = empty ? 'none' : '';
-  }
-  async function setMode(m) {
-    mode = m;
-    applyMode();
-    if (m === 'train') await jumpToday();
-  }
-  document.getElementById('modeLink').addEventListener('click', () => {
-    if (mode === 'train' && midWorkout()) { document.getElementById('whoa').hidden = false; return; }
-    setMode(mode === 'train' ? 'review' : 'train');
-  });
-  document.getElementById('whoaOk').addEventListener('click', () => { document.getElementById('whoa').hidden = true; });
+
+  // ⋯ menu: the rarely used stuff (sign out, version)
+  const moreBtn = document.getElementById('moreBtn');
+  const menu = document.getElementById('menu');
+  function showMenu(open) { menu.hidden = !open; moreBtn.setAttribute('aria-expanded', open); }
+  moreBtn.addEventListener('click', e => { e.stopPropagation(); showMenu(menu.hidden); });
+  menu.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') showMenu(false); });
+  document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) showMenu(false); });
 
   const sessName = document.getElementById('sessName');
   sessName.addEventListener('input', e => {
@@ -1112,7 +1123,7 @@
     gateBtn.hidden = !!user;
     gateMsg.textContent = 'Sign in to see your workouts.';
     authBtn.hidden = !user;
-    if (user) authBtn.textContent = user.email + ' \u00b7 Sign out';
+    if (user) authBtn.textContent = 'Sign out (' + user.email + ')';
     // First event is just the restored session; don't clobber the status line.
     if (authSeen && user) note('Signed in as ' + user.email);
     authSeen = true;
