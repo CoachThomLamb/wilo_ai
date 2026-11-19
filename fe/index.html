@@ -981,6 +981,12 @@
     if (cur) {
       const prev = loadedWorkout && loadedWorkout.docId === cur.docId ? loadedWorkout : null;
       loadedWorkout = { docId: cur.docId, ...cur.doc };
+      // Renamed in the doc (by the coach or an admin) since we last saw it, or since the draft was saved:
+      // show the new name. A name typed here stays until the doc's name itself changes.
+      if (cur.doc.name && cur.doc.name !== (prev ? prev.name : state.workoutName) && cur.doc.name !== state.workoutName) {
+        state.workoutName = cur.doc.name;
+        if (document.activeElement !== sessName) sessName.value = cur.doc.name;
+      }
       if (!state.finished && (cur.doc.diffs || []).length > state.logBase) {
         const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
         mergeWorkout(loadedWorkout, prev);
