@@ -14,24 +14,9 @@
 <html lang="en">
 <head>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, getDocs, query, where, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-  // Same config as index.html; see the authDomain note there.
-  const onHosting = /\.web\.app$|\.firebaseapp\.com$|^hiwilo\.com$/.test(location.hostname);
-  const app = initializeApp({
-    apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
-    authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
-    projectId: "wilo2-1ee44",
-    storageBucket: "wilo2-1ee44.firebasestorage.app",
-    messagingSenderId: "103580826325",
-    appId: "1:103580826325:web:0e5cc800c5cbb29691c05c"
-  });
-  getFirestore(app, "wilo");
+  import "./firebase.js";   // the app, the wilo database and sign-in (fe/firebase.js)
+  import { getDocs, query, where, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   window.__fs = { getDocs, query, where, setDoc, deleteDoc };
-  import("./auth.js")
-    .then(a => a.onUser(user =>
-      window.dispatchEvent(new CustomEvent("wilo-user", { detail: user }))))
-    .catch(err => window.dispatchEvent(new CustomEvent("wilo-auth-error", { detail: err })));
 </script>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">

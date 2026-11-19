@@ -1,9 +1,9 @@
 /*
   WILO auth — Google sign-in via Firebase Auth, per-user Firestore paths.
 
-  - Reuses the app the page already initialized (index.html calls
-    initializeApp in its head <script type="module">). Same CDN
-    version, so it's the same module instance.
+  - Reuses the app fe/firebase.js initialized (it imports this file
+    after initializeApp). Same CDN version, so it's the same module
+    instance.
   - Sign-in: Google popup, falling back to redirect if the popup is blocked.
     The Firebase SDK persists the session itself (IndexedDB); nothing here
     touches localStorage.
