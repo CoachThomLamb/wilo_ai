@@ -197,19 +197,12 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
-  /* #136 top nav: ‹ Today · Train|Review · ⋯ */
+  /* top nav: ‹ Today · ⋯ */
   header.bar {
     position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;
     padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); flex: none; border-bottom: 0;
   }
   .back { color: var(--accent); text-decoration: none; font-size: 16px; padding: 6px 4px; min-width: 72px; }
-  .seg { display: flex; background: var(--field); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
-  .seg button {
-    background: none; border: 0; border-radius: 999px; color: var(--dim);
-    font-family: inherit; font-size: 15px; font-weight: 500; padding: 6px 16px;
-  }
-  .seg button.on { background: var(--accent); color: #fff; }
-  .seg button.dim { opacity: .35; }
   .more {
     min-width: 72px; text-align: right; background: none; border: 0; color: var(--text);
     font-family: inherit; font-size: 22px; letter-spacing: 1px; line-height: 1; padding: 4px 4px 10px;
@@ -231,18 +224,9 @@
     padding: 6px 16px 12px; border-bottom: 1px solid var(--line); flex: none;
   }
   .sess-l { flex: 1; min-width: 0; }
-  body.train .tl { display: none; }
-  body:not(.train) .tl { border-top: 1px solid var(--line); }
-  /* Review is read-only: look, don't log */
-  body.review #finish, body.review .kill, body.review .add, body.review .add-ex-wrap,
-  body.review [data-upload], body.review .swap, body.review .ex-note:placeholder-shown { display: none; }
-  body.review input:disabled { opacity: 1; color: var(--text); -webkit-text-fill-color: currentColor; }
-  body.review .ex-name:disabled { color: var(--accent); }
-  body.review .ex-note:disabled { color: #b5b5bd; }
-  .no-today { padding: 48px 16px; text-align: center; color: var(--dim); font-size: 18px; }
 
   /* timeline: ‹ day › under the header */
-  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex: none; }
   .tl-step {
     flex: none; width: 48px; height: 40px; background: var(--field); border: 1px solid var(--line);
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 26px; line-height: 1; padding: 0 0 3px;
@@ -328,17 +312,13 @@
   <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
 </div>
 
-<!-- #136 top nav: one bar (back, Train|Review, ⋯), then the day stepper (Review only), then the workout -->
+<!-- top nav: back and ⋯, then the ‹ day › stepper, then the workout -->
 <header class="bar">
   <a class="back" href="day.html">&lsaquo; Today</a>
-  <div class="seg" role="group" aria-label="Mode">
-    <button id="segTrain" class="on">Train</button>
-    <button id="segReview">Review</button>
-  </div>
   <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
   <div class="menu" id="menu" hidden>
     <button id="authBtn" hidden>Sign out</button>
-    <div class="ver">v2026-11-17-nav</div>
+    <div class="ver">v2026-11-19-nav</div>
   </div>
 </header>
 
@@ -356,7 +336,6 @@
   <button class="finish" id="finish">Finish</button>
 </div>
 
-<div class="no-today" id="noToday" hidden>No workout today</div>
 <div class="list" id="list"></div>
 
 <button class="chat-btn" id="chatBtn">Coach</button>
@@ -1016,8 +995,8 @@
       } else note('No workout planned — ask your coach to plan one');
       redraw = true;
     }
-    // PROTOTYPE #136: Train opens on today's workout (once, at startup).
-    if (mode === 'train' && !trainSynced && timeline.length) { trainSynced = true; await jumpToday(); redraw = true; }
+    // Open on today's workout, once, at startup.
+    if (!openedToday && timeline.length) { openedToday = true; await jumpToday(); redraw = true; }
     if (redraw || !firstSnap) draw(); else drawNav();
     firstSnap = true;
   }
@@ -1078,7 +1057,6 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
-    applyMode();
   }
 
   let moving = false;
@@ -1096,50 +1074,16 @@
   tlPrev.addEventListener('click', () => goTo(at - 1));
   tlNext.addEventListener('click', () => goTo(at + 1));
 
-  // ---- PROTOTYPE #136: Train / Review ---------------------------------
-  // Train (default): today's workout only, no ‹ ›. Review: the ‹ › timeline.
-  let mode = 'train', trainSynced = false;
-  const todayKey = () => dayOf(new Date().toISOString());
-  const todayIdx = () => timeline.findIndex(s => s.key === todayKey());
-  const midWorkout = () => !state.finished && state.exercises.some(x => x.sets.some(s => s.done));
+  // At startup, jump to today's workout (if there is one), unless sets are
+  // already ticked on the one restored from the draft.
+  let openedToday = false;
   async function jumpToday() {
-    if (midWorkout()) return;   // you're training: stay on this workout
-    const i = todayIdx();
+    if (!state.finished && state.exercises.some(x => x.sets.some(s => s.done))) return;
+    const i = timeline.findIndex(s => s.key === dayOf(new Date().toISOString()));
     if (i >= 0) await goTo(i);
   }
-  const segTrain = document.getElementById('segTrain');
-  const segReview = document.getElementById('segReview');
-  // Review is read-only: inputs and ticks are locked (CSS hides the edit buttons).
-  function lockList() {
-    const ro = mode === 'review';
-    list.querySelectorAll('input, .check').forEach(el => { el.disabled = ro; });
-    sessName.readOnly = ro;
-  }
-  function applyMode() {
-    document.body.classList.toggle('train', mode === 'train');
-    document.body.classList.toggle('review', mode === 'review');
-    segTrain.classList.toggle('on', mode === 'train');
-    segReview.classList.toggle('on', mode === 'review');
-    // Mid-workout you're training: Review looks dimmed, and a tap says why.
-    segReview.classList.toggle('dim', mode === 'train' && midWorkout());
-    lockList();
-    const empty = mode === 'train' && !!fetched && todayIdx() < 0 && !midWorkout();
-    document.getElementById('noToday').hidden = !empty;
-    list.style.display = empty ? 'none' : '';
-  }
-  async function setMode(m) {
-    mode = m;
-    applyMode();
-    if (m === 'train') await jumpToday();
-  }
-  segTrain.addEventListener('click', () => { if (mode !== 'train') setMode('train'); });
-  segReview.addEventListener('click', () => {
-    if (mode === 'review') return;
-    if (midWorkout()) { note('Finish this workout to review past ones'); return; }
-    setMode('review');
-  });
 
-  // ⋯ menu: the rarely used stuff (reset, data, sign out, version)
+  // ⋯ menu: the rarely used stuff (sign out, version)
   const moreBtn = document.getElementById('moreBtn');
   const menu = document.getElementById('menu');
   function showMenu(open) { menu.hidden = !open; moreBtn.setAttribute('aria-expanded', open); }
