@@ -31,8 +31,10 @@
     doc with status "in progress" ("Synced to WILO"), so the coach sees them
     mid-workout (#68).
 
-  Coach chat: the Coach button opens chat.js's sheet, which talks to the
-  connector server's /chat (wilo/chat.py).
+  Chat (#222): the "Message Wilo" bar at the bottom opens chat.js's sheet.
+    A day with no workout opens with it, Wilo speaking first; a workout for
+    today landing drops it to half, touching the workout folds it. It talks to
+    the connector server's /chat (wilo/chat.py).
 
   Error surface: thrown errors go to window.onerror -> note() -> the
   on-screen status line. The line holds errors for 8s so autosave ticks
@@ -246,12 +248,14 @@
   }
   .sheet-head button { background: none; border: 0; color: var(--accent); font-family: inherit; font-size: 16px; }
   /* coach chat (chat.js): full-height sheet that shrinks with the keyboard (--vvh) */
+  /* the chat folded to a bar along the bottom (#222): tap it to talk */
   .chat-btn {
-    position: fixed; left: 16px; bottom: 20px; z-index: 3;
-    background: var(--accent); border: 0; color: #fff;
-    padding: 11px 18px; border-radius: 999px; font-family: inherit; font-size: 15px; font-weight: 500;
-    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: block; width: 100%; text-align: left;
+    background: var(--bg); border: 0; border-top: 1px solid var(--line); color: var(--dim);
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom)); font-family: inherit; font-size: 16px;
   }
+  .chat-btn span { display: block; background: var(--field); border-radius: 20px; padding: 11px 14px; }
+  .chat-btn.is-done span { color: var(--done-line); }
   .chat-sheet {
     position: fixed; left: 0; right: 0; top: 0; z-index: 5; height: var(--vvh, 100dvh);
     background: var(--bg); display: flex; flex-direction: column;
@@ -259,6 +263,13 @@
     transition: transform .28s cubic-bezier(.3,.8,.4,1), visibility 0s linear .28s;
   }
   .chat-sheet.open { transform: translateY(0); visibility: visible; transition: transform .28s cubic-bezier(.3,.8,.4,1); }
+  /* half: the workout shows above it (chat.js, #222) */
+  .chat-sheet.half {
+    top: calc(var(--vvh, 100dvh) * .45); height: calc(var(--vvh, 100dvh) * .55);
+    border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,.6);
+  }
+  .chat-sheet.half .sheet-head { padding-top: 12px; }
+  .chat-sheet .sheet-head strong { cursor: pointer; }
   @media (prefers-reduced-motion: reduce) { .chat-sheet, .chat-sheet.open { transition: none; } }
   .chat-sheet .sheet-head { padding-top: max(12px, env(safe-area-inset-top)); }
   .chat-sheet .sheet-head strong { font-size: 17px; }
@@ -339,17 +350,17 @@
 
 <div class="list" id="list"></div>
 
-<button class="chat-btn" id="chatBtn">Coach</button>
+<button class="chat-btn" id="chatBtn"><span>Message Wilo</span></button>
 
 <div class="chat-sheet" id="chatSheet" role="dialog" aria-label="Coach chat">
   <div class="sheet-head">
     <button id="chatNew">New</button>
-    <strong>Coach</strong>
+    <strong>Wilo</strong>
     <button id="chatClose">Close</button>
   </div>
   <div class="chat-log" id="chatLog" aria-live="polite"></div>
   <form class="chat-form" id="chatForm">
-    <textarea id="chatInput" rows="1" placeholder="Message your coach" enterkeyhint="send"></textarea>
+    <textarea id="chatInput" rows="1" placeholder="Message Wilo" enterkeyhint="send"></textarea>
     <button class="finish" type="submit">Send</button>
   </form>
 </div>
@@ -988,6 +999,7 @@
       }
     }
     rebuild();
+    const ticked = () => state.exercises.some(x => x.sets.some(s => s.done));
     if (!state.exercises.length) {   // never replace sets in progress
       const next = timeline.find(s => s.kind === 'plan');
       if (next) {
@@ -998,15 +1010,32 @@
     }
     // Open on today's workout, once, at startup.
     if (!openedToday && timeline.length) { openedToday = true; await jumpToday(); redraw = true; }
+    // Chat-first (#222). At startup, a day with nothing on it opens with Wilo's chat. Later, a workout for
+    // today that wasn't there before (the coach just planned or logged it) comes on screen, unless you're
+    // mid-workout, and the chat drops to half so you see it.
+    const today = dayOf(new Date().toISOString());
+    const todays = timeline.filter(s => s.key === today && s.docId);
+    if (!seenDocs) {
+      if (!todays.length && !ticked()) window.dispatchEvent(new Event('wilo-empty-day'));
+    } else {
+      const fresh = todays.find(s => !seenDocs.has(s.docId));
+      if (fresh && !ticked() && !state.finished) {
+        await goTo(timeline.indexOf(fresh));
+        window.dispatchEvent(new Event('wilo-workout-in'));
+      }
+    }
+    seenDocs = new Set(fetched.workouts.map(w => w.docId));
     if (redraw || !firstSnap) draw(); else drawNav();
     firstSnap = true;
   }
   let firstSnap = false;
+  let seenDocs = null;   // workout ids in the last snapshot; null before the first
 
   let unlisten = null;
   function listen() {
     if (unlisten) unlisten();
     firstSnap = false;
+    seenDocs = null;
     unlisten = window.__onSnapshot(window.__auth.userCol('workouts'),
       snap => onWorkouts(snap).catch(err => note('Error: ' + (err.code || err.message || err), 'err')),
       err => note("Couldn't load workouts: " + (err.code || err.message || err), 'err'));
@@ -1063,6 +1092,9 @@
     fin.textContent = state.finished ? 'Done ✓' : 'Finish';
     fin.classList.toggle('is-done', !!state.finished);
     fin.disabled = !!state.finished;
+    const bar = document.getElementById('chatBtn');
+    bar.firstElementChild.textContent = state.finished ? 'Done ✓ · tell Wilo how it went' : 'Message Wilo';
+    bar.classList.toggle('is-done', !!state.finished);
   }
 
   let moving = false;
@@ -1079,6 +1111,9 @@
   }
   tlPrev.addEventListener('click', () => goTo(at - 1));
   tlNext.addEventListener('click', () => goTo(at + 1));
+
+  // Touching the workout folds a half-open chat to the bar (chat.js).
+  list.addEventListener('pointerdown', () => window.dispatchEvent(new Event('wilo-workout-touched')));
 
   // At startup, jump to today's workout (if there is one), unless sets are
   // already ticked on the one restored from the draft.

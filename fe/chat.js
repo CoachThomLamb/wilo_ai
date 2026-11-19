@@ -16,6 +16,13 @@
   - Wake-up: Render's free tier sleeps after 15 min, so opening the sheet
     pings /chat first and the first reply isn't stuck behind a cold start.
 
+  - Chat-first (tracker, #222): the page sends "wilo-empty-day" when today
+    has no workout. The sheet opens full with Wilo speaking first (a local
+    greeting with two chips; the server never sees it). "wilo-workout-in"
+    (a workout for today just landed) drops it to half, so you see the
+    workout under it; touching the workout ("wilo-workout-touched") folds it
+    to the bar. Tapping the title flips full / half.
+
   Needs the page's #chatBtn, #chatSheet, #chatLog, #chatForm, #chatInput,
   #chatNew, #chatClose, and window.__auth from auth.js.
 */
@@ -57,9 +64,31 @@ function bubble(role, text) {
 // Accounts not yet on the invite list (the server decides): Wilo's waitlist words, else null.
 let waitlist = null;
 
+// Chat-first greeting on an empty day: Wilo speaks first, with chips that send the line for you.
+let greet = false;
+const GREETING = "Nothing on for today. What are you training? Or tell me what you already did and I'll log it.";
+const CHIPS = ["Plan today's workout", "Log a workout I did"];
+
+function chips() {
+  const row = document.createElement("div");
+  row.className = "rate chips";
+  const inner = document.createElement("div");
+  inner.className = "row";
+  for (const c of CHIPS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = c;
+    b.addEventListener("click", () => { input.value = c; form.requestSubmit(); });
+    inner.append(b);
+  }
+  row.append(inner);
+  log.append(row);
+}
+
 function draw() {
   log.replaceChildren();
   if (waitlist) bubble("coach", waitlist);
+  else if (!chat.messages.length && greet) { bubble("coach", GREETING); chips(); }
   else if (!chat.messages.length)
     bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
   for (const m of chat.messages) bubble(m.role, m.text);
@@ -147,9 +176,10 @@ function screen() {
 async function send(text) {
   const user = window.__auth && window.__auth.currentUser();
   if (!user) { bubble("err", "Sign in first."); return; }
+  if (greet && !chat.messages.length) chat.messages.push({ role: "coach", text: GREETING });   // keep what Wilo opened with
   chat.messages.push({ role: "me", text });
   chat.lastAt = Date.now();
-  log.querySelectorAll(".hint").forEach(el => el.remove());
+  log.querySelectorAll(".hint, .chips").forEach(el => el.remove());
   bubble("me", text);
   save();
   const wait = bubble("coach pending", "Thinking…");
@@ -262,13 +292,31 @@ async function checkAccess(user) {
 window.addEventListener("wilo-user", ev => ev.detail ? checkAccess(ev.detail) : (waitlist = null, checkedFor = null));
 if (window.__auth && window.__auth.currentUser()) checkAccess(window.__auth.currentUser());
 
-$("chatBtn").addEventListener("click", () => {
+// Open the sheet full or half; close folds it back to the page's button (the tracker's bar).
+function open(half) {
   if (!current(chat)) chat = load();
   draw();
+  sheet.classList.toggle("half", !!half);
   sheet.classList.add("open");
   wake();
+}
+const close = () => sheet.classList.remove("open", "half");
+$("chatBtn").addEventListener("click", () => open(false));
+$("chatClose").addEventListener("click", close);
+sheet.querySelector(".sheet-head strong").addEventListener("click", () => {
+  if (sheet.classList.contains("open")) sheet.classList.toggle("half");
 });
-$("chatClose").addEventListener("click", () => sheet.classList.remove("open"));
+window.addEventListener("wilo-empty-day", () => {
+  if (waitlist || sheet.classList.contains("open")) return;
+  greet = true;
+  open(false);
+});
+window.addEventListener("wilo-workout-in", () => {
+  if (sheet.classList.contains("open")) { sheet.classList.add("half"); log.scrollTop = log.scrollHeight; }
+});
+window.addEventListener("wilo-workout-touched", () => {
+  if (sheet.classList.contains("half")) close();
+});
 $("chatNew").addEventListener("click", () => {
   chat = { day: today(), chatId: null, messages: [] };
   save();
