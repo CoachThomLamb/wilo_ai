@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Prototype for #222: an empty day opens with Wilo's chat, which folds to a bar as the workout fills in.
+     Scripted replies, no sign-in, no data. Not linked from the app. -->
+<title>Wilo Chat-First Tracker</title>
+<style>
+/* Layout: one phone screen. Tracker underneath, chat as a sheet that goes full → half → a thin bar. */
+:root {
+  --bg: #0b0b0d; --panel: #16161a; --field: #232329; --line: #2c2c33;
+  --fg: #f2f2f5; --dim: #8e8e98; --accent: #0a84ff; --ok: #30d158;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.4 var(--font); overflow: hidden; }
+.app { position: relative; height: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; }
+
+/* tracker */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+.bar a { color: var(--accent); text-decoration: none; }
+.seg { display: flex; background: var(--field); border-radius: 999px; padding: 3px; }
+.seg span { padding: 4px 12px; border-radius: 999px; font-size: 13px; color: var(--dim); }
+.seg span.on { background: var(--accent); color: #fff; }
+.sess { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 4px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--line); }
+.sess h1 { font-size: 24px; margin: 0; letter-spacing: -.01em; }
+.sess p { margin: 2px 0 0; color: var(--dim); font-size: 13px; }
+.finish { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 8px 16px; font: 600 15px var(--font); }
+.finish:disabled { opacity: .3; }
+.list { height: calc(100% - 120px); overflow-y: auto; padding-bottom: 120px; }
+.empty { color: var(--dim); text-align: center; padding: 48px 16px; }
+.ex { padding: 14px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--line); animation: in .35s ease both; }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ex { animation: none; } }
+.ex h2 { margin: 0 0 2px; font-size: 17px; color: var(--accent); }
+.ex .cue { color: var(--dim); font-size: 13px; margin-bottom: 6px; }
+.ex .cue b { color: var(--accent); font-weight: 500; }
+.sets { display: grid; grid-template-columns: 28px 1fr 1fr 40px; gap: 6px 10px; align-items: center; font-variant-numeric: tabular-nums; }
+.sets .h { color: var(--dim); font-size: 12px; text-align: center; }
+.sets .n { text-align: center; font-weight: 600; }
+.sets .v { background: var(--field); border-radius: 8px; text-align: center; padding: 6px 0; }
+.tick { width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--dim); font-size: 15px; }
+.tick.done { background: var(--ok); border-color: var(--ok); color: #000; }
+.ex.changed { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* chat sheet */
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  border-radius: 16px 16px 0 0; display: flex; flex-direction: column; transition: height .4s cubic-bezier(.3,.8,.4,1); z-index: 5;
+  padding-bottom: env(safe-area-inset-bottom, 0px); }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+.sheet.full { height: 100%; border-radius: 0; }
+.sheet.half { height: 58%; }
+.sheet.bar { height: 60px; cursor: pointer; }
+.peek { display: none; align-items: center; gap: 10px; height: 60px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.sheet.bar .peek { display: flex; }
+.sheet.bar .body { display: none; }
+.dot { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; }
+.peek .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peek .txt small { color: var(--dim); }
+.peek .up { color: var(--accent); font-size: 13px; }
+.body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.head { display: flex; justify-content: space-between; align-items: center;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); }
+.head strong { font-size: 17px; }
+.head button { background: none; border: 0; color: var(--accent); font: 15px var(--font); }
+.msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+.sheet.full .msgs > :first-child { margin-top: auto; }
+.m { max-width: 82%; padding: 9px 13px; border-radius: 18px; animation: in .25s ease both; }
+.m.w { background: var(--field); align-self: flex-start; border-bottom-left-radius: 6px; }
+.m.u { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; }
+.m.typing { color: var(--dim); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 4px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+.chips button { background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 7px 13px; font: 14px var(--font); }
+form { display: flex; gap: 8px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); }
+form input { flex: 1; min-width: 0; background: var(--field); border: 1px solid var(--line); border-radius: 999px; color: var(--fg); padding: 10px 14px; font: 16px var(--font); }
+form button { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 0 16px; font: 600 15px var(--font); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.proto { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 9; background: #3a2a00; color: #ffd60a;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px; pointer-events: auto; border: 0; font-family: var(--font); }
+</style>
+<style>html,body{margin:0}</style>
+</head>
+<body>
+<div class="app">
+  <button class="proto" id="restart" title="Start the prototype over">PROTOTYPE · scripted replies · tap to restart</button>
+
+  <header class="bar">
+    <a href="#">‹ Today</a>
+    <div class="seg"><span class="on">Train</span><span>Review</span></div>
+    <span style="color:var(--dim)">···</span>
+  </header>
+  <div class="sess">
+    <div><h1 id="wname">Thu, Nov 19</h1><p id="wsub">No workout yet</p></div>
+    <button class="finish" id="finish" disabled>Finish</button>
+  </div>
+  <div class="list" id="list"><div class="empty">Nothing here yet. Wilo will fill this in.</div></div>
+
+  <section class="sheet full" id="sheet" aria-label="Wilo chat">
+    <div class="peek" id="peek"><div class="dot">W</div><div class="txt" id="peekTxt"></div><span class="up">Talk ↑</span></div>
+    <div class="body">
+      <div class="head"><strong>Wilo</strong><button id="hide" hidden>Hide</button></div>
+      <div class="msgs" id="msgs"></div>
+      <div class="chips" id="chips"></div>
+      <form id="form"><input id="inp" placeholder="Tell Wilo…" autocomplete="off"><button>Send</button></form>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const sheet = $('sheet'), msgs = $('msgs'), chips = $('chips'), list = $('list');
+let workout = [], stage = 'start', changed = null, run = 0;
+// Timers from a run that was restarted do nothing.
+const later = (fn, ms) => { const r = run; setTimeout(() => { if (r === run) fn(); }, ms); };
+
+const CHEST = { name: 'Chest + biceps', ex: [
+  { n: 'Dead hang', cue: 'Shoulder warm-up', sets: [['', '45s'], ['', '45s']] },
+  { n: 'Incline press (Smith)', cue: 'Keep pressing light, stop if the shoulder complains', sets: [[135, 4], [155, 4], [155, 4], [185, 3]] },
+  { n: 'Dumbbell press', sets: [[45, 10], [45, 10], [50, 8]] },
+  { n: 'Chest dips', sets: [[115, 10], [115, 10]] },
+  { n: 'Decline front raise', cue: 'Your shoulders love these', sets: [[15, 10], [15, 10]] },
+  { n: 'Hammer curl', sets: [[35, 10], [35, 10], [35, 8]] }
+]};
+const LOGGED = { name: 'Legs (logged)', ex: [
+  { n: 'Leg press', sets: [[270, 10, 1], [360, 7, 1], [360, 6, 1]] },
+  { n: 'Hack squat', sets: [[90, 8, 1], [130, 5, 1]] },
+  { n: 'Leg curls', sets: [[80, 12, 1], [128, 12, 1]] }
+]};
+
+function say(who, text) {
+  const d = document.createElement('div'); d.className = 'm ' + who; d.textContent = text;
+  msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d;
+}
+function wilo(text, delay = 700) {
+  return new Promise(r => {
+    const t = say('w typing', '…');
+    later(() => { t.className = 'm w'; t.textContent = text; msgs.scrollTop = msgs.scrollHeight; r(); }, delay);
+  });
+}
+function setChips(arr) {
+  chips.innerHTML = '';
+  arr.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = () => send(c); chips.appendChild(b); });
+}
+function mode(m) { sheet.className = 'sheet ' + m; $('hide').hidden = m !== 'half'; }
+
+function draw() {
+  if (!workout.length) { list.innerHTML = '<div class="empty">Nothing here yet. Wilo will fill this in.</div>'; return; }
+  list.innerHTML = '';
+  workout.forEach((x, i) => {
+    const el = document.createElement('div'); el.className = 'ex' + (changed === i ? ' changed' : '');
+    el.style.animationDelay = (x.fresh ? i * 120 : 0) + 'ms';
+    el.innerHTML = `<h2>${x.n}</h2>${x.cue ? `<div class="cue"><b>Coach</b> ${x.cue}</div>` : ''}
+      <div class="sets"><span class="h">Set</span><span class="h">lbs</span><span class="h">reps</span><span class="h">✓</span>
+      ${x.sets.map((s, j) => `<span class="n">${j + 1}</span><span class="v">${s[0] === '' ? '–' : s[0]}</span><span class="v">${s[1]}</span>
+        <button class="tick${s[2] ? ' done' : ''}" data-i="${i}" data-j="${j}" aria-label="Set ${j + 1} done">✓</button>`).join('')}</div>`;
+    list.appendChild(el);
+  });
+  workout.forEach(x => x.fresh = false);
+  const done = workout.flatMap(x => x.sets).filter(s => s[2]).length;
+  $('finish').disabled = done === 0;
+  $('wsub').textContent = done ? `${done} set${done > 1 ? 's' : ''} logged` : 'Ready when you are';
+}
+list.addEventListener('click', e => {
+  const b = e.target.closest('.tick'); if (!b) return;
+  const s = workout[b.dataset.i].sets[b.dataset.j]; s[2] = !s[2]; draw();
+});
+
+function fill(w, peek) {
+  workout = w.ex.map(x => ({ ...x, sets: x.sets.map(s => [...s]), fresh: true }));
+  $('wname').textContent = w.name; draw();
+  $('peekTxt').innerHTML = peek;
+}
+
+async function send(text) {
+  text = text.trim(); if (!text) return;
+  say('u', text); setChips([]); $('inp').value = '';
+  const t = text.toLowerCase();
+  if (stage === 'start') {
+    if (/did|just|done|finished|log/.test(t)) {
+      stage = 'logging';
+      await wilo('Nice. What did you do? Weights and reps, roughly is fine.');
+      setChips(['Leg press 270x10, 360x7, 360x6. Hack squat 90x8, 130x5. Curls 80 and 128 for 12']);
+    } else {
+      stage = 'planned';
+      await wilo('Chest and biceps, like your Thursdays. 6 exercises, pressing kept light for the shoulder. Putting it in.');
+      mode('half');
+      later(() => fill(CHEST, 'Added <b>chest + biceps</b> <small>· 6 exercises</small>'), 300);
+      later(() => mode('bar'), 2600);
+      setChips(['Swap dips for cable fly', 'Make it shorter']);
+    }
+  } else if (stage === 'logging') {
+    stage = 'planned';
+    await wilo('Logged: leg press, hack squat, leg curls. 7 sets. Hit Finish when you\'re done.');
+    mode('half');
+    later(() => fill(LOGGED, 'Logged <b>legs</b> <small>· 7 sets</small>'), 300);
+    later(() => mode('bar'), 2600);
+    setChips(['Add calf raises']);
+  } else {
+    if (/swap|dip|fly/.test(t) && workout.some(x => x.n === 'Chest dips')) {
+      await wilo('Swapping dips for cable fly, 3×12 at 40. Done.');
+      const i = workout.findIndex(x => x.n === 'Chest dips');
+      workout[i] = { n: 'Cable fly', sets: [[40, 12], [40, 12], [40, 12]], fresh: true }; changed = i;
+      $('peekTxt').innerHTML = 'Swapped <b>dips → cable fly</b>';
+    } else if (/short/.test(t)) {
+      await wilo('Cut it to the 4 that matter most. Done.');
+      workout = workout.filter(x => !/Dead hang|Hammer/.test(x.n)); changed = null;
+      $('peekTxt').innerHTML = 'Shortened to <b>4 exercises</b>';
+    } else if (/calf/.test(t)) {
+      await wilo('Added calf raises, 3×10. Done.');
+      workout.push({ n: 'Calf raises', sets: [[50, 10], [50, 10], [50, 10]], fresh: true }); changed = workout.length - 1;
+      $('peekTxt').innerHTML = 'Added <b>calf raises</b>';
+    } else {
+      await wilo('Got it. (This prototype only knows a few lines, try a chip.)');
+      return;
+    }
+    draw(); later(() => mode('bar'), 1400);
+  }
+}
+
+$('form').addEventListener('submit', e => { e.preventDefault(); send($('inp').value); });
+$('peek').addEventListener('click', () => mode('half'));
+$('hide').addEventListener('click', () => mode('bar'));
+$('finish').addEventListener('click', () => {
+  mode('half'); say('w', 'Finished. Good work today. See you Friday for back day.'); $('peekTxt').innerHTML = '<b>Done</b> · nice work';
+});
+
+function start() {
+  run++; workout = []; stage = 'start'; changed = null; msgs.innerHTML = ''; mode('full');
+  $('wname').textContent = 'Thu, Nov 19'; $('wsub').textContent = 'No workout yet'; $('finish').disabled = true; draw();
+  wilo('Morning. Nothing planned for today yet. What are you training? Or tell me what you just did and I\'ll log it.', 500);
+  setChips(['Chest day', 'I just did legs', 'Surprise me']);
+}
+$('restart').addEventListener('click', start);
+start();
+</script>
+
+</body>
+</html>
