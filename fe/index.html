@@ -252,8 +252,8 @@
     background: var(--bg); border: 0; border-top: 1px solid var(--line); color: var(--dim);
     padding: 10px 16px max(10px, env(safe-area-inset-bottom)); font-family: inherit; font-size: 16px;
   }
-  .chat-btn span { display: block; background: var(--accent); color: #fff; border-radius: 20px; padding: 11px 14px; font-weight: 500; }
-  .chat-btn.is-done span { background: var(--done); color: var(--done-line); }
+  .chat-btn span { display: block; background: #000; color: var(--accent); border: 1px solid var(--accent); border-radius: 20px; padding: 10px 14px; font-weight: 500; }
+  .chat-btn.is-done span { color: var(--done-line); border-color: var(--done-line); }
   .chat-sheet {
     position: fixed; left: 0; right: 0; top: 0; z-index: 5; height: var(--vvh, 100dvh);
     background: var(--bg); display: flex; flex-direction: column;
