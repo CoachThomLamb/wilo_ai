@@ -209,7 +209,7 @@
     font-family: inherit; font-size: 15px; font-weight: 500; padding: 6px 16px;
   }
   .seg button.on { background: var(--accent); color: #fff; }
-  .seg button:disabled { opacity: .35; }
+  .seg button.dim { opacity: .35; }
   .more {
     min-width: 72px; text-align: right; background: none; border: 0; color: var(--text);
     font-family: inherit; font-size: 22px; letter-spacing: 1px; line-height: 1; padding: 4px 4px 10px;
@@ -1120,8 +1120,8 @@
     document.body.classList.toggle('review', mode === 'review');
     segTrain.classList.toggle('on', mode === 'train');
     segReview.classList.toggle('on', mode === 'review');
-    // Mid-workout you're training: Review is greyed out rather than a popup.
-    segReview.disabled = mode === 'train' && midWorkout();
+    // Mid-workout you're training: Review looks dimmed, and a tap says why.
+    segReview.classList.toggle('dim', mode === 'train' && midWorkout());
     lockList();
     const empty = mode === 'train' && !!fetched && todayIdx() < 0 && !midWorkout();
     document.getElementById('noToday').hidden = !empty;
@@ -1133,7 +1133,11 @@
     if (m === 'train') await jumpToday();
   }
   segTrain.addEventListener('click', () => { if (mode !== 'train') setMode('train'); });
-  segReview.addEventListener('click', () => { if (mode !== 'review' && !midWorkout()) setMode('review'); });
+  segReview.addEventListener('click', () => {
+    if (mode === 'review') return;
+    if (midWorkout()) { note('Finish this workout to review past ones'); return; }
+    setMode('review');
+  });
 
   // ⋯ menu: the rarely used stuff (reset, data, sign out, version)
   const moreBtn = document.getElementById('moreBtn');
