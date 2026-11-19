@@ -188,6 +188,7 @@
 
   .check { width: 36px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--dim); font-size: 15px; }
   tr.done .check { background: var(--done-line); border-color: var(--done-line); color: #000; }
+  tr.done input[type=number], tr.done input[type=text] { background: var(--done); color: var(--done-line); }
 
   .add, .add-ex {
     width: 100%; padding: 13px; background: var(--field); border: 0;
@@ -226,7 +227,7 @@
   .sess-l { flex: 1; min-width: 0; }
 
   /* timeline: ‹ day › under the header */
-  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex: none; }
+  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
   .tl-step {
     flex: none; width: 48px; height: 40px; background: var(--field); border: 1px solid var(--line);
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 26px; line-height: 1; padding: 0 0 3px;
@@ -251,8 +252,8 @@
     background: var(--bg); border: 0; border-top: 1px solid var(--line); color: var(--dim);
     padding: 10px 16px max(10px, env(safe-area-inset-bottom)); font-family: inherit; font-size: 16px;
   }
-  .chat-btn span { display: block; background: var(--field); border-radius: 20px; padding: 11px 14px; }
-  .chat-btn.is-done span { color: var(--done-line); }
+  .chat-btn span { display: block; background: var(--accent); color: #fff; border-radius: 20px; padding: 11px 14px; font-weight: 500; }
+  .chat-btn.is-done span { background: var(--done); color: var(--done-line); }
   .chat-sheet {
     position: fixed; left: 0; right: 0; top: 0; z-index: 5; height: var(--vvh, 100dvh);
     background: var(--bg); display: flex; flex-direction: column;
@@ -321,7 +322,7 @@
   <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
 </div>
 
-<!-- top nav: back and ⋯, then the ‹ day › stepper, then the workout -->
+<!-- top nav: back and ⋯, then the workout name and Finish, then the ‹ day › stepper, then the workout -->
 <header class="bar">
   <a class="back" href="day.html">&lsaquo; Today</a>
   <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
@@ -331,12 +332,6 @@
   </div>
 </header>
 
-<nav class="tl" aria-label="Workouts by day">
-  <button class="tl-step" id="tlPrev" aria-label="Earlier workout">&lsaquo;</button>
-  <div class="tl-mid"><strong id="tlDay">Today</strong><span id="tlWhat"></span></div>
-  <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
-</nav>
-
 <div class="sess">
   <div class="sess-l">
     <input id="sessName" class="sess-name-input" value="WILO">
@@ -344,6 +339,12 @@
   </div>
   <button class="finish" id="finish">Finish</button>
 </div>
+
+<nav class="tl" aria-label="Workouts by day">
+  <button class="tl-step" id="tlPrev" aria-label="Earlier workout">&lsaquo;</button>
+  <div class="tl-mid"><strong id="tlDay">Today</strong><span id="tlWhat"></span></div>
+  <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
+</nav>
 
 <div class="list" id="list"></div>
 
