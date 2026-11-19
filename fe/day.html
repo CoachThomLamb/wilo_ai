@@ -21,7 +21,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
   import { getFirestore, setDoc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
   // Same config as index.html; see the authDomain note there.
-  const onHosting = /\.web\.app$|\.firebaseapp\.com$/.test(location.hostname);
+  const onHosting = /\.web\.app$|\.firebaseapp\.com$|^hiwilo\.com$/.test(location.hostname);
   const app = initializeApp({
     apiKey: "AIzaSyDQ-MDgxaD6vab2awYKuez3vLB-Tmj6oLM",
     authDomain: onHosting ? location.host : "wilo2-1ee44.firebaseapp.com",
