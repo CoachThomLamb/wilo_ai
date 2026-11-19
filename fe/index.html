@@ -198,14 +198,13 @@
   .add-ex-wrap { padding: 18px 16px; }
   .add-ex { width: 100%; color: var(--accent); }
 
-  /* top nav: ‹ Today · ⋯ */
+  /* top row: name · Finish · ⋯ */
   header.bar {
     position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); flex: none; border-bottom: 0;
+    padding: 10px 12px 10px 16px; padding-top: max(10px, env(safe-area-inset-top)); flex: none; border-bottom: 0;
   }
-  .back { color: var(--accent); text-decoration: none; font-size: 16px; padding: 6px 4px; min-width: 72px; }
   .more {
-    min-width: 72px; text-align: right; background: none; border: 0; color: var(--text);
+    flex: none; text-align: right; background: none; border: 0; color: var(--text);
     font-family: inherit; font-size: 22px; letter-spacing: 1px; line-height: 1; padding: 4px 4px 10px;
   }
   .menu {
@@ -214,20 +213,16 @@
     box-shadow: 0 8px 24px rgba(0,0,0,.6);
   }
   .menu[hidden] { display: none; }
-  .menu button {
-    display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px;
+  .menu button, .menu a {
+    display: block; box-sizing: border-box; text-decoration: none; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px;
     color: var(--text); font-family: inherit; font-size: 16px; padding: 11px 12px;
   }
   .menu [hidden] { display: none; }
   .menu .ver { color: var(--dim); font-size: 11px; padding: 8px 12px 4px; }
-  .sess {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 6px 16px 12px; border-bottom: 1px solid var(--line); flex: none;
-  }
   .sess-l { flex: 1; min-width: 0; }
 
   /* timeline: ‹ day › under the header */
-  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .tl { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex: none; }
   .tl-step {
     flex: none; width: 48px; height: 40px; background: var(--field); border: 1px solid var(--line);
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 26px; line-height: 1; padding: 0 0 3px;
@@ -322,23 +317,20 @@
   <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
 </div>
 
-<!-- top nav: back and ⋯, then the workout name and Finish, then the ‹ day › stepper, then the workout -->
+<!-- top row: workout name, Finish, ⋯ (Today, sign out); then the ‹ day › stepper, then the workout -->
 <header class="bar">
-  <a class="back" href="day.html">&lsaquo; Today</a>
-  <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
-  <div class="menu" id="menu" hidden>
-    <button id="authBtn" hidden>Sign out</button>
-    <div class="ver">v2026-11-19-nav</div>
-  </div>
-</header>
-
-<div class="sess">
   <div class="sess-l">
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
   <button class="finish" id="finish">Finish</button>
-</div>
+  <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
+  <div class="menu" id="menu" hidden>
+    <a href="day.html">Today</a>
+    <button id="authBtn" hidden>Sign out</button>
+    <div class="ver">v2026-11-19-nav</div>
+  </div>
+</header>
 
 <nav class="tl" aria-label="Workouts by day">
   <button class="tl-step" id="tlPrev" aria-label="Earlier workout">&lsaquo;</button>
@@ -1122,12 +1114,12 @@
     if (i >= 0) await goTo(i);
   }
 
-  // ⋯ menu: the rarely used stuff (sign out, version)
+  // ⋯ menu: the rarely used stuff (Today, sign out, version)
   const moreBtn = document.getElementById('moreBtn');
   const menu = document.getElementById('menu');
   function showMenu(open) { menu.hidden = !open; moreBtn.setAttribute('aria-expanded', open); }
   moreBtn.addEventListener('click', e => { e.stopPropagation(); showMenu(menu.hidden); });
-  menu.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') showMenu(false); });
+  menu.addEventListener('click', e => { if (e.target.closest('button, a')) showMenu(false); });
   document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) showMenu(false); });
 
   const sessName = document.getElementById('sessName');
