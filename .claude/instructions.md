@@ -33,7 +33,7 @@ still matters: it's how Wilo gets better.
 - Be a partner, not an order-taker. If something is a bad idea, say so and explain why.
 - Tell him what you're doing and why before asking him to do anything. He's an active participant, not along for the ride.
 
-## How it works now (2026-11-17)
+## How it works now (2026-11-20)
 
 - **Data:** Firestore, `wilo` database, everything per user under `users/{uid}/`: `workouts` (one doc per workout
   from plan to done, #126), `days` (the Day page), `events` (the Week page, #168), `todos`, `coach/profile`.
@@ -46,8 +46,9 @@ still matters: it's how Wilo gets better.
     spend cap, invite list and "How's Wilo doing?" ratings live here.
   - `wilo/coach.md`: **the only place for coaching instructions.** Thom writes it.
 - **Pages (`fe/`, Firebase Hosting, served at hiwilo.com and wilo2-1ee44.web.app):** `landing.html` (signed-out
-  visitors land here), `index.html` (the tracker: log sets, Finish, Train / Review), `day.html` (the Day page),
-  `week.html` (calendar), `chat.js` (the coach chat sheet), `auth.js` (Google sign-in, required).
+  visitors land here), `index.html` (the tracker: opens on today,
+  ‹ › to other days, log sets, Finish; a day with no workout opens with Wilo's chat, #224), `day.html` (the Day page),
+  `week.html` (calendar), `chat.js` (Wilo's chat: a bar at the bottom, opens half or full), `auth.js` (Google sign-in, required).
 - **Coach:** in the tracker's chat (`fe/chat.js` → `wilo/chat.py`). The Claude connector still works, but only the
   in-tracker chat counts for user insight.
 - **Deploys:** merging to `main` deploys Hosting (GitHub Action) and the connector (Render). Map of what runs
@@ -58,13 +59,14 @@ still matters: it's how Wilo gets better.
 - **Now:** go-live for paid cold traffic (#162): the landing page, Talk to Wilo (#165), cost caps (#166), and
   onboarding the first invited users (the `WILO_CHAT_UIDS` invite list on Render).
 - **Tech debt:** the `tech-debt` label, prioritized P1 / P2 / P3 on the board (project 5).
-- **Small:** CI for the Python tests (#46).
+- **Scaling:** Firestore's free tier is 50k reads a day for the whole app, and we hit it on 2026-11-19.
+  Readers that load a user's whole history (#225) are the fix to make before more users.
 - **On hold:** the Postgres migration. Stay on Firestore; keep the app design DB-agnostic.
 
 ## What's parked (do not touch)
 
 - ngrok / remote serving — notes were in `prior-art/notes/ngrok.md` (deleted in #194; `git show c6bb0bb:prior-art/notes/ngrok.md`)
-- Voice input — v2 (#78)
+- Voice input — v2
 - Offline support — v2
 - SFT / fine-tuning — `ml/` is Thom's learning track; the product stays on Claude
 - PWA icons — nice to have, not blocking anything
