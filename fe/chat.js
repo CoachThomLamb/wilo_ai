@@ -333,11 +333,42 @@ form.addEventListener("submit", async ev => {
   if (!current(chat)) { chat = load(); draw(); }   // idle: the server starts a fresh chat too
   busy = true;
   input.value = "";
-  form.querySelector("button").disabled = true;
+  form.querySelector("button[type=submit]").disabled = true;
   try { await send(text); }
-  finally { busy = false; form.querySelector("button").disabled = false; }
+  finally { busy = false; form.querySelector("button[type=submit]").disabled = false; }
 });
 // Enter sends; Shift+Enter is a new line.
 input.addEventListener("keydown", ev => {
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); form.requestSubmit(); }
 });
+
+// Mic (#230): tap, talk, and what you said is sent when you stop. The browser's own speech recognition (free;
+// Chrome, Android, recent Safari); the button stays hidden where there's none. Tap again to stop early.
+const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mic = $("chatMic");
+if (Speech && mic) {
+  mic.hidden = false;
+  let rec = null;
+  mic.addEventListener("click", () => {
+    if (rec) { rec.stop(); return; }
+    rec = new Speech();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true;
+    const before = input.value.trim();
+    let heard = "";
+    rec.onresult = ev => {
+      heard = Array.from(ev.results, r => r[0].transcript).join("");
+      input.value = (before ? before + " " : "") + heard;
+    };
+    rec.onerror = ev => {
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") input.placeholder = "Mic blocked: allow it in the browser";
+    };
+    rec.onend = () => {
+      rec = null;
+      mic.classList.remove("listening");
+      if (heard.trim()) form.requestSubmit();
+    };
+    mic.classList.add("listening");
+    rec.start();
+  });
+}
