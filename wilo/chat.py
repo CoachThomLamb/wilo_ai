@@ -27,7 +27,8 @@ Storage (server only; browsers are denied everything outside users/{uid} by fire
     chat_feedback/{chatId}              uid, chatId, rating (bad|good|great), note?, at: "How's Wilo doing?"
 
 Env: ANTHROPIC_API_KEY (Render dashboard), WILO_CHAT_MODEL (default claude-sonnet-5-5), WILO_CHAT_EFFORT
-(default medium), WILO_CHAT_UIDS, WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
+(default medium), WILO_CHAT_UIDS, WILO_CHAT_KIMI_UIDS + RUNPOD_API_KEY (those users chat with Kimi, #228;
+WILO_CHAT_KIMI_MODEL default kimi-k2.6), WILO_CHAT_DAILY_LIMIT (default 100), WILO_CHAT_SPEND_LIMIT (dollars per user,
 default 5), WILO_CHAT_UNCAPPED (no spend cap; default the config uid), WILO_TZ (default America/Toronto).
 """
 
@@ -39,6 +40,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import anthropic
+import httpx
 
 from wilo import data as wilo_data
 from wilo import token_cost
@@ -66,6 +68,10 @@ RATINGS = ('bad', 'good', 'great')  # "How's Wilo doing?" in the chat (POST /cha
 # reads the user's data through the tools anyway.
 IDLE = timedelta(hours=1)
 BETAS = ['server-side-fallback-2026-07-01']  # with fallbacks='default': a declined request reruns on another model
+# Kimi on RunPod's pay-per-token public endpoint (OpenAI format) for the uids in WILO_CHAT_KIMI_UIDS (#228): does an
+# open model coach well enough, for less? Same tools, same coach.md, and the chat is stored in the same shape.
+KIMI_URL = os.environ.get('WILO_CHAT_KIMI_URL', 'https://api.runpod.ai/v2/moonshot-kimi/openai/v1/chat/completions')
+KIMI_MODEL = os.environ.get('WILO_CHAT_KIMI_MODEL', 'kimi-k2.6')
 
 # The tracker's own hosts (live and PR previews) and local testing.
 ORIGIN = re.compile(r'https://wilo2-1ee44(--[a-z0-9-]+)?\.(web\.app|firebaseapp\.com)|https://(www\.)?hiwilo\.com'
@@ -87,6 +93,14 @@ def client():
 
 def allowed_uids():
     return {u.strip() for u in os.environ.get('WILO_CHAT_UIDS', wilo_data.CONFIG['uid']).split(',') if u.strip()}
+
+
+def kimi_uids():
+    return {u.strip() for u in os.environ.get('WILO_CHAT_KIMI_UIDS', '').split(',') if u.strip()}
+
+
+def engine_for(uid):
+    return 'kimi' if uid in kimi_uids() else 'claude'
 
 
 def uncapped_uids():
@@ -159,14 +173,18 @@ def use_quota(db, uid, now):
     return True
 
 
-def load_thread(db, uid, chat_id, now):
-    """(chat_id, ref, context, history), a new thread when chat_id is None or the chat has been idle for over IDLE.
+def load_thread(db, uid, chat_id, now, engine='claude'):
+    """(chat_id, ref, context, history), a new thread when chat_id is None, the chat has been idle for over IDLE,
+    or it ran on the other engine (a Claude chat's signed thinking can't go to Kimi, nor Kimi's to Claude).
     None if it isn't this user's."""
     if chat_id is None:
         chat_id = secrets.token_urlsafe(12)
         ref = db.collection('chat_threads').document(chat_id)
         ctx = context(db, uid, now)
-        ref.set({'uid': uid, 'createdAt': now.isoformat(), 'context': ctx})
+        doc = {'uid': uid, 'createdAt': now.isoformat(), 'context': ctx}
+        if engine != 'claude':
+            doc['engine'] = engine
+        ref.set(doc)
         return chat_id, ref, ctx, []
     ref = db.collection('chat_threads').document(chat_id)
     snap = ref.get()
@@ -174,8 +192,9 @@ def load_thread(db, uid, chat_id, now):
         return None
     turns = sorted(ref.collection('turns').stream(), key=lambda s: s.id)
     last = (turns[-1].to_dict().get('at') if turns else None) or snap.to_dict().get('createdAt')
-    if last and now - datetime.fromisoformat(last) > IDLE:
-        return load_thread(db, uid, None, now)
+    stale = last and now - datetime.fromisoformat(last) > IDLE
+    if stale or snap.to_dict().get('engine', 'claude') != engine:
+        return load_thread(db, uid, None, now, engine)
     return chat_id, ref, snap.to_dict()['context'], [m for t in turns for m in json.loads(t.to_dict()['messages'])]
 
 
@@ -205,27 +224,107 @@ def reply_text(content):
     return '\n\n'.join(b['text'] for b in content if b.get('type') == 'text' and b.get('text')).strip()
 
 
-async def turn(ctx, history, message):
-    """Run one user message through Claude and the tools. Returns (new messages to store, reply, tools used, calls:
-    each model call's usage). A refusal stores no messages, so the declined exchange never goes back to the API."""
+async def call_claude(ctx, messages):
+    """One model call → (content blocks, stop reason, the call's record for usage)."""
+    resp = await client().beta.messages.create(
+        model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
+        output_config={'effort': EFFORT}, cache_control=CHAT_CACHE,
+        system=system(ctx), tools=await tools(), messages=messages)
+    u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
+    print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
+          f'write={u.cache_creation_input_tokens or 0} out={u.output_tokens}', flush=True)
+    content = [b.model_dump(mode='json', exclude_none=True) for b in resp.content]
+    return content, resp.stop_reason, {'model': resp.model, 'stop': resp.stop_reason,
+                                       'usage': u.model_dump(mode='json', exclude_none=True),
+                                       'tools': [b['name'] for b in content if b['type'] == 'tool_use']}
+
+
+_kimi = None
+
+
+def kimi():
+    global _kimi
+    if _kimi is None:
+        _kimi = httpx.AsyncClient(timeout=180, headers={'Authorization': f"Bearer {os.environ.get('RUNPOD_API_KEY', '')}"})
+    return _kimi
+
+
+def to_openai(system_blocks, messages):
+    """The stored (Anthropic-shaped) chat as OpenAI chat messages. Kimi's reasoning goes back as reasoning_content."""
+    out = [{'role': 'system', 'content': '\n\n'.join(b['text'] for b in system_blocks)}]
+    for m in messages:
+        c = m['content']
+        if isinstance(c, str):
+            out.append({'role': m['role'], 'content': c})
+        elif m['role'] == 'user':
+            for b in c:
+                if b['type'] == 'tool_result':
+                    out.append({'role': 'tool', 'tool_call_id': b['tool_use_id'], 'content': b['content']})
+                elif b['type'] == 'text':
+                    out.append({'role': 'user', 'content': b['text']})
+        else:
+            msg = {'role': 'assistant', 'content': reply_text(c)}
+            thinking = ''.join(b.get('thinking', '') for b in c if b['type'] == 'thinking')
+            if thinking:
+                msg['reasoning_content'] = thinking
+            calls = [{'id': b['id'], 'type': 'function',
+                      'function': {'name': b['name'], 'arguments': json.dumps(b['input'])}}
+                     for b in c if b['type'] == 'tool_use']
+            if calls:
+                msg['tool_calls'] = calls
+            out.append(msg)
+    return out
+
+
+def from_openai(msg):
+    """An OpenAI assistant message as Anthropic-shaped content blocks (how chats are stored)."""
+    content = []
+    if msg.get('reasoning_content'):
+        content.append({'type': 'thinking', 'thinking': msg['reasoning_content']})
+    if msg.get('content'):
+        content.append({'type': 'text', 'text': msg['content']})
+    for c in msg.get('tool_calls') or []:
+        try:
+            args = json.loads(c['function'].get('arguments') or '{}')
+        except ValueError:
+            args = {}
+        content.append({'type': 'tool_use', 'id': c['id'], 'name': c['function']['name'],
+                        'input': args if isinstance(args, dict) else {}})
+    return content
+
+
+async def call_kimi(ctx, messages):
+    """One Kimi call, same contract as call_claude."""
+    oa_tools = [{'type': 'function', 'function': {'name': t['name'], 'description': t['description'],
+                                                  'parameters': t['input_schema']}} for t in await tools()]
+    resp = await kimi().post(KIMI_URL, json={'model': KIMI_MODEL, 'max_tokens': 16000, 'tools': oa_tools,
+                                             'messages': to_openai(system(ctx), messages)})
+    resp.raise_for_status()
+    body = resp.json()
+    choice, u = body['choices'][0], body.get('usage') or {}
+    content = from_openai(choice['message'])
+    stop = 'tool_use' if any(b['type'] == 'tool_use' for b in content) else 'end_turn'
+    model = body.get('model') or KIMI_MODEL
+    print(f"chat: {model} stop={stop} in={u.get('prompt_tokens')} out={u.get('completion_tokens')}", flush=True)
+    return content, stop, {'model': model, 'stop': stop, 'tools': [b['name'] for b in content if b['type'] == 'tool_use'],
+                           'usage': {'input_tokens': u.get('prompt_tokens') or 0,
+                                     'output_tokens': u.get('completion_tokens') or 0, 'openai': u}}
+
+
+async def turn(ctx, history, message, engine='claude'):
+    """Run one user message through the model and the tools. Returns (new messages to store, reply, tools used,
+    calls: each model call's usage). A refusal stores no messages, so the declined exchange never goes back."""
+    call = call_kimi if engine == 'kimi' else call_claude
     new = [{'role': 'user', 'content': message}]
     used, replies, calls = [], [], []
     for _ in range(MAX_STEPS):
-        resp = await client().beta.messages.create(
-            model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
-            output_config={'effort': EFFORT}, cache_control=CHAT_CACHE,
-            system=system(ctx), tools=await tools(), messages=history + new)
-        u = resp.usage  # input = read + write + in (in: tokens after the last cache breakpoint)
-        print(f'chat: {resp.model} stop={resp.stop_reason} in={u.input_tokens} read={u.cache_read_input_tokens or 0} '
-              f'write={u.cache_creation_input_tokens or 0} out={u.output_tokens}', flush=True)
-        calls.append({'model': resp.model, 'stop': resp.stop_reason, 'usage': u.model_dump(mode='json', exclude_none=True),
-                      'tools': [b.name for b in resp.content if b.type == 'tool_use']})
-        if resp.stop_reason == 'refusal':
+        content, stop, record = await call(ctx, history + new)
+        calls.append(record)
+        if stop == 'refusal':
             return [], "Sorry, I can't help with that one.", used, calls
-        content = [b.model_dump(mode='json', exclude_none=True) for b in resp.content]
         new.append({'role': 'assistant', 'content': content})
         replies.append(reply_text(content))
-        if resp.stop_reason != 'tool_use':
+        if stop != 'tool_use':
             break
         results = []
         for block in content:
@@ -332,15 +431,17 @@ def add_chat_routes(s):
             return fail(402, SPEND_LIMIT_REPLY)
         if not use_quota(db, uid, now):
             return fail(429, f"that's {DAILY_LIMIT} messages today; the coach is back tomorrow")
-        thread = load_thread(db, uid, chat_id, now)
+        engine = engine_for(uid)
+        thread = load_thread(db, uid, chat_id, now, engine)
         if thread is None:
             return fail(404, 'chat not found; start a new one')
         chat_id, ref, ctx, history = thread
         line = screen_line(body.get('screen'))
         reset = srv.CHAT_UID.set(uid)
         try:
-            new, reply, used, calls = await turn(ctx, history, f'{line}\n{message.strip()}' if line else message.strip())
-        except anthropic.APIError as err:
+            new, reply, used, calls = await turn(ctx, history, f'{line}\n{message.strip()}' if line else message.strip(),
+                                                engine)
+        except (anthropic.APIError, httpx.HTTPError, KeyError, ValueError) as err:
             print(f'chat: API error {err!r}', flush=True)
             return fail(502, 'the coach is unavailable right now; try again in a minute')
         finally:
