@@ -173,7 +173,7 @@ function screen() {
   try { return window.__screen ? window.__screen() : null; } catch { return null; }
 }
 
-async function send(text) {
+async function send(text, voice = false) {
   const user = window.__auth && window.__auth.currentUser();
   if (!user) { bubble("err", "Sign in first."); return; }
   if (greet && !chat.messages.length) chat.messages.push({ role: "coach", text: GREETING });   // keep what Wilo opened with
@@ -202,6 +202,7 @@ async function send(text) {
     wait.className = "msg coach";
     wait.textContent = reply;
     askRating();
+    if (voice) say(reply);
     // The page can refresh what the coach wrote (day.html reloads the day after update_day).
     window.dispatchEvent(new CustomEvent("wilo-chat-reply", { detail: { tools: body.tools || [] } }));
   } catch (err) {
@@ -325,7 +326,7 @@ $("chatNew").addEventListener("click", () => {
   input.focus();
 });
 
-let busy = false;
+let busy = false, viaVoice = false;   // viaVoice: this message came from the mic, so Wilo answers out loud
 form.addEventListener("submit", async ev => {
   ev.preventDefault();
   const text = input.value.trim();
@@ -334,13 +335,23 @@ form.addEventListener("submit", async ev => {
   busy = true;
   input.value = "";
   form.querySelector("button[type=submit]").disabled = true;
-  try { await send(text); }
+  const voice = viaVoice;
+  viaVoice = false;
+  try { await send(text, voice); }
   finally { busy = false; form.querySelector("button[type=submit]").disabled = false; }
 });
 // Enter sends; Shift+Enter is a new line.
 input.addEventListener("keydown", ev => {
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); form.requestSubmit(); }
 });
+
+// Wilo reads its reply aloud when you talked to it (#230). Markdown marks are dropped so they aren't read out.
+function say(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]/g, ""));
+  u.lang = navigator.language || "en-US";
+  speechSynthesis.speak(u);
+}
 
 // Mic (#230): tap, talk, and what you said is sent when you stop. The browser's own speech recognition (free;
 // Chrome, Android, recent Safari); the button stays hidden where there's none. Tap again to stop early.
@@ -351,6 +362,8 @@ if (Speech && mic) {
   let rec = null;
   mic.addEventListener("click", () => {
     if (rec) { rec.stop(); return; }
+    if (window.speechSynthesis) speechSynthesis.cancel();   // talking over Wilo stops it
+    say("");                   // iOS only speaks later if speech started inside a tap
     rec = new Speech();
     rec.lang = navigator.language || "en-US";
     rec.interimResults = true;
@@ -366,7 +379,7 @@ if (Speech && mic) {
     rec.onend = () => {
       rec = null;
       mic.classList.remove("listening");
-      if (heard.trim()) form.requestSubmit();
+      if (heard.trim()) { viaVoice = true; form.requestSubmit(); }
     };
     mic.classList.add("listening");
     rec.start();
