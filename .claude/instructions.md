@@ -36,7 +36,7 @@ still matters: it's how Wilo gets better.
 ## How it works now (2026-11-20)
 
 - **Data:** Firestore, `wilo` database, everything per user under `users/{uid}/`: `workouts` (one doc per workout
-  from plan to done, #126), `days` (the Day page), `events` (the Week page, #168), `todos`, `coach/profile`.
+  from plan to done, #126), `days` (the Day page), `events` (the Week page, #168), `todos`, `coach/profile`, `coach/records` (personal records, updated on Finish, #236).
   `assigned` / `completed` are the pre-#126 copies, kept as a backup (#200).
 - **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
   - `wilo/data.py`: read and write the data (CLI: `.venv/bin/python -m wilo.data history bench`).
