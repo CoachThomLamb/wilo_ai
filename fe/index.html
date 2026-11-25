@@ -25,7 +25,7 @@
     time, new PRs (#236), a rating; Done saves the log to the workout doc,
     users/{uid}/workouts/{id}, with status "done"; "Saved ✓" only after
     Firestore confirms, else "Save failed — retry". Keep going saves nothing.
-    ⋯ → Reopen puts a finished workout back in progress. At startup, a
+    Tapping Done ✓ puts a finished workout back in progress. At startup, a
     workout left in progress on an earlier day is saved as done. Only the log, logBase,
     status and timestamps are written: the plan is the coach's (#126).
     A workout logged with no plan gets its own doc on the first save
@@ -335,7 +335,7 @@
   <button class="ghost" id="keepBtn">Keep going</button>
 </div>
 
-<!-- top row: workout name, ⋯ (Today, Reopen, sign out); then the ‹ day › stepper, then the workout, Finish at its end -->
+<!-- top row: workout name, ⋯ (Today, sign out); then the ‹ day › stepper, then the workout, Finish at its end -->
 <header class="bar">
   <div class="sess-l">
     <input id="sessName" class="sess-name-input" value="WILO">
@@ -344,7 +344,6 @@
   <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
   <div class="menu" id="menu" hidden>
     <a href="day.html">Today</a>
-    <button id="reopenBtn" hidden>Reopen workout</button>
     <button id="authBtn" hidden>Sign out</button>
     <div class="ver">v2026-11-19-nav</div>
   </div>
@@ -1010,7 +1009,8 @@
     document.querySelectorAll('#doneFaces button').forEach(x => x.classList.toggle('on', x.dataset.rate === card.rating));
   });
   document.getElementById('keepBtn').addEventListener('click', () => { doneScreen.hidden = true; });
-  document.getElementById('finish').addEventListener('click', () => { if (!state.finished) openCard(); });
+  // Finish opens the card; on a finished workout the button (Done ✓) reopens it instead.
+  document.getElementById('finish').addEventListener('click', () => { if (state.finished) reopen(); else openCard(); });
 
   // "Saved ✓" only after Firestore confirms. On failure the draft stays in
   // this browser, so tapping Done again retries (same doc id).
@@ -1039,14 +1039,14 @@
       .catch(err => console.warn('rating', err));
   });
 
-  // ⋯ → Reopen workout: back to in progress, so Finish (and the card) works again. Records are idempotent.
-  document.getElementById('reopenBtn').addEventListener('click', async () => {
+  // Reopen: back to in progress, so Finish (and the card) works again. Records are idempotent.
+  async function reopen() {
     state.finished = false;
     persist();
     draw();
     try { await saveWorkout('in progress', new Date()); note('Reopened', 'ok'); }
     catch (err) { note('Reopen failed (' + (err.code || err.message || err) + ')', 'err'); }
-  });
+  }
 
   // Auto-close (#237): a workout left in progress on an earlier day is finished as it was, once, at startup,
   // and its sets go into the records. No server job.
@@ -1231,12 +1231,11 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
-    // Finished: the button says so and does nothing. Edits after that save quietly; ⋯ → Reopen to finish again.
+    // Finished: the button says so; tapping it reopens the workout. Edits after Finish save quietly either way.
     const fin = document.getElementById('finish');
-    fin.textContent = state.finished ? 'Done ✓' : 'Finish workout';
+    fin.textContent = state.finished ? 'Done ✓ · tap to reopen' : 'Finish workout';
     fin.classList.toggle('is-done', !!state.finished);
-    fin.disabled = !!state.finished;
-    document.getElementById('reopenBtn').hidden = !state.finished || !state.docId;
+
     const bar = document.getElementById('chatBtn');
     bar.firstElementChild.textContent = state.finished ? 'Done ✓ · tell Wilo how it went' : 'Message Wilo';
     bar.classList.toggle('is-done', !!state.finished);
