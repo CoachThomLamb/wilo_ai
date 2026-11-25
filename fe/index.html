@@ -807,8 +807,9 @@
   // ---- personal records (#236) --------------------------------------
   // A set is a PR unless an earlier set of the same exercise was at least as heavy AND at least as many reps
   // (Thom's rule: best 20x10, then 20x11 and 25x10 are PRs, 20x9 isn't). users/{uid}/coach/records keeps, per
-  // exercise, only the sets nothing beats: one read and one write on Finish. An exercise with a custom field is
-  // tracked per value (left / right separately). First time doing an exercise: records it, no PR.
+  // exercise, only the sets nothing beats: one read and one write on Finish. Left and right are tracked separately
+  // (a custom value of l / left / r / right); other custom values are ignored. A weighted set of over 100 reps is
+  // a typo ("45x703") and skipped. First time doing an exercise: records it, no PR.
   // Same rule as wilo/data.py merge_records (which backfills the doc from history).
   function recordKey(name, custom) {
     const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -829,11 +830,12 @@
     for (const ex of log) {
       if (ex.removed) continue;
       for (const s of ex.sets || []) {
-        const reps = num(s.reps);
-        if (!s.done || !(reps > 0)) continue;
-        const custom = ex.custom_name ? (s.custom || '') : '';
+        const reps = num(s.reps), lbs = num(s.lbs);
+        if (!s.done || !(reps > 0) || (lbs > 0 && reps > 100)) continue;
+        const v = String(s.custom || '').trim().toLowerCase();
+        const custom = !ex.custom_name ? '' : v === 'l' || v === 'left' ? 'left' : v === 'r' || v === 'right' ? 'right' : '';
         const k = recordKey(ex.name, custom);
-        (groups[k] = groups[k] || { name: ex.name || '', custom, timed: !!ex.timed, pts: [] }).pts.push([num(s.lbs), reps]);
+        (groups[k] = groups[k] || { name: ex.name || '', custom, timed: !!ex.timed, pts: [] }).pts.push([lbs, reps]);
       }
     }
     const out = { ...records }, prs = [];

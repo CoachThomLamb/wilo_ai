@@ -650,7 +650,9 @@ def update_profile(db, uid, new, write, now):
 # (Thom's rule: best 20x10, then 20x11 and 25x10 are PRs, 20x9 isn't). Bodyweight (0 lbs) and timed (reps are
 # seconds) work the same way. users/{uid}/coach/records keeps, per exercise, only the sets nothing beats, so it
 # stays small: the tracker reads it once on Finish (fe/index.html mergeRecords, the same rule) and writes it back.
-# An exercise with a custom field is tracked per value (left / right separately). This side only backfills.
+# Left and right are tracked separately (a custom value of l / left / r / right); other custom values are ignored
+# (real data: "r 15 s" vs "r 15s", "puah"). Typos skipped: a weighted set of over 100 reps ("45x703").
+# This side only backfills.
 
 def record_key(name, custom=''):
     """Exercise name (+ custom value), case and spacing ignored."""
@@ -664,6 +666,12 @@ def _num(v):
     except (TypeError, ValueError):
         return 0
     return int(n) if n.is_integer() else n
+
+
+def _side(custom):
+    """'left' / 'right' for a side-like custom value, else ''."""
+    v = str(custom or '').strip().lower()
+    return 'left' if v in ('l', 'left') else 'right' if v in ('r', 'right') else ''
 
 
 def _front(points):
@@ -684,12 +692,12 @@ def merge_records(records, log):
         if ex.get('removed'):
             continue
         for s in ex.get('sets') or []:
-            reps = _num(s.get('reps'))
-            if not s.get('done') or reps <= 0:
+            reps, lbs = _num(s.get('reps')), _num(s.get('lbs'))
+            if not s.get('done') or reps <= 0 or (lbs > 0 and reps > 100):
                 continue
-            custom = (s.get('custom') or '') if ex.get('custom_name') else ''
+            custom = _side(s.get('custom')) if ex.get('custom_name') else ''
             g = groups.setdefault(record_key(ex.get('name'), custom), {'name': ex.get('name', ''), 'custom': custom, 'pts': []})
-            g['pts'].append((_num(s.get('lbs')), reps))
+            g['pts'].append((lbs, reps))
     out, prs = dict(records), []
     for key, g in groups.items():
         old = [(p['lbs'], p['reps']) for p in records.get(key, [])]
