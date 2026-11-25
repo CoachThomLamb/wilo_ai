@@ -883,6 +883,93 @@
   const prLine = p => `🏆 ${p.name}${p.custom ? ' (' + p.custom + ')' : ''}: ` +
     (p.timed ? `${p.lbs ? p.lbs + ' lbs × ' : ''}${p.reps}s` : p.lbs ? `${p.lbs} × ${p.reps}` : `${p.reps} reps`);
 
+  // The log: what you did, as this page shows it. Only this page writes it (#126).
+  function buildLog() {
+    return state.exercises.map(ex => ({
+      exId: ex.exId,
+      name: ex.name,
+      cue: ex.cue || '',
+      note: ex.note || '',
+      custom_name: ex.custom_name || null,
+      timed: ex.timed,
+      swapped: ex.swapped,
+      fallback: ex.fallback || null,
+      removed: !!ex.removed,
+      media: ex.media || [],
+      sets: ex.sets.map(s => ({ lbs: s.lbs, reps: s.reps, done: s.done, custom: s.custom || null }))
+    }));
+  }
+
+  // DD-mmm-HH:MM-slug-rand, e.g. 09-oct-06:30-chest-7qmb
+  function makeDocId(stamp) {
+    const month = stamp.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+    const nameSlug = (state.workoutName || 'workout').slice(0, 5).toLowerCase().replace(/\s+/g, '-');
+    const rand = Math.random().toString(36).slice(2, 6);
+    return `${pad(stamp.getDate())}-${month}-${pad(stamp.getHours())}:${pad(stamp.getMinutes())}-${nameSlug}-${rand}`;
+  }
+
+  // Saves the log to the workout doc and resolves only once Firestore confirms.
+  // Only the log, status and timestamps: the plan is the coach's. A workout
+  // logged with no plan gets its doc on the first save; the id is kept in state
+  // (and the draft), so a retry or a second Finish never duplicates it.
+  // Once finished, it keeps the time it was finished, so a later edit doesn't
+  // make an old workout look like the latest one.
+  async function saveWorkout(status, stamp) {
+    const a = window.__auth;
+    if (!a || !a.currentUser()) throw new Error('not signed in');
+    const iso = stamp.toISOString();
+    const fields = { log: buildLog(), logBase: state.logBase, status, updatedAt: iso };
+    if (status === 'done') fields.finishedAt = state.finishedAt || iso;
+    let create = false;   // this save has to create the doc
+    if (state.docId) {
+      try {
+        await window.__updateDoc(a.userDoc('workouts', state.docId), fields);
+      } catch (err) {
+        if (err.code !== 'not-found') throw err;   // our own unplanned doc whose first save never landed
+        create = true;
+      }
+    } else {
+      state.docId = makeDocId(stamp);
+      persist();
+      create = true;
+    }
+    if (create) {
+      const base = { id: state.workoutId || 'log_' + stamp.getTime(), name: state.workoutName || 'Workout',
+        assignedFor: iso, createdAt: iso, plan: [], diffs: [], exercises: [] };
+      await window.__setDoc(a.userDoc('workouts', state.docId), { ...base, ...fields });
+    }
+    return state.docId;
+  }
+
+  // Save as you go (#68): a couple of seconds after any change, quietly save the
+  // logged sets to the same completed doc Finish uses, so the coach can see them
+  // mid-workout. Only once a set is ticked; failures stay quiet (the draft has it).
+  // After Finish it stays finished, so a later edit doesn't reopen the workout.
+  // Nothing changed since the day was opened or last saved: nothing to save,
+  // so stepping through old workouts doesn't rewrite them.
+  let cloudTimer = null;
+  let savedSig = null;
+  const sig = () => JSON.stringify([state.workoutId, state.workoutName, state.exercises]);
+  function queueCloudSave() {
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(async () => {
+      const a = window.__auth;
+      if (!state.workoutId || !a || !a.currentUser()) return;
+      if (!state.exercises.some(x => x.sets.some(s => s.done))) return;
+      const mark = sig();
+      if (mark === savedSig) return;
+      const stamp = new Date();
+      try {
+        await saveWorkout(state.finished ? 'done' : 'in progress', stamp);
+        savedSig = mark;
+        if (Date.now() < noteUntil) return;
+        savedEl.textContent = 'Synced to WILO ' + stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        savedEl.classList.remove('ok', 'err');
+      } catch (err) { /* offline or signed out: the draft keeps it; Finish retries */ }
+    }, 2000);
+  }
+
+
   // ---- Finish: the summary card (#237) --------------------------------
   // Finish opens the card first: sets done of planned, volume, time taken, new PRs and an optional rating.
   // Done saves (status done, then the records and the rating); Keep going just closes it, so a mis-tap costs
