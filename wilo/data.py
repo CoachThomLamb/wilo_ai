@@ -20,6 +20,7 @@ schema/workout.schema.json. Output is JSON on stdout.
     .venv/bin/python -m wilo.data change <docId> <ops.json|-> [--write]
     .venv/bin/python -m wilo.data history <exercise name> [--limit N]
     .venv/bin/python -m wilo.data names
+    .venv/bin/python -m wilo.data records [--all] [--write]
 
 assign and change are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
 if set, overrides the key path in the config.
@@ -644,6 +645,80 @@ def update_profile(db, uid, new, write, now):
     return {'ok': True, 'path': path, 'changes': changes}
 
 
+# ---- personal records (#236) -------------------------------------------------
+# A set is a PR unless an earlier set of the same exercise was at least as heavy AND at least as many reps
+# (Thom's rule: best 20x10, then 20x11 and 25x10 are PRs, 20x9 isn't). Bodyweight (0 lbs) and timed (reps are
+# seconds) work the same way. users/{uid}/coach/records keeps, per exercise, only the sets nothing beats, so it
+# stays small: the tracker reads it once on Finish (fe/index.html mergeRecords, the same rule) and writes it back.
+# An exercise with a custom field is tracked per value (left / right separately). This side only backfills.
+
+def record_key(name, custom=''):
+    """Exercise name (+ custom value), case and spacing ignored."""
+    norm = lambda s: re.sub(r'\s+', ' ', str(s or '').strip().lower())
+    return f'{norm(name)}|{norm(custom)}'
+
+
+def _num(v):
+    try:
+        n = float(v or 0)
+    except (TypeError, ValueError):
+        return 0
+    return int(n) if n.is_integer() else n
+
+
+def _front(points):
+    """The (lbs, reps) points no other point beats, lightest first."""
+    out = []
+    for p in points:
+        if any(q[0] >= p[0] and q[1] >= p[1] for q in out):
+            continue
+        out = [q for q in out if not (p[0] >= q[0] and p[1] >= q[1])] + [p]
+    return sorted(out)
+
+
+def merge_records(records, log):
+    """Fold one workout's log into the records. Returns (new records, PRs). An exercise done for the first time
+    sets its records but reports no PR (otherwise a new user's first workout is all PRs)."""
+    groups = {}
+    for ex in log:
+        if ex.get('removed'):
+            continue
+        for s in ex.get('sets') or []:
+            reps = _num(s.get('reps'))
+            if not s.get('done') or reps <= 0:
+                continue
+            custom = (s.get('custom') or '') if ex.get('custom_name') else ''
+            g = groups.setdefault(record_key(ex.get('name'), custom), {'name': ex.get('name', ''), 'custom': custom, 'pts': []})
+            g['pts'].append((_num(s.get('lbs')), reps))
+    out, prs = dict(records), []
+    for key, g in groups.items():
+        old = [(p['lbs'], p['reps']) for p in records.get(key, [])]
+        if old:
+            prs += [{'name': g['name'], 'custom': g['custom'], 'lbs': lbs, 'reps': reps} for lbs, reps in _front(g['pts'])
+                    if not any(q[0] >= lbs and q[1] >= reps for q in old)]
+        out[key] = [{'lbs': lbs, 'reps': reps} for lbs, reps in _front(old + g['pts'])]
+    return out, prs
+
+
+def records_from_history(db, uid):
+    """The records doc built from every logged workout, oldest first (one read per workout doc)."""
+    records = {}
+    for w in sorted(_logged(db, uid), key=when):
+        records, _ = merge_records(records, w['log'])
+    return records
+
+
+def backfill_records(db, uids, write, now):
+    """Build users/{uid}/coach/records for each uid. A dry run (counts only) unless write is True."""
+    out = []
+    for uid in uids:
+        records = records_from_history(db, uid)
+        if write and records:
+            collection(db, uid, 'coach').document('records').set({'exercises': records, 'updatedAt': _iso(now)})
+        out.append({'uid': uid, 'exercises': len(records), 'sets': sum(len(v) for v in records.values())})
+    return {'ok': True, 'dryRun': not write, 'users': out}
+
+
 
 
 def main(argv=None):
@@ -664,6 +739,9 @@ def main(argv=None):
     h.add_argument('name', help='exercise name; loose match (case, spacing, punctuation, plurals, word order)')
     h.add_argument('--limit', type=int, default=5)
     sub.add_parser('names')
+    b = sub.add_parser('records', help='backfill users/{uid}/coach/records from workout history (#236)')
+    b.add_argument('--all', action='store_true', help='every user, not just the one in config')
+    b.add_argument('--write', action='store_true', help='save it (default is a dry run)')
     args = p.parse_args(argv)
 
     db, uid, now = connect(), CONFIG['uid'], datetime.now(timezone.utc)  # the command line acts as the user in config
@@ -676,6 +754,9 @@ def main(argv=None):
         out = history(db, uid, args.name, args.limit)
     elif args.cmd == 'names':
         out = names(db, uid)
+    elif args.cmd == 'records':
+        uids = [d.id for d in db.collection('users').list_documents()] if args.all else [uid]
+        out = backfill_records(db, uids, args.write, now)
     elif args.cmd == 'change':
         out = change(db, uid, args.doc_id, read(args.file), args.write, now)
     else:
