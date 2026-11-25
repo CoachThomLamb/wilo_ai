@@ -39,8 +39,9 @@ prove a smaller model coaches as well.
 ## Result
 
 - Modeled on all stored chats: **input per message −48%** (90k → 47k chars), median chat 81k → 24k.
-- Real, Nov 5–17 (4 users, 102 messages): **$0.024 per message, down from $0.055 (−56%)**. Light users are inside
-  the $1–2/month target; a daily user is ~$4/month. Next lever: cache writes (62% of what's left).
+- Real, Nov 5–24 (7 users, 183 messages): **$0.024 per message, down from $0.055 (−56%)**, and it held as usage
+  nearly doubled. Light users are inside the $1–2/month target; a daily user is ~$4/month. Next lever: cache writes
+  (60% of what's left).
 
 ## Lessons
 
