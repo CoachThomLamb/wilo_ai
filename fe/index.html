@@ -46,7 +46,8 @@
 <head>
 <script type="module">
   import "./firebase.js";   // the app, the wilo database and sign-in (fe/firebase.js)
-  import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import { getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  window.__getDoc = getDoc;
   window.__setDoc = setDoc;
   window.__updateDoc = updateDoc;
   window.__onSnapshot = onSnapshot;
@@ -139,6 +140,7 @@
   .done-screen { background: rgba(0,0,0,.92); }
   .done-screen .big { font-size: 64px; line-height: 1; }
   .done-screen .stat { color: var(--text); font-size: 20px; font-weight: 600; }
+  .done-screen .prs { color: var(--text); font-size: 17px; line-height: 1.6; }
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -312,6 +314,7 @@
   <div class="big">💪</div>
   <h1>Workout complete</h1>
   <p class="stat" id="doneStat"></p>
+  <div class="prs" id="donePRs" hidden></div>
   <p>Saved. Your coach will see it next time you talk.</p>
   <button class="finish" id="doneBtn">I'm awesome</button>
   <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
@@ -801,6 +804,63 @@
 
   const pad = n => String(n).padStart(2, '0');
 
+  // ---- personal records (#236) --------------------------------------
+  // A set is a PR unless an earlier set of the same exercise was at least as heavy AND at least as many reps
+  // (Thom's rule: best 20x10, then 20x11 and 25x10 are PRs, 20x9 isn't). users/{uid}/coach/records keeps, per
+  // exercise, only the sets nothing beats: one read and one write on Finish. Left and right are tracked separately
+  // (a custom value of l / left / r / right); other custom values are ignored. A weighted set of over 100 reps is
+  // a typo ("45x703") and skipped. First time doing an exercise: records it, no PR.
+  // Same rule as wilo/data.py merge_records (which backfills the doc from history).
+  function recordKey(name, custom) {
+    const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+    return norm(name) + '|' + norm(custom);
+  }
+  function mergeRecords(records, log) {
+    const num = v => (isFinite(+v) ? +v : 0);
+    const beats = (a, b) => a[0] >= b[0] && a[1] >= b[1];
+    const front = pts => {
+      let out = [];
+      for (const p of pts) {
+        if (out.some(q => beats(q, p))) continue;
+        out = out.filter(q => !beats(p, q)).concat([p]);
+      }
+      return out.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    };
+    const groups = {};
+    for (const ex of log) {
+      if (ex.removed) continue;
+      for (const s of ex.sets || []) {
+        const reps = num(s.reps), lbs = num(s.lbs);
+        if (!s.done || !(reps > 0) || (lbs > 0 && reps > 100)) continue;
+        const v = String(s.custom || '').trim().toLowerCase();
+        const custom = !ex.custom_name ? '' : v === 'l' || v === 'left' ? 'left' : v === 'r' || v === 'right' ? 'right' : '';
+        const k = recordKey(ex.name, custom);
+        (groups[k] = groups[k] || { name: ex.name || '', custom, timed: !!ex.timed, pts: [] }).pts.push([lbs, reps]);
+      }
+    }
+    const out = { ...records }, prs = [];
+    for (const [k, g] of Object.entries(groups)) {
+      const old = (records[k] || []).map(p => [p.lbs, p.reps]);
+      if (old.length) for (const [lbs, reps] of front(g.pts))
+        if (!old.some(q => beats(q, [lbs, reps]))) prs.push({ name: g.name, custom: g.custom, timed: g.timed, lbs, reps });
+      out[k] = front(old.concat(g.pts)).map(([lbs, reps]) => ({ lbs, reps }));
+    }
+    return { records: out, prs };
+  }
+  // After a confirmed Finish: fold this workout into the records and return its PRs. Quiet on failure.
+  async function updateRecords() {
+    const a = window.__auth;
+    try {
+      const ref = a.userDoc('coach', 'records');
+      const snap = await window.__getDoc(ref);
+      const { records, prs } = mergeRecords((snap.exists() && snap.data().exercises) || {}, buildLog());
+      await window.__setDoc(ref, { exercises: records, updatedAt: new Date().toISOString() });
+      return prs;
+    } catch (err) { console.warn('records', err); return []; }
+  }
+  const prLine = p => `🏆 ${p.name}${p.custom ? ' (' + p.custom + ')' : ''}: ` +
+    (p.timed ? `${p.lbs ? p.lbs + ' lbs × ' : ''}${p.reps}s` : p.lbs ? `${p.lbs} × ${p.reps}` : `${p.reps} reps`);
+
   // The log: what you did, as this page shows it. Only this page writes it (#126).
   function buildLog() {
     return state.exercises.map(ex => ({
@@ -894,7 +954,15 @@
     const done = sets.filter(s => s.done).length;
     document.getElementById('doneStat').textContent =
       `${done} of ${sets.length} sets · ${state.workoutName || 'workout'}`;
+    const prsEl = document.getElementById('donePRs');
+    prsEl.hidden = true;
     doneScreen.hidden = false;
+    updateRecords().then(prs => {   // shows up a moment later, once the records doc is read
+      if (!prs.length) return;
+      prsEl.textContent = '';
+      prsEl.append(...prs.map(p => Object.assign(document.createElement('div'), { textContent: prLine(p) })));
+      prsEl.hidden = false;
+    });
   }
   document.getElementById('doneBtn').addEventListener('click', () => { doneScreen.hidden = true; });
 

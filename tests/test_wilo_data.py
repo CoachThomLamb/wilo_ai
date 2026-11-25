@@ -3,7 +3,9 @@
     .venv/bin/python -m unittest discover tests
 """
 
+import json
 import unittest
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from wilo import data as wilo_data
@@ -593,6 +595,34 @@ class ProfileTest(unittest.TestCase):
         self.edit(write=True, uid=OTHER, preferences='theirs')
         self.assertEqual(wilo_data.profile(self.db, UID)['profile']['preferences'], 'mine')
         self.assertEqual(wilo_data.profile(self.db, OTHER)['profile']['preferences'], 'theirs')
+
+
+class RecordsTest(unittest.TestCase):
+    """Personal records (#236). The shared cases also run against the tracker (tests/fe/records_test.mjs)."""
+    PATH = f'users/{UID}/coach/records'
+
+    def test_shared_cases(self):
+        cases = json.loads((Path(__file__).parent / 'fixtures' / 'records_cases.json').read_text())['cases']
+        for c in cases:
+            with self.subTest(c['name']):
+                records, prs = wilo_data.merge_records(c['records'], c['log'])
+                self.assertEqual([[p['lbs'], p['reps']] for p in prs], c['prs'])
+                for key, pts in c['front'].items():
+                    self.assertEqual([[p['lbs'], p['reps']] for p in records[key]], pts)
+
+    def test_backfill_folds_history_oldest_first_and_dry_run_writes_nothing(self):
+        db = FakeDB({f'{WORKOUTS}/a': done('Bench', [{'lbs': 20, 'reps': 10, 'done': True}], '2026-10-01T10:00:00Z'),
+                     f'{WORKOUTS}/b': done('Bench', [{'lbs': 25, 'reps': 8, 'done': True}], '2026-10-03T10:00:00Z')})
+        self.assertEqual(wilo_data.backfill_records(db, [UID], False, NOW),
+                         {'ok': True, 'dryRun': True, 'users': [{'uid': UID, 'exercises': 1, 'sets': 2}]})
+        self.assertNotIn(self.PATH, db.store)
+        wilo_data.backfill_records(db, [UID], True, NOW)
+        self.assertEqual(db.store[self.PATH]['exercises'], {'bench|': [{'lbs': 20, 'reps': 10}, {'lbs': 25, 'reps': 8}]})
+
+    def test_user_with_no_history_gets_no_doc(self):
+        db = FakeDB()
+        wilo_data.backfill_records(db, [UID], True, NOW)
+        self.assertNotIn(self.PATH, db.store)
 
 
 class ConnectTest(unittest.TestCase):

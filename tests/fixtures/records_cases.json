@@ -1,0 +1,378 @@
+{
+ "_doc": "Personal-record cases (#236), run by tests/fe/records_test.mjs and tests/test_wilo_data.py so the tracker and the backfill agree.",
+ "cases": [
+  {
+   "name": "first time: recorded, no PR",
+   "records": {},
+   "log": [
+    {
+     "name": "Bench",
+     "sets": [
+      {
+       "lbs": 20,
+       "reps": 10,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [],
+   "front": {
+    "bench|": [
+     [
+      20,
+      10
+     ]
+    ]
+   }
+  },
+  {
+   "name": "Thom's rule: more reps at the same weight, more weight at the same reps",
+   "records": {
+    "bench|": [
+     {
+      "lbs": 20,
+      "reps": 10
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "bench ",
+     "sets": [
+      {
+       "lbs": 20,
+       "reps": 11,
+       "done": true
+      },
+      {
+       "lbs": 25,
+       "reps": 10,
+       "done": true
+      },
+      {
+       "lbs": 20,
+       "reps": 9,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [
+    [
+     20,
+     11
+    ],
+    [
+     25,
+     10
+    ]
+   ],
+   "front": {
+    "bench|": [
+     [
+      20,
+      11
+     ],
+     [
+      25,
+      10
+     ]
+    ]
+   }
+  },
+  {
+   "name": "equal or worse is not a PR; undone sets don't count",
+   "records": {
+    "bench|": [
+     {
+      "lbs": 20,
+      "reps": 10
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Bench",
+     "sets": [
+      {
+       "lbs": 20,
+       "reps": 10,
+       "done": true
+      },
+      {
+       "lbs": 99,
+       "reps": 99,
+       "done": false
+      }
+     ]
+    }
+   ],
+   "prs": [],
+   "front": {
+    "bench|": [
+     [
+      20,
+      10
+     ]
+    ]
+   }
+  },
+  {
+   "name": "within one workout only the best sets are reported",
+   "records": {
+    "bench|": [
+     {
+      "lbs": 20,
+      "reps": 5
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Bench",
+     "sets": [
+      {
+       "lbs": 25,
+       "reps": 5,
+       "done": true
+      },
+      {
+       "lbs": 25,
+       "reps": 6,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [
+    [
+     25,
+     6
+    ]
+   ],
+   "front": {
+    "bench|": [
+     [
+      25,
+      6
+     ]
+    ]
+   }
+  },
+  {
+   "name": "bodyweight: blank lbs is 0, more reps is a PR",
+   "records": {
+    "pull up|": [
+     {
+      "lbs": 0,
+      "reps": 8
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Pull up",
+     "sets": [
+      {
+       "lbs": "",
+       "reps": 9,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [
+    [
+     0,
+     9
+    ]
+   ],
+   "front": {
+    "pull up|": [
+     [
+      0,
+      9
+     ]
+    ]
+   }
+  },
+  {
+   "name": "custom field (Side): left and right are separate",
+   "records": {
+    "meadows row|left": [
+     {
+      "lbs": 50,
+      "reps": 10
+     }
+    ],
+    "meadows row|right": [
+     {
+      "lbs": 50,
+      "reps": 10
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Meadows row",
+     "custom_name": "Side",
+     "sets": [
+      {
+       "lbs": 55,
+       "reps": 10,
+       "done": true,
+       "custom": "Left"
+      },
+      {
+       "lbs": 50,
+       "reps": 10,
+       "done": true,
+       "custom": "Right"
+      }
+     ]
+    }
+   ],
+   "prs": [
+    [
+     55,
+     10
+    ]
+   ],
+   "front": {
+    "meadows row|left": [
+     [
+      55,
+      10
+     ]
+    ],
+    "meadows row|right": [
+     [
+      50,
+      10
+     ]
+    ]
+   }
+  },
+  {
+   "name": "other custom values are ignored; L / R are sides",
+   "records": {},
+   "log": [
+    {
+     "name": "Lunge",
+     "custom_name": "Note",
+     "sets": [
+      {
+       "lbs": 20,
+       "reps": 6,
+       "done": true,
+       "custom": "r 15 s"
+      },
+      {
+       "lbs": 20,
+       "reps": 8,
+       "done": true,
+       "custom": "R"
+      }
+     ]
+    }
+   ],
+   "prs": [],
+   "front": {
+    "lunge|": [
+     [
+      20,
+      6
+     ]
+    ],
+    "lunge|right": [
+     [
+      20,
+      8
+     ]
+    ]
+   }
+  },
+  {
+   "name": "typo: weighted set of over 100 reps is skipped; bodyweight or timed is fine",
+   "records": {
+    "barbell curls|": [
+     {
+      "lbs": 65,
+      "reps": 8
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Barbell curls",
+     "sets": [
+      {
+       "lbs": 45,
+       "reps": 703,
+       "done": true
+      }
+     ]
+    },
+    {
+     "name": "Treadmill",
+     "sets": [
+      {
+       "lbs": 0,
+       "reps": 600,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [],
+   "front": {
+    "barbell curls|": [
+     [
+      65,
+      8
+     ]
+    ],
+    "treadmill|": [
+     [
+      0,
+      600
+     ]
+    ]
+   }
+  },
+  {
+   "name": "removed exercises and other records are left alone",
+   "records": {
+    "squat|": [
+     {
+      "lbs": 100,
+      "reps": 5
+     }
+    ]
+   },
+   "log": [
+    {
+     "name": "Squat",
+     "removed": true,
+     "sets": [
+      {
+       "lbs": 200,
+       "reps": 5,
+       "done": true
+      }
+     ]
+    }
+   ],
+   "prs": [],
+   "front": {
+    "squat|": [
+     [
+      100,
+      5
+     ]
+    ]
+   }
+  }
+ ]
+}
