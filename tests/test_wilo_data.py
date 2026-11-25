@@ -152,6 +152,18 @@ class AssignTest(unittest.TestCase):
         self.assertFalse(again['ok'])
         self.assertIn('already exists', again['errors'][0])
 
+    def test_custom_values_need_a_column_name(self):
+        """The tracker hides a custom column with no name, so R/L values without custom_name are invisible (#232)."""
+        sides = [{'reps': 8, 'done': False, 'custom': 'R'}, {'reps': 8, 'done': False, 'custom': 'L'}]
+        db = FakeDB()
+        out = wilo_data.assign(db, UID, {'name': 'x', 'exercises': [{'name': 'Split squats', 'sets': sides}]},
+                               write=True, now=NOW)
+        self.assertFalse(out['ok'])
+        self.assertIn('Split squats: sets have custom values (L, R) but no custom_name', out['errors'][0])
+        self.assertEqual(db.store, {})
+        named = {'name': 'x', 'exercises': [{'name': 'Split squats', 'custom_name': 'Side', 'sets': sides}]}
+        self.assertTrue(wilo_data.assign(db, UID, named, write=True, now=NOW)['ok'])
+
 
 LEGS = {'name': 'legs', 'assignedFor': '2026-10-08', 'exercises': [
     {'name': 'squat', 'cue': 'deep', 'sets': [{'lbs': 135, 'reps': 5, 'done': False}] * 3},
@@ -215,6 +227,17 @@ class DiffTest(unittest.TestCase):
         self.db.store[self.path] = {**before, 'status': 'done'}
         self.assertIn('is done', self.change([{'op': 'remove', 'exId': 'x1'}])['errors'][0])
         self.assertFalse(wilo_data.change(self.db, UID, 'nope', [{'op': 'remove', 'exId': 'x1'}], True, NOW)['ok'])
+
+    def test_custom_values_need_a_column_name_only_on_what_the_diff_touches(self):
+        sides = [{'reps': 8, 'done': False, 'custom': 'R'}, {'reps': 8, 'done': False, 'custom': 'L'}]
+        out = self.change([{'op': 'set', 'exId': 'x2', 'fields': {'sets': sides}}])
+        self.assertFalse(out['ok'])
+        self.assertIn('x2 leg curl: sets have custom values', out['errors'][0])
+        self.assertTrue(self.change([{'op': 'set', 'exId': 'x2', 'fields': {'custom_name': 'Side', 'sets': sides}}])['ok'])
+        # An older plan with an unnamed column doesn't block changes to other exercises.
+        doc = self.db.store[self.path]
+        doc['exercises'][2] = {**doc['exercises'][2], 'sets': sides}
+        self.assertTrue(self.change([{'op': 'remove', 'exId': 'x1'}])['ok'])
 
 
 class ViewTest(unittest.TestCase):
@@ -329,7 +352,7 @@ class ShortAnswersTest(unittest.TestCase):
     def test_summary_lists_done_sets_by_line(self):
         out = wilo_data.summary(self.db, UID, '2026-11-05', 14).splitlines()
         self.assertEqual(out[0], '2026-11-04 legs: Calf raises 2×10@60 | Leg press 10@90 10@180 10@270 (note: knee ok)'
-                                 ' | crane-plane 6 R | not done: Treadmill')
+                                 ' | crane-plane [Side] 6 R | not done: Treadmill')
         self.assertEqual(out[1], 'planned: 2026-11-06 chest (3 exercises)')
         self.assertEqual(len(out), 2, 'older than 14 days is left out')
 
@@ -342,7 +365,7 @@ class ShortAnswersTest(unittest.TestCase):
             'chest (docId next, 2026-11-06, planned)',
             'x1 Treadmill: plan 300s',
             'x2 Leg press: plan 10@90 3×10@200',
-            'x3 crane-plane: plan 6 R 6 L'])
+            'x3 crane-plane [Side]: plan 6 R 6 L'])
 
     def test_current_prefers_in_progress_and_matches_the_log_by_exid(self):
         plan, log = real_shape()
@@ -353,7 +376,7 @@ class ShortAnswersTest(unittest.TestCase):
             'legs again (docId now, 2026-11-01, in progress)',
             'x1 Treadmill: plan 300s | done none',            # the plan's timed wins over the log's
             'x2 Leg press: plan 10@90 3×10@200 | done 10@90 10@180 10@270 (note: knee ok)',
-            'x3 crane-plane: plan 6 R 6 L | removed by the user',
+            'x3 crane-plane [Side]: plan 6 R 6 L | removed by the user',
             'u-a1 Calf raises (added by the user): done 2×10@60'])
 
     def test_current_with_nothing_today_says_whats_next(self):
