@@ -43,6 +43,20 @@ prove a smaller model coaches as well.
   nearly doubled. Light users are inside the $1–2/month target; a daily user is ~$4/month. Next lever: cache writes
   (60% of what's left).
 
+## Next: the cache itself (modeled, not shipped)
+
+Cache writes are now the biggest cost. Each coach call caches the new part of the chat for 1 hour, and a 1-hour write
+costs 2× the input price (a 5-minute write 1.25×; a read 0.05×). Per message, with **P** = tokens already cached,
+**N** = new tokens and **g** = minutes since the last message ($ per million tokens, Sonnet 5.5):
+
+- 1-hour cache: `4·N + 0.10·P`
+- 5-minute cache: `2.5·N + 0.10·P` if g ≤ 5, else `2.5·(P + N)` (the whole chat is written again)
+- 5-minute cache + keep-alive: `2.5·N + 0.10·P + k·0.10·P`, with k ≈ g ÷ 4.5 pings while the user rests
+
+Replayed on the real usage (42 chats, 183 messages): the median gap between messages is 42 seconds, but 25 of 141 gaps
+are 5–60 minutes (rests, warm-ups). A 5-minute cache alone saves nothing: those rewrites eat the savings. A 5-minute
+cache plus a keep-alive ping during rests: **$0.0211 → $0.0168 per message (−20%)**.
+
 ## Lessons
 
 - Measure first, and look at *what the model is asking*, not only at what it costs.
