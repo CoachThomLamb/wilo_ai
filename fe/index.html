@@ -21,9 +21,12 @@
     variant; swap again to restore. Logged values on the original survive
     a swap round-trip (captured by reference).
   - Persistence: draft autosaves to localStorage ("Draft saved"). Finish
-    saves the log to the workout doc, users/{uid}/workouts/{id}, with
-    status "done"; "Saved ✓" and a "Workout complete" screen only after
-    Firestore confirms, else "Save failed — retry". Only the log, logBase,
+    (at the end of the workout) opens a summary card (#237): sets, volume,
+    time, new PRs (#236), a rating; Done saves the log to the workout doc,
+    users/{uid}/workouts/{id}, with status "done"; "Saved ✓" only after
+    Firestore confirms, else "Save failed — retry". Keep going saves nothing.
+    Tapping Done ✓ puts a finished workout back in progress. At startup, a
+    workout left in progress on an earlier day is saved as done. Only the log, logBase,
     status and timestamps are written: the plan is the coach's (#126).
     A workout logged with no plan gets its own doc on the first save
     (id kept per workout, so retries never duplicate).
@@ -141,6 +144,13 @@
   .done-screen .big { font-size: 64px; line-height: 1; }
   .done-screen .stat { color: var(--text); font-size: 20px; font-weight: 600; }
   .done-screen .prs { color: var(--text); font-size: 17px; line-height: 1.6; }
+  .done-screen .faces { display: flex; gap: 14px; }
+  .done-screen .faces button { font-size: 34px; background: var(--field); border: 2px solid transparent; border-radius: 16px; padding: 6px 12px; }
+  .done-screen .faces button.on { border-color: var(--accent); }
+  /* Finish lives at the end of the workout (#237) */
+  .finish-wrap { padding: 8px 16px 24px; }
+  .finish-wrap[hidden] { display: none; }
+  .finish-wrap .finish { width: 100%; padding: 14px; font-size: 18px; }
   /* scrolling exercise list */
   .list { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 
@@ -310,23 +320,27 @@
   <button class="finish" id="gateBtn" hidden>Sign in with Google</button>
 </div>
 
+<!-- Finish summary card (#237): what you did, new PRs (#236), how it felt; Done saves, Keep going doesn't -->
 <div class="gate done-screen" id="doneScreen" hidden>
   <div class="big">💪</div>
-  <h1>Workout complete</h1>
+  <h1>Finish workout?</h1>
   <p class="stat" id="doneStat"></p>
+  <p id="doneMore"></p>
   <div class="prs" id="donePRs" hidden></div>
-  <p>Saved. Your coach will see it next time you talk.</p>
-  <button class="finish" id="doneBtn">I'm awesome</button>
-  <a class="ghost" href="day.html" style="text-decoration:none">Back to Today</a>
+  <p>How did it feel?</p>
+  <div class="faces" id="doneFaces">
+    <button data-rate="bad" aria-label="Bad">😞</button><button data-rate="good" aria-label="Good">🙂</button><button data-rate="great" aria-label="Great">🤩</button>
+  </div>
+  <button class="finish" id="doneBtn">Done</button>
+  <button class="ghost" id="keepBtn">Keep going</button>
 </div>
 
-<!-- top row: workout name, Finish, ⋯ (Today, sign out); then the ‹ day › stepper, then the workout -->
+<!-- top row: workout name, ⋯ (Today, sign out); then the ‹ day › stepper, then the workout, Finish at its end -->
 <header class="bar">
   <div class="sess-l">
     <input id="sessName" class="sess-name-input" value="WILO">
     <p class="saved" id="saved">Not saved yet</p>
   </div>
-  <button class="finish" id="finish">Finish</button>
   <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">&middot;&middot;&middot;</button>
   <div class="menu" id="menu" hidden>
     <a href="day.html">Today</a>
@@ -341,7 +355,7 @@
   <button class="tl-step" id="tlNext" aria-label="Later workout">&rsaquo;</button>
 </nav>
 
-<div class="list" id="list"></div>
+<div class="list" id="list"><div class="finish-wrap" id="finishWrap"><button class="finish" id="finish">Finish workout</button></div></div>
 
 <button class="chat-btn" id="chatBtn"><span>Message Wilo</span></button>
 
@@ -401,6 +415,7 @@
   function loadWorkout(w) {
     if (!w || !w.docId) throw new Error('invalid workout');
     loadedWorkout = w;
+    if (w.docId !== state.docId) state.startedAt = null;   // another workout: its own clock
     state.docId = w.docId;
     state.finished = w.status === 'done';
     state.finishedAt = state.finished ? w.finishedAt || null : null;
@@ -459,7 +474,7 @@
 
   // Exercise videos (#152). media.demos: exercise name -> {key, type, url} (or null: none), asked once per name.
   const media = { coach: false, demos: {}, asked: false };
-  const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, exercises: [] };
+  const state = { docId: null, logBase: 0, workoutId: null, workoutName: '', finished: false, finishedAt: null, startedAt: null, exercises: [] };
 
   // The workout on screen and where you are in it, sent with each coach chat message (chat.js → wilo/chat.py
   // screen_line), so the coach knows which workout you mean. "Next up" is the first set not ticked. null with
@@ -475,6 +490,7 @@
   };
 
   const list = document.getElementById('list');
+  const finishWrap = document.getElementById('finishWrap');   // drawDraft puts it back at the end of the list
 
   // Draws the workout in the tracker: whichever day is on screen is the one you log.
   function draw() {
@@ -528,6 +544,8 @@
     wrap.className = 'add-ex-wrap';
     wrap.innerHTML = '<button class="add-ex" id="addEx">+ Add Exercise</button>';
     list.appendChild(wrap);
+    finishWrap.hidden = !state.exercises.some(x => !x.removed);
+    list.appendChild(finishWrap);
     sync();
     showDemos();
   }
@@ -651,6 +669,7 @@
       if (!ex) throw new Error('no exercise for id ' + id);
       const s = ex.sets[i];
       s.done = !s.done;
+      if (s.done && !state.startedAt) state.startedAt = Date.now();   // for "time taken" on the summary card
       chk.closest('tr').classList.toggle('done', s.done);
       return sync();
     }
@@ -793,6 +812,7 @@
       state.logBase = saved.state.logBase || 0;
       state.finished = !!saved.state.finished;
       state.finishedAt = saved.state.finishedAt || null;
+      state.startedAt = saved.state.startedAt || null;
       if (state.workoutName) document.getElementById('sessName').value = state.workoutName;
       const t = new Date(saved.savedAt).toLocaleString([], {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -848,15 +868,16 @@
     return { records: out, prs };
   }
   // After a confirmed Finish: fold this workout into the records and return its PRs. Quiet on failure.
-  async function updateRecords() {
-    const a = window.__auth;
+  // The records doc ({} if none yet) and saving it back. Both quiet on failure: records never block a save.
+  async function loadRecords() {
     try {
-      const ref = a.userDoc('coach', 'records');
-      const snap = await window.__getDoc(ref);
-      const { records, prs } = mergeRecords((snap.exists() && snap.data().exercises) || {}, buildLog());
-      await window.__setDoc(ref, { exercises: records, updatedAt: new Date().toISOString() });
-      return prs;
-    } catch (err) { console.warn('records', err); return []; }
+      const snap = await window.__getDoc(window.__auth.userDoc('coach', 'records'));
+      return (snap.exists() && snap.data().exercises) || {};
+    } catch (err) { console.warn('records', err); return null; }
+  }
+  async function saveRecords(records) {
+    try { await window.__setDoc(window.__auth.userDoc('coach', 'records'), { exercises: records, updatedAt: new Date().toISOString() }); }
+    catch (err) { console.warn('records', err); }
   }
   const prLine = p => `🏆 ${p.name}${p.custom ? ' (' + p.custom + ')' : ''}: ` +
     (p.timed ? `${p.lbs ? p.lbs + ' lbs × ' : ''}${p.reps}s` : p.lbs ? `${p.lbs} × ${p.reps}` : `${p.reps} reps`);
@@ -947,28 +968,53 @@
     }, 2000);
   }
 
-  // Celebrates a confirmed save, with sets done vs. planned (the MVP metric).
+
+  // ---- Finish: the summary card (#237) --------------------------------
+  // Finish opens the card first: sets done of planned, volume, time taken, new PRs and an optional rating.
+  // Done saves (status done, then the records and the rating); Keep going just closes it, so a mis-tap costs
+  // nothing. A finished workout stays editable (edits save quietly) and can be reopened from the ⋯ menu.
   const doneScreen = document.getElementById('doneScreen');
-  function showDone() {
-    const sets = state.exercises.filter(x => !x.removed).flatMap(x => x.sets);
-    const done = sets.filter(s => s.done).length;
-    document.getElementById('doneStat').textContent =
-      `${done} of ${sets.length} sets · ${state.workoutName || 'workout'}`;
+  const card = { records: null, rating: null };
+  function workoutStats() {
+    const exs = state.exercises.filter(x => !x.removed);
+    const sets = exs.flatMap(x => x.sets);
+    const volume = exs.filter(x => !x.timed).flatMap(x => x.sets.filter(s => s.done))
+      .reduce((n, s) => n + (+s.lbs || 0) * (+s.reps || 0), 0);
+    const mins = state.startedAt ? Math.round((Date.now() - state.startedAt) / 60000) : null;
+    return { done: sets.filter(s => s.done).length, planned: sets.length, volume, mins };
+  }
+  async function openCard() {
+    const st = workoutStats();
+    document.getElementById('doneStat').textContent = `${st.done} of ${st.planned} sets · ${state.workoutName || 'workout'}`;
+    const more = [];
+    if (st.volume) more.push(`${Math.round(st.volume).toLocaleString()} lbs lifted`);
+    if (st.mins != null && st.mins < 600) more.push(st.mins >= 60 ? `${Math.floor(st.mins / 60)} h ${st.mins % 60} min` : `${st.mins} min`);
+    document.getElementById('doneMore').textContent = more.join(' · ');
+    card.rating = null;
+    document.querySelectorAll('#doneFaces button').forEach(b => b.classList.remove('on'));
     const prsEl = document.getElementById('donePRs');
     prsEl.hidden = true;
     doneScreen.hidden = false;
-    updateRecords().then(prs => {   // shows up a moment later, once the records doc is read
-      if (!prs.length) return;
-      prsEl.textContent = '';
-      prsEl.append(...prs.map(p => Object.assign(document.createElement('div'), { textContent: prLine(p) })));
-      prsEl.hidden = false;
-    });
+    card.records = await loadRecords();   // the PRs show a moment later
+    if (!card.records || doneScreen.hidden) return;
+    const { prs } = mergeRecords(card.records, buildLog());
+    prsEl.textContent = '';
+    prsEl.append(...prs.map(p => Object.assign(document.createElement('div'), { textContent: prLine(p) })));
+    prsEl.hidden = !prs.length;
   }
-  document.getElementById('doneBtn').addEventListener('click', () => { doneScreen.hidden = true; });
+  document.getElementById('doneFaces').addEventListener('click', e => {
+    const b = e.target.closest('[data-rate]');
+    if (!b) return;
+    card.rating = card.rating === b.dataset.rate ? null : b.dataset.rate;   // tap again to clear
+    document.querySelectorAll('#doneFaces button').forEach(x => x.classList.toggle('on', x.dataset.rate === card.rating));
+  });
+  document.getElementById('keepBtn').addEventListener('click', () => { doneScreen.hidden = true; });
+  // Finish opens the card; on a finished workout the button (Done ✓) reopens it instead.
+  document.getElementById('finish').addEventListener('click', () => { if (state.finished) reopen(); else openCard(); });
 
   // "Saved ✓" only after Firestore confirms. On failure the draft stays in
-  // this browser, so tapping Finish again retries (same doc id).
-  document.getElementById('finish').addEventListener('click', async () => {
+  // this browser, so tapping Done again retries (same doc id).
+  document.getElementById('doneBtn').addEventListener('click', async () => {
     persist();
     clearTimeout(cloudTimer);   // this save replaces any pending quiet one
     const stamp = new Date();
@@ -978,15 +1024,48 @@
       state.finished = true;
       state.finishedAt = state.finishedAt || stamp.toISOString();
       persist();
+      doneScreen.hidden = true;
       draw();   // it's on the done side of the timeline now
       const t = stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      note('Saved ✓ ' + t, 'ok');
-      showDone();
+      note('Saved ✓ ' + t + ' · your coach will see it', 'ok');
     } catch (err) {
-      if (err && err.message === 'not signed in') note('Not signed in — sign in, then tap Finish again', 'err');
-      else note('Save failed (' + (err.code || err.message || err) + ') — tap Finish to retry', 'err');
+      if (err && err.message === 'not signed in') note('Not signed in — sign in, then tap Done again', 'err');
+      else note('Save failed (' + (err.code || err.message || err) + ') — tap Done to retry', 'err');
+      return;
     }
+    const records = card.records || await loadRecords();
+    if (records) await saveRecords(mergeRecords(records, buildLog()).records);
+    if (card.rating) window.__updateDoc(window.__auth.userDoc('workouts', state.docId), { rating: card.rating })
+      .catch(err => console.warn('rating', err));
   });
+
+  // Reopen: back to in progress, so Finish (and the card) works again. Records are idempotent.
+  async function reopen() {
+    state.finished = false;
+    persist();
+    draw();
+    try { await saveWorkout('in progress', new Date()); note('Reopened', 'ok'); }
+    catch (err) { note('Reopen failed (' + (err.code || err.message || err) + ')', 'err'); }
+  }
+
+  // Auto-close (#237): a workout left in progress on an earlier day is finished as it was, once, at startup,
+  // and its sets go into the records. No server job.
+  async function closeStale(workouts) {
+    const today = dayOf(new Date().toISOString());
+    const stale = workouts.filter(w => w.doc.status === 'in progress' && dayOf(w.doc.updatedAt || w.doc.assignedFor) < today
+      && (w.doc.log || []).some(x => (x.sets || []).some(s => s.done)));
+    if (!stale.length) return;
+    let records = await loadRecords();
+    for (const w of stale) {
+      const at = w.doc.updatedAt || new Date().toISOString();
+      try { await window.__updateDoc(window.__auth.userDoc('workouts', w.docId), { status: 'done', finishedAt: at }); }
+      catch (err) { console.warn('auto-close', err); continue; }
+      if (records) records = mergeRecords(records, w.doc.log).records;
+      if (w.docId === state.docId) { state.finished = true; state.finishedAt = at; persist(); }
+    }
+    if (records) await saveRecords(records);
+    note(stale.length === 1 ? 'Your last workout was saved as done' : `${stale.length} unfinished workouts were saved as done`, 'ok');
+  }
 
   // ---- timeline: step through the stack -------------------------------
   // Every workout by day, from users/{uid}/workouts: done, or planned / in
@@ -1088,6 +1167,7 @@
         window.dispatchEvent(new Event('wilo-workout-in'));
       }
     }
+    if (!firstSnap) closeStale(fetched.workouts).catch(err => console.warn('auto-close', err));
     seenDocs = new Set(fetched.workouts.map(w => w.docId));
     if (redraw || !firstSnap) draw(); else drawNav();
     firstSnap = true;
@@ -1151,11 +1231,11 @@
     const logged = state.exercises.some(x => x.sets.some(x => x.done));
     document.getElementById('tlWhat').textContent =
       state.finished ? 'Done' : logged ? 'In progress' : s && s.kind === 'plan' ? 'Planned' : '';
-    // Finished: the button says so and does nothing. Edits after that save quietly.
+    // Finished: the button says so; tapping it reopens the workout. Edits after Finish save quietly either way.
     const fin = document.getElementById('finish');
-    fin.textContent = state.finished ? 'Done ✓' : 'Finish';
+    fin.textContent = state.finished ? 'Done ✓ · tap to reopen' : 'Finish workout';
     fin.classList.toggle('is-done', !!state.finished);
-    fin.disabled = !!state.finished;
+
     const bar = document.getElementById('chatBtn');
     bar.firstElementChild.textContent = state.finished ? 'Done ✓ · tell Wilo how it went' : 'Message Wilo';
     bar.classList.toggle('is-done', !!state.finished);

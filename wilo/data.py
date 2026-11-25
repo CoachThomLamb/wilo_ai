@@ -225,7 +225,7 @@ def slim(value, drop=('instanceId', 'fallback')):
 def view(w):
     """A workout as the coach reads it in a list: the plan as it is now (unless done) and the log (once something
     is logged), trimmed. Not the original plan, the diffs or the counters: get_workout has the whole doc."""
-    out = {k: w[k] for k in ('docId', 'name', 'status', 'assignedFor', 'finishedAt') if w.get(k)}
+    out = {k: w[k] for k in ('docId', 'name', 'status', 'assignedFor', 'finishedAt', 'rating') if w.get(k)}
     out['date'] = str(w.get('assignedFor') or '')[:10]
     if w.get('status') != 'done':
         out['exercises'] = slim(w.get('exercises', []))
