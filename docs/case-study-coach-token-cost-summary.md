@@ -2,6 +2,8 @@
 
 *Thom Lamb, WILO (hiwilo.com). Deep dive with all the numbers: `case-study-coach-token-cost.md`.*
 
+While building Wilo I wanted people to try it, but as a bootstrapped business I couldn't just share it with anyone, because every message costs tokens. So my first problem was getting the token cost as low as possible while making sure the harness still gave people the best possible experience. Here's what I found after 6 weeks of real-world use.
+
 ## The problem
 
 WILO's coach is a Claude agent inside a workout tracker. It reads and writes each user's training data through tools
