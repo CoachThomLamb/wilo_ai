@@ -152,9 +152,9 @@ class ChatTest(unittest.TestCase):
         # #143: after an hour the cache has expired, so carrying the chat would rewrite it all at 2x
         self.claude(message('end_turn', text('Hi.')))
         old = self.post({'message': 'hello'}).json()['chatId']
-        for k, v in self.db.store.items():
+        for k, v in list(self.db.store.items()):
             if k.startswith(f'chat_threads/{old}/turns/'):
-                v['at'] = '2026-01-01T09:00:00+00:00'
+                self.db.store[k] = {**v, 'at': '2026-01-01T09:00:00+00:00'}  # written back: also works on Postgres
         nxt = self.claude(message('end_turn', text('Hi again.')))
         new = self.post({'message': 'back', 'chatId': old}).json()['chatId']
         self.assertNotEqual(new, old)

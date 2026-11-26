@@ -21,9 +21,13 @@ schema/workout.schema.json. Output is JSON on stdout.
     .venv/bin/python -m wilo.data history <exercise name> [--limit N]
     .venv/bin/python -m wilo.data names
     .venv/bin/python -m wilo.data records [--all] [--write]
+    .venv/bin/python -m wilo.data pg-backfill [--write] [--force]
 
 assign and change are dry runs unless --write is passed. GOOGLE_APPLICATION_CREDENTIALS,
 if set, overrides the key path in the config.
+
+The database is picked by WILO_DB (#241): firestore (default), postgres (DATABASE_URL, wilo/pg.py) or dual
+(reads from Firestore, writes to both). pg-backfill copies Firestore into Postgres whatever WILO_DB is.
 """
 
 import argparse
@@ -69,7 +73,19 @@ def doc_id(doc, now):
     return f"{now.astimezone().strftime('%d-%b-%H:%M').lower()}-{slug}"
 
 
-def connect():
+BACKENDS = ('firestore', 'postgres', 'dual')
+
+
+def backend():
+    """WILO_DB: firestore (default), postgres, or dual (#241: reads from Firestore, writes to both)."""
+    name = os.environ.get('WILO_DB', 'firestore').strip().lower() or 'firestore'
+    if name not in BACKENDS:
+        raise ValueError(f'WILO_DB={name!r}: use one of {", ".join(BACKENDS)}')
+    return name
+
+
+def firestore_client():
+    """Firestore. Also starts the Firebase app, which the sign-in checks (verify_id_token) need whatever the backend."""
     import firebase_admin
     from firebase_admin import credentials, firestore
     key = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS') or os.path.expanduser(CONFIG['credentials'])
@@ -78,6 +94,25 @@ def connect():
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred, {'projectId': CONFIG['project']})
     return firestore.client(database_id=CONFIG['database'])
+
+
+def postgres_client():
+    from wilo import pg
+    url = os.environ.get('DATABASE_URL')
+    if not url:
+        raise RuntimeError('DATABASE_URL is not set (the Render Postgres connection string)')
+    return pg.Client(url)
+
+
+def connect():
+    """The database the rest of the code reads and writes, picked by WILO_DB. The functions below take it as
+    `db` and only use calls both backends have (wilo/pg.py)."""
+    name = backend()
+    fs = firestore_client()  # always: the Firebase app is needed for sign-in even on Postgres
+    if name == 'firestore':
+        return fs
+    from wilo import pg
+    return postgres_client() if name == 'postgres' else pg.Dual(fs, postgres_client())
 
 
 def collection(db, uid, name):
@@ -727,6 +762,67 @@ def backfill_records(db, uids, write, now):
     return {'ok': True, 'dryRun': not write, 'users': out}
 
 
+# ---- what the tracker reads and writes (#241: through wilo/api.py instead of Firestore in the browser) -----
+# The same limits firestore.rules puts on the browser today: the tracker writes only the log, status, timestamps
+# and rating of a workout, may create a workout with no plan, and never deletes one.
+
+TRACKER_FIELDS = ('log', 'logBase', 'status', 'updatedAt', 'finishedAt', 'rating')
+
+
+def tracker_workouts(db, uid, start=None, end=None):
+    """Whole workout docs with docId, newest first; only those assigned for a day in [start, end] when given
+    (YYYY-MM-DD)."""
+    day = lambda w: str(w.get('assignedFor') or '')[:10]
+    return [w for w in workouts(db, uid) if (not start or day(w) >= start) and (not end or day(w) <= end)]
+
+
+def save_log(db, uid, doc_id, fields):
+    """Update a workout's log, status, timestamps or rating. Errors if the doc is missing (the tracker then
+    creates it with create_logged) or a field is outside TRACKER_FIELDS."""
+    bad = sorted(set(fields) - set(TRACKER_FIELDS))
+    if bad:
+        return {'ok': False, 'errors': [f'{k}: the tracker may not change it' for k in bad]}
+    if 'status' in fields and fields['status'] not in STATUSES:
+        return {'ok': False, 'errors': [f'status: one of {", ".join(STATUSES)}']}
+    ref = collection(db, uid, WORKOUTS).document(doc_id)
+    if not ref.get().exists:
+        return {'ok': False, 'notFound': True, 'errors': [f'users/{uid}/{WORKOUTS}/{doc_id} not found']}
+    ref.update(fields)
+    return {'ok': True, 'docId': doc_id}
+
+
+def create_logged(db, uid, doc_id, doc):
+    """A workout logged with no plan: empty plan, diffs and exercises; status in progress or done. Never overwrites."""
+    if any(doc.get(k) not in ([], None) for k in ('plan', 'diffs', 'exercises')):
+        return {'ok': False, 'errors': ['a logged workout has no plan (plan, diffs and exercises must be empty)']}
+    if doc.get('status') not in ('in progress', 'done'):
+        return {'ok': False, 'errors': ['status: in progress or done']}
+    ref = collection(db, uid, WORKOUTS).document(doc_id)
+    if ref.get().exists:
+        return {'ok': False, 'exists': True, 'errors': [f'users/{uid}/{WORKOUTS}/{doc_id} already exists']}
+    ref.set({**doc, 'plan': [], 'diffs': [], 'exercises': []})
+    return {'ok': True, 'docId': doc_id}
+
+
+def get_records(db, uid):
+    """users/{uid}/coach/records (#236): {'exercises': {key: [{lbs, reps}]}, 'updatedAt'}, or {} before the first."""
+    snap = collection(db, uid, 'coach').document('records').get()
+    return snap.to_dict() if snap.exists else {}
+
+
+def set_records(db, uid, exercises, now):
+    """Replace the records (the tracker merges on Finish, fe/index.html mergeRecords). Checks the shape only."""
+    ok = isinstance(exercises, dict) and all(
+        isinstance(k, str) and isinstance(v, list) and all(
+            isinstance(p, dict) and set(p) == {'lbs', 'reps'} and all(
+                isinstance(p[f], (int, float)) and not isinstance(p[f], bool) for f in ('lbs', 'reps')) for p in v)
+        for k, v in exercises.items())
+    if not ok:
+        return {'ok': False, 'errors': ['exercises: {"<name>|<side>": [{"lbs": n, "reps": n}, ...]}']}
+    collection(db, uid, 'coach').document('records').set({'exercises': exercises, 'updatedAt': _iso(now)})
+    return {'ok': True}
+
+
 
 
 def main(argv=None):
@@ -750,7 +846,17 @@ def main(argv=None):
     b = sub.add_parser('records', help='backfill users/{uid}/coach/records from workout history (#236)')
     b.add_argument('--all', action='store_true', help='every user, not just the one in config')
     b.add_argument('--write', action='store_true', help='save it (default is a dry run)')
+    g = sub.add_parser('pg-backfill', help='copy all of Firestore into Postgres at $DATABASE_URL (#241)')
+    g.add_argument('--write', action='store_true', help='copy it (default: count docs and reads only)')
+    g.add_argument('--force', action='store_true', help='copy even if it costs more reads than the daily budget')
     args = p.parse_args(argv)
+
+    if args.cmd == 'pg-backfill':  # always Firestore -> Postgres, whatever WILO_DB says
+        from wilo import pg
+        fs = firestore_client()
+        out = pg.backfill(fs, postgres_client() if args.write else None, args.write, args.force)
+        print(json.dumps(out, indent=2, default=str))
+        return 0 if out['ok'] else 1
 
     db, uid, now = connect(), CONFIG['uid'], datetime.now(timezone.utc)  # the command line acts as the user in config
     read = lambda f: json.loads(sys.stdin.read() if f == '-' else Path(f).read_text())

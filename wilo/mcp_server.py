@@ -250,6 +250,8 @@ def make_server(provider=None, issuer=None):
     add_chat_routes(s)
     from wilo.media import add_media_routes
     add_media_routes(s)
+    from wilo.api import add_api_routes
+    add_api_routes(s, db)
     return s
 
 

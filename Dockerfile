@@ -10,6 +10,7 @@ COPY pyproject.toml ./
 COPY wilo ./wilo
 COPY config ./config
 COPY schema ./schema
+COPY migrations ./migrations
 # Editable install: wilo/data.py reads config/ and schema/ relative to the repo root (/app).
 RUN pip install --no-cache-dir -e . && useradd --create-home app && chown -R app /app
 USER app
