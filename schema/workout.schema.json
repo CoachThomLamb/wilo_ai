@@ -14,6 +14,7 @@
         "assignedFor": { "type": "string", "description": "The date this workout is for. Lets the coach lay out several workouts on specific dates." },
         "status": { "enum": ["planned", "in progress", "done"], "description": "planned until the first set is logged, done at Finish." },
         "createdAt": { "type": "string", "format": "date-time" },
+        "plannedBy": { "type": "string", "description": "uid of the human coach who planned it (#242). Missing: Wilo planned it, or the user logged it." },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last time the tracker saved the log." },
         "finishedAt": { "type": "string", "format": "date-time", "description": "Set by Finish." },
         "plan": { "type": "array", "items": { "$ref": "#/$defs/exercise" }, "description": "The exercises as first planned. Never changes; empty for a workout logged without a plan." },

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<!--
+  The coach page (#242): a human coach's clients, what each did lately, and planning their next workout.
+
+  - Signed in and a coach (coaches/{uid}): the invite link, the client list, and one client at a time.
+    Not a coach yet: a link to coaches.html. Signed out: sign in.
+  - A client's view is two capped reads (fe/coaching.js recentWorkouts): their planned workouts and their
+    last logged ones. Never the whole history (#225). Nothing polls: Refresh reloads.
+  - Planning: name, day, one exercise per line ("Squat 3x5 @135 - sit deep"). It writes the same doc as
+    wilo/data.py assign, marked plannedBy = the coach; it shows up in the client's tracker on that day.
+  - Remove client deletes coaches/{coach}/clients/{client}: the coach can't see them any more.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WILO Coach Page</title>
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #000; --panel: #0e0e10; --field: #1c1c1e; --line: #26262a; --text: #f2f2f7; --dim: #8e8e96;
+    --accent: #0a84ff; --coach: #bf5af2; --ok: #34c759; --bad: #ff6961; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 400 16px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  .bar { position: sticky; top: 0; z-index: 5; background: #000d; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+  .bar .in { max-width: 760px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-weight: 800; font-size: 20px; letter-spacing: .04em; text-decoration: none; color: inherit; }
+  .logo span { color: var(--coach); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+  h2 { margin: 0 0 10px; font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  h3 { margin: 0; font-size: 22px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 42px; padding: 0 18px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--coach); color: #fff; font: 600 15px/1 Inter, sans-serif; text-decoration: none; }
+  .btn.ghost { background: var(--field); color: var(--text); }
+  .btn.link { background: none; color: var(--dim); padding: 0 6px; font-weight: 500; }
+  .btn.danger { background: none; color: var(--bad); padding: 0; font-weight: 500; height: auto; }
+  .btn[disabled] { opacity: .6; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .invite { flex: 1; min-width: 0; background: var(--field); border-radius: 12px; padding: 11px 12px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c7c7cc; }
+  .clients { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--field); color: var(--text); border-radius: 999px; padding: 8px 14px; font: 500 15px Inter, sans-serif; cursor: pointer; }
+  .chip.on { border-color: var(--coach); background: #bf5af226; }
+  .dim { color: var(--dim); }
+  .w { border-top: 1px solid var(--line); padding: 10px 0; }
+  .w:first-of-type { border-top: 0; }
+  .w b { font-weight: 600; }
+  .w .meta { color: var(--dim); font-size: 14px; }
+  .w .ok { color: var(--ok); }
+  .w ul { margin: 6px 0 0; padding-left: 18px; color: #c7c7cc; font-size: 14px; }
+  label { display: block; font-size: 13px; color: var(--dim); margin: 12px 0 4px; }
+  input, textarea { width: 100%; background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; font: 16px Inter, sans-serif; }
+  textarea { min-height: 130px; resize: vertical; }
+  .grid2 { display: grid; grid-template-columns: 1fr 170px; gap: 10px; }
+  .msg { font-size: 14px; min-height: 1em; margin: 10px 0 0; color: var(--dim); }
+  .msg.bad { color: var(--bad); white-space: pre-line; }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in">
+  <a class="logo" href="coach.html">WILO<span>.</span> <span style="color:var(--dim);font-weight:600;font-size:15px;letter-spacing:0">Coach</span></a>
+  <div class="row"><a class="btn link" href="index.html">My tracker</a><button class="btn link" id="signout" hidden>Sign out</button></div>
+</div></header>
+
+<main>
+  <section class="panel" id="gate">
+    <h3 id="gateTitle">Loading…</h3>
+    <p class="dim" id="gateText"></p>
+    <button class="btn" id="signin" hidden>Sign in with Google</button>
+    <a class="btn" id="becomeLink" href="coaches.html" hidden>Set up your coach page</a>
+  </section>
+
+  <section class="panel" id="invitePanel" hidden>
+    <h2>Your invite link</h2>
+    <div class="row"><div class="invite" id="invite"></div><button class="btn ghost" id="copy">Copy</button></div>
+    <p class="msg">Send it to a client. They sign in, tap Join, and show up below.</p>
+  </section>
+
+  <section class="panel" id="clientsPanel" hidden>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Clients</h2><button class="btn link" id="refresh">Refresh</button></div>
+    <div class="clients" id="clients" style="margin-top:10px"></div>
+    <p class="dim" id="noClients" hidden>No clients yet. Send them your invite link.</p>
+  </section>
+
+  <section class="panel" id="clientPanel" hidden>
+    <div class="row" style="justify-content:space-between">
+      <div><h3 id="cName"></h3><div class="dim" id="cEmail" style="font-size:14px"></div></div>
+      <button class="btn danger" id="remove">Remove client</button>
+    </div>
+    <h2 style="margin-top:18px">Planned</h2>
+    <div id="planned"></div>
+    <h2 style="margin-top:18px">Recent</h2>
+    <div id="logged"></div>
+  </section>
+
+  <section class="panel" id="planPanel" hidden>
+    <h2>Plan a workout</h2>
+    <div class="grid2">
+      <div><label for="pName">Name</label><input id="pName" placeholder="Legs"></div>
+      <div><label for="pDate">Day</label><input id="pDate" type="date"></div>
+    </div>
+    <label for="pLines">One exercise per line</label>
+    <textarea id="pLines" placeholder="Squat 3x5 @135 - sit deep&#10;Romanian deadlift 3x8 @95&#10;Plank 3x30s"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="plan">Send to client</button></div>
+    <p class="msg" id="planMsg" role="status"></p>
+  </section>
+</main>
+
+<script type="module">
+  import "./firebase.js";
+  import { coachCard, myClients, recentWorkouts, assignToClient, removeClient, parseLines, exerciseLine } from "./coaching.js";
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const day = s => { const d = new Date(String(s || '').length === 10 ? s + 'T12:00' : s); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
+  const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let user = null, clients = [], current = null;
+
+  function gate(title, text, button) {
+    $('gate').hidden = false;
+    $('gateTitle').textContent = title; $('gateText').textContent = text || '';
+    $('signin').hidden = button !== 'signin'; $('becomeLink').hidden = button !== 'become';
+    ['invitePanel', 'clientsPanel', 'clientPanel', 'planPanel'].forEach(id => $(id).hidden = true);
+  }
+
+  async function boot() {
+    if (!user) return gate('Sign in', 'Sign in to see your clients.', 'signin');
+    try {
+      if (!await coachCard(user.uid)) return gate("You're not set up as a coach yet", 'It takes one tap.', 'become');
+    } catch (e) { return gate("Couldn't load", e.code || e.message); }
+    $('gate').hidden = true;
+    $('invitePanel').hidden = $('clientsPanel').hidden = false;
+    $('invite').textContent = `${location.origin}/join.html?coach=${user.uid}`;
+    $('pDate').value = localDate();
+    await loadClients();
+  }
+
+  async function loadClients() {
+    try { clients = await myClients(user.uid); }
+    catch (e) { $('noClients').hidden = false; $('noClients').textContent = "Couldn't load clients: " + (e.code || e.message); return; }
+    $('noClients').hidden = clients.length > 0;
+    $('clients').innerHTML = clients.map(c => `<button class="chip${current && current.uid === c.uid ? ' on' : ''}" data-uid="${esc(c.uid)}">${esc(c.name || c.email || 'Client')}</button>`).join('');
+    if (current && !clients.some(c => c.uid === current.uid)) current = null;
+    if (current) await openClient(current.uid);
+    else $('clientPanel').hidden = $('planPanel').hidden = true;
+  }
+
+  function workoutHtml(w, done) {
+    const status = w.status === 'done' ? '<span class="ok">✓ done</span>' : esc(w.status);
+    const when = day(w.status === 'planned' ? w.assignedFor : (w.finishedAt || w.updatedAt));
+    const list = done ? (w.log || []).filter(x => !x.removed).map(x => exerciseLine(x, true)).filter(Boolean)
+                      : (w.exercises || []).map(x => exerciseLine(x, false));
+    const notes = done ? (w.log || []).filter(x => x.note).map(x => `${x.name}: “${x.note}”`) : [];
+    const by = w.plannedBy === user.uid ? ' · planned by you' : '';
+    return `<div class="w"><b>${esc(w.name || 'Workout')}</b> <span class="meta">· ${esc(when)} · ${status}${by}</span>
+      <ul>${[...list, ...notes].map(l => `<li>${esc(l)}</li>`).join('') || '<li class="dim">Nothing logged</li>'}</ul></div>`;
+  }
+
+  async function openClient(uid) {
+    current = clients.find(c => c.uid === uid) || null;
+    if (!current) return;
+    document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.uid === uid));
+    $('clientPanel').hidden = $('planPanel').hidden = false;
+    $('cName').textContent = current.name || current.email || 'Client';
+    $('cEmail').textContent = current.name ? current.email || '' : '';
+    $('planned').innerHTML = $('logged').innerHTML = '<p class="dim">Loading…</p>';
+    try {
+      const { planned, logged } = await recentWorkouts(uid);
+      $('planned').innerHTML = planned.map(w => workoutHtml(w, false)).join('') || '<p class="dim">Nothing planned.</p>';
+      $('logged').innerHTML = logged.map(w => workoutHtml(w, true)).join('') || '<p class="dim">No workouts logged yet.</p>';
+    } catch (e) {
+      $('planned').innerHTML = `<p class="dim">Couldn't load: ${esc(e.code || e.message)}</p>`;
+      $('logged').innerHTML = '';
+    }
+  }
+
+  window.addEventListener('wilo-user', ev => { user = ev.detail; $('signout').hidden = !user; current = null; boot(); });
+  window.addEventListener('wilo-auth-error', () => gate("Couldn't load sign-in", 'Check your connection and reload.'));
+  $('signin').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); } catch (e) { $('gateText').textContent = 'Sign-in failed: ' + (e.code || e.message); }
+  });
+  $('signout').addEventListener('click', () => window.__auth.signOut());
+  $('copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('invite').textContent); $('copy').textContent = 'Copied'; }
+    catch { $('copy').textContent = 'Select and copy'; }
+    setTimeout(() => $('copy').textContent = 'Copy', 2000);
+  });
+  $('refresh').addEventListener('click', loadClients);
+  $('clients').addEventListener('click', ev => { const b = ev.target.closest('.chip'); if (b) openClient(b.dataset.uid); });
+  $('remove').addEventListener('click', async () => {
+    if (!current || !confirm(`Remove ${current.name || current.email}? You won't see their workouts any more.`)) return;
+    try { await removeClient(user.uid, current.uid); current = null; await loadClients(); }
+    catch (e) { $('planMsg').textContent = "Couldn't remove: " + (e.code || e.message); }
+  });
+  $('plan').addEventListener('click', async () => {
+    const msg = $('planMsg'); msg.className = 'msg';
+    const name = $('pName').value.trim();
+    const { exercises, errors } = parseLines($('pLines').value);
+    if (!name) errors.unshift('Give the workout a name.');
+    if (errors.length) { msg.className = 'msg bad'; msg.textContent = errors.join('\n'); return; }
+    $('plan').disabled = true;
+    try {
+      await assignToClient(user.uid, current.uid, { name, assignedFor: $('pDate').value || localDate(), exercises });
+      msg.textContent = `Sent. It's in ${current.name || 'their'}'s tracker for ${day($('pDate').value || localDate())}.`;
+      $('pName').value = ''; $('pLines').value = '';
+      await openClient(current.uid);
+    } catch (e) { msg.className = 'msg bad'; msg.textContent = "Couldn't send: " + (e.code || e.message); }
+    $('plan').disabled = false;
+  });
+</script>
+</body>
+</html>

@@ -38,6 +38,8 @@ still matters: it's how Wilo gets better.
 - **Data:** Firestore, `wilo` database, everything per user under `users/{uid}/`: `workouts` (one doc per workout
   from plan to done, #126), `days` (the Day page), `events` (the Week page, #168), `todos`, `coach/profile`, `coach/records` (personal records, updated on Finish, #236).
   `assigned` / `completed` are the pre-#126 copies, kept as a backup (#200).
+  Human coaches (#242): `coaches/{coach}` and `coaches/{coach}/clients/{client}` (written only by the client); while
+  that doc exists the coach reads the client's workouts and `coach/*` and plans workouts (`plannedBy`).
 - **Python package `wilo/`** (set up once with `.venv/bin/pip install -e .`):
   - `wilo/data.py`: read and write the data (CLI: `.venv/bin/python -m wilo.data history bench`).
   - `wilo/mcp_server.py`: the same functions as MCP tools. Runs locally as `wilo` (stdio) and on Render as the
@@ -49,6 +51,8 @@ still matters: it's how Wilo gets better.
   visitors land here), `index.html` (the tracker: opens on today,
   ‹ › to other days, log sets, Finish; a day with no workout opens with Wilo's chat, #224), `day.html` (the Day page),
   `week.html` (calendar), `chat.js` (Wilo's chat: a bar at the bottom, opens half or full), `auth.js` (Google sign-in, required).
+  For human coaches (#242): `coaches.html` (landing + sign-up, Meta pixel), `coach.html` (clients, plan),
+  `join.html` (invite link), `coaching.js` (their data calls).
 - **Coach:** in the tracker's chat (`fe/chat.js` → `wilo/chat.py`). The Claude connector still works, but only the
   in-tracker chat counts for user insight.
 - **Deploys:** merging to `main` deploys Hosting (GitHub Action) and the connector (Render). Map of what runs

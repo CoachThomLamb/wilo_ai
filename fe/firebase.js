@@ -18,8 +18,9 @@
   (https://<host>/__/auth/handler) on the OAuth web client in Google Cloud.
   Elsewhere (localhost) use the default.
 
-  Data access: only per-user paths, through auth.js's userCol / userDoc
-  (users/{uid}/...). No top-level collection access.
+  Data access: per-user paths, through auth.js's userCol / userDoc
+  (users/{uid}/...). The one other top-level collection is coaches/ (human
+  coaches, #242, through coaching.js).
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
