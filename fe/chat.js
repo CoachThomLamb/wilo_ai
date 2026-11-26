@@ -23,6 +23,10 @@
     workout under it; touching the workout ("wilo-workout-touched") folds it
     to the bar. Tapping the title flips full / half.
 
+  - Tap-to-answer (#246): a reply with choices (the coach called
+    offer_choices) shows them as buttons under Wilo's message; a tap sends
+    the option as your message.
+
   Needs the page's #chatBtn, #chatSheet, #chatLog, #chatForm, #chatInput,
   #chatNew, #chatClose, and window.__auth from auth.js.
 */
@@ -91,8 +95,59 @@ function draw() {
   else if (!chat.messages.length && greet) { bubble("coach", GREETING); chips(); }
   else if (!chat.messages.length)
     bubble("hint", "Ask your coach: plan this week, swap an exercise, how did bench go?\nHold a message to copy it.");
-  for (const m of chat.messages) bubble(m.role, m.text);
+  chat.messages.forEach((m, i) => { bubble(m.role, m.text); choiceRow(chat.messages, i); });
   askRating();
+}
+
+// ---- tap-to-answer (#246) ---------------------------------------------
+// When the coach calls offer_choices, the server's reply carries choices: they're kept on Wilo's message and shown
+// as buttons under it. A tap sends that option as your message; typing still works. Once answered (or passed by),
+// the buttons stay greyed out, the pick highlighted, so a reload shows what was chosen.
+function choiceState(messages, i) {
+  const m = messages[i];
+  if (!m || m.role !== "coach" || !Array.isArray(m.choices) || !m.choices.length) return "none";
+  if (m.picked != null) return "answered";
+  return i === messages.length - 1 ? "open" : "passed";
+}
+
+function choiceRow(messages, i) {
+  const state = choiceState(messages, i);
+  if (state === "none") return null;
+  const m = messages[i];
+  const row = document.createElement("div");
+  row.className = "choices " + state;
+  for (const c of m.choices) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = c;   // text only, like the bubbles
+    b.disabled = state !== "open";
+    if (c === m.picked) b.classList.add("picked");
+    b.addEventListener("click", () => pick(m, c));
+    row.append(b);
+  }
+  log.append(row);
+  log.scrollTop = log.scrollHeight;
+  return row;
+}
+
+function pick(m, c) {
+  if (busy || m.picked != null) return;
+  m.picked = c;
+  save();
+  closeChoices(c);
+  input.value = c;
+  form.requestSubmit();
+}
+
+// Grey out the open buttons: answered (picked is the label tapped) or passed by (the user typed instead).
+function closeChoices(picked) {
+  log.querySelectorAll(".choices.open").forEach(row => {
+    row.className = "choices " + (picked == null ? "passed" : "answered");
+    row.querySelectorAll("button").forEach(b => {
+      b.disabled = true;
+      if (picked != null && b.textContent === picked) b.classList.add("picked");
+    });
+  });
 }
 
 // ---- "How's Wilo doing?" ---------------------------------------------
@@ -107,6 +162,13 @@ style.textContent = `
   .rate button { background: var(--field); color: var(--text); border: 0; border-radius: 999px;
                  padding: 8px 16px; font: inherit; font-size: 15px; }
   .rate form { display: flex; gap: 8px; width: 100%; }
+  .choices { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%;
+             margin: -2px 0 6px; }
+  .choices button { min-height: 44px; padding: 10px 18px; border-radius: 999px; font: inherit; font-size: 16px;
+                    background: var(--field); color: var(--text); border: 1px solid var(--dim);
+                    max-width: 100%; overflow-wrap: anywhere; text-align: left; touch-action: manipulation; }
+  .choices button:disabled { opacity: .45; }
+  .choices button.picked { opacity: 1; border-color: var(--text); font-weight: 600; }
   .rate input { flex: 1; min-width: 0; background: var(--field); color: var(--text); border: 0;
                 border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 16px; }`;
 document.head.appendChild(style);
@@ -180,6 +242,7 @@ async function send(text) {
   chat.messages.push({ role: "me", text });
   chat.lastAt = Date.now();
   log.querySelectorAll(".hint, .chips").forEach(el => el.remove());
+  closeChoices(null);   // typed instead of tapping (after a tap they're already closed)
   bubble("me", text);
   save();
   const wait = bubble("coach pending", "Thinking…");
@@ -198,9 +261,12 @@ async function send(text) {
     if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
     chat.chatId = body.chatId;
     const reply = body.reply || "(no reply)";
-    chat.messages.push({ role: "coach", text: reply });
+    const said = { role: "coach", text: reply };
+    if (Array.isArray(body.choices) && body.choices.length) said.choices = body.choices.map(String);
+    chat.messages.push(said);
     wait.className = "msg coach";
     wait.textContent = reply;
+    choiceRow(chat.messages, chat.messages.length - 1);
     askRating();
     // The page can refresh what the coach wrote (day.html reloads the day after update_day).
     window.dispatchEvent(new CustomEvent("wilo-chat-reply", { detail: { tools: body.tools || [] } }));

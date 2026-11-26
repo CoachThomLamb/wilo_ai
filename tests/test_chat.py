@@ -87,7 +87,11 @@ class ChatTest(unittest.TestCase):
         self.assertNotIn('cache_control', req['system'][1])
         self.assertEqual(req['cache_control'], {'type': 'ephemeral', 'ttl': '1h'})
         self.assertIn('Today is', req['system'][1]['text'])
-        self.assertEqual({t['name'] for t in req['tools']}, {t.name for t in __import__('asyncio').run(srv.server.list_tools())})
+        connector = [t.name for t in __import__('asyncio').run(srv.server.list_tools())]
+        # The connector's tools in their order, then the chat-only offer_choices last (#246), so the cache holds.
+        self.assertEqual([t['name'] for t in req['tools']], connector + [chat.CHOICES])
+        self.assertNotIn(chat.CHOICES, connector)
+        self.assertNotIn('choices', r.json())
 
     def test_the_workout_on_screen_goes_before_the_message(self):
         fake = self.claude(message('end_turn', text('Go.')))
@@ -147,6 +151,64 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(after['messages'][3]['content'][0]['text'], 'You benched Monday.')
         self.assertEqual(after['messages'][4], {'role': 'user', 'content': 'thanks'})
         self.assertEqual(after['messages'][1]['content'][0], {'type': 'thinking', 'thinking': '', 'signature': 'sig'})
+
+    # ---- offer_choices: tap-to-answer buttons (#246) ----
+
+    def test_offer_choices_ends_the_turn_with_buttons(self):
+        fake = self.claude(message('tool_use', text('Drop to 115 for the last set?'),
+                                   tool_use(chat.CHOICES, {'options': ['Yes', ' No  thanks ']})))
+        r = self.post({'message': 'that was hard'}).json()
+        self.assertEqual(len(fake.requests), 1, 'no second model call just to say the buttons are up')
+        self.assertEqual(r['reply'], 'Drop to 115 for the last set?')
+        self.assertEqual(r['choices'], ['Yes', 'No thanks'])
+        self.assertEqual(r['tools'], [chat.CHOICES])
+
+    def test_the_answer_carries_the_owed_tool_result_and_replays_unchanged(self):
+        first = self.claude(message('tool_use', text('Swap to dumbbells?'), tool_use(chat.CHOICES, {'options': ['Yes', 'No']}, id='c1')))
+        chat_id = self.post({'message': 'bench is taken'}).json()['chatId']
+        second = self.claude(message('end_turn', text('Done: dumbbell press.')))
+        r = self.post({'message': 'Yes', 'chatId': chat_id}).json()
+        msgs = second.requests[0]['messages']
+        self.assertEqual(msgs[:2], first.requests[0]['messages'] + [msgs[1]])
+        self.assertEqual(msgs[1]['content'][-1]['name'], chat.CHOICES)
+        self.assertEqual(msgs[2], {'role': 'user', 'content': [
+            {'type': 'tool_result', 'tool_use_id': 'c1', 'content': chat.CHOICES_SHOWN},
+            {'type': 'text', 'text': 'Yes'}]})
+        self.assertNotIn('choices', r)
+        # The third message replays both stored turns as they were sent.
+        third = self.claude(message('end_turn', text('ok')))
+        self.post({'message': 'thanks', 'chatId': chat_id})
+        self.assertEqual(third.requests[0]['messages'][:3], msgs)
+        self.assertEqual(third.requests[0]['messages'][-1], {'role': 'user', 'content': 'thanks'})
+
+    def test_offer_choices_question_stands_in_for_missing_text(self):
+        self.claude(message('tool_use', tool_use(chat.CHOICES, {'options': ['Mon', 'Wed'], 'question': 'Which day?'})))
+        r = self.post({'message': 'move legs'}).json()
+        self.assertEqual((r['reply'], r['choices']), ('Which day?', ['Mon', 'Wed']))
+
+    def test_bad_choices_go_back_to_claude(self):
+        fake = self.claude(message('tool_use', tool_use(chat.CHOICES, {'options': ['Yes']})),
+                           message('end_turn', text('Want to drop the weight? Yes or no.')))
+        r = self.post({'message': 'x'}).json()
+        self.assertTrue(fake.requests[1]['messages'][-1]['content'][0]['is_error'])
+        self.assertNotIn('choices', r)
+
+    def test_choices_with_other_tools_run_the_normal_loop(self):
+        fake = self.claude(message('tool_use', tool_use('exercise_names', {}, id='t1'),
+                                   tool_use(chat.CHOICES, {'options': ['Squat', 'Leg press']}, id='t2')),
+                           message('end_turn', text('Which one?')))
+        r = self.post({'message': 'legs'}).json()
+        results = fake.requests[1]['messages'][-1]['content']
+        self.assertEqual([x['tool_use_id'] for x in results], ['t1', 't2'])
+        self.assertEqual(results[1]['content'], chat.CHOICES_SHOWN)
+        self.assertEqual((r['reply'], r['choices']), ('Which one?', ['Squat', 'Leg press']))
+
+    def test_clean_choices(self):
+        self.assertEqual(chat.clean_choices({'options': ['Yes', 'No']}), ['Yes', 'No'])
+        for bad in (None, {}, {'options': 'Yes'}, {'options': ['Yes']}, {'options': ['a'] * 7},
+                    {'options': ['Yes', 'Yes']}, {'options': ['Yes', '  ']}, {'options': ['Yes', 'x' * 61]},
+                    {'options': ['Yes', 3]}):
+            self.assertIsNone(chat.clean_choices(bad), bad)
 
     def test_an_idle_chat_starts_fresh(self):
         # #143: after an hour the cache has expired, so carrying the chat would rewrite it all at 2x
