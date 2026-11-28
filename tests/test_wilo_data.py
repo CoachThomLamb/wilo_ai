@@ -625,6 +625,39 @@ class RecordsTest(unittest.TestCase):
         self.assertNotIn(self.PATH, db.store)
 
 
+class CoachTest(unittest.TestCase):
+    """Human coaches (#242). The shared cases also run against the coach page (tests/fe/coach_test.mjs)."""
+    COACH = 'coach-1'
+
+    def test_shared_cases(self):
+        cases = json.loads((Path(__file__).parent / 'fixtures' / 'coach_plan_cases.json').read_text())['cases']
+        for c in cases:
+            with self.subTest(c['name']):
+                now = datetime.fromisoformat(c['now'].replace('Z', '+00:00'))
+                doc = wilo_data.planned_doc(c['workout'], now, c['plannedBy'])
+                self.assertEqual(doc, c['doc'])
+                self.assertEqual(wilo_data.validate(doc), [])
+
+    def test_wilo_plans_carry_no_planned_by(self):
+        self.assertNotIn('plannedBy', wilo_data.planned_doc(MINIMAL, NOW))
+
+    def test_clients_sorted_by_name(self):
+        base = f'coaches/{self.COACH}/clients'
+        db = FakeDB({f'{base}/u2': {'name': 'zed'}, f'{base}/u1': {'name': 'Amy'}, f'coaches/other/clients/u3': {'name': 'B'}})
+        self.assertEqual([c['uid'] for c in wilo_data.clients(db, self.COACH)], ['u1', 'u2'])
+
+    def test_assign_for_client_needs_the_client_to_have_joined(self):
+        db = FakeDB()
+        out = wilo_data.assign_for_client(db, self.COACH, UID, MINIMAL, write=True, now=NOW)
+        self.assertFalse(out['ok'])
+        self.assertEqual(db.store, {})
+        db.store[f'coaches/{self.COACH}/clients/{UID}'] = {'name': 'Thom'}
+        out = wilo_data.assign_for_client(db, self.COACH, UID, MINIMAL, write=True, now=NOW)
+        self.assertTrue(out['ok'])
+        self.assertEqual(db.store[out['path']]['plannedBy'], self.COACH)
+        self.assertTrue(out['path'].startswith(f'{WORKOUTS}/'))
+
+
 class ConnectTest(unittest.TestCase):
     """With no key file (Cloud Run), connect() uses the environment's own identity instead of a JSON key."""
 

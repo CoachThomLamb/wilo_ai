@@ -1,0 +1,205 @@
+{
+ "_about": "A human coach's new planned workout (#242): wilo/data.py planned_doc and fe/coach.html plannedDoc must both give `doc`.",
+ "cases": [
+  {
+   "name": "two exercises, date given",
+   "now": "2026-11-26T15:04:05.123Z",
+   "plannedBy": "coachA",
+   "workout": {
+    "name": "Legs",
+    "assignedFor": "2026-11-27",
+    "exercises": [
+     {
+      "name": "Squat",
+      "cue": "Sit deep",
+      "sets": [
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       }
+      ]
+     },
+     {
+      "name": "Plank",
+      "timed": true,
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": true
+       },
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": true
+       }
+      ]
+     }
+    ]
+   },
+   "doc": {
+    "id": "prog_1795705445123",
+    "name": "Legs",
+    "assignedFor": "2026-11-27",
+    "status": "planned",
+    "createdAt": "2026-11-26T15:04:05.123Z",
+    "plan": [
+     {
+      "name": "Squat",
+      "cue": "Sit deep",
+      "sets": [
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       }
+      ],
+      "exId": "x1"
+     },
+     {
+      "name": "Plank",
+      "timed": true,
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": false
+       },
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": false
+       }
+      ],
+      "exId": "x2"
+     }
+    ],
+    "diffs": [],
+    "exercises": [
+     {
+      "name": "Squat",
+      "cue": "Sit deep",
+      "sets": [
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       },
+       {
+        "lbs": 135,
+        "reps": 5,
+        "done": false
+       }
+      ],
+      "exId": "x1"
+     },
+     {
+      "name": "Plank",
+      "timed": true,
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": false
+       },
+       {
+        "lbs": "",
+        "reps": 30,
+        "done": false
+       }
+      ],
+      "exId": "x2"
+     }
+    ],
+    "nextExId": 3,
+    "log": [],
+    "logBase": 0,
+    "plannedBy": "coachA"
+   }
+  },
+  {
+   "name": "no date: assignedFor is now",
+   "now": "2026-11-26T08:00:00.000Z",
+   "plannedBy": "coachB",
+   "workout": {
+    "name": "Pull",
+    "exercises": [
+     {
+      "name": "Row",
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 10,
+        "done": false
+       }
+      ]
+     }
+    ]
+   },
+   "doc": {
+    "id": "prog_1795680000000",
+    "name": "Pull",
+    "assignedFor": "2026-11-26T08:00:00.000Z",
+    "status": "planned",
+    "createdAt": "2026-11-26T08:00:00.000Z",
+    "plan": [
+     {
+      "name": "Row",
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 10,
+        "done": false
+       }
+      ],
+      "exId": "x1"
+     }
+    ],
+    "diffs": [],
+    "exercises": [
+     {
+      "name": "Row",
+      "sets": [
+       {
+        "lbs": "",
+        "reps": 10,
+        "done": false
+       }
+      ],
+      "exId": "x1"
+     }
+    ],
+    "nextExId": 2,
+    "log": [],
+    "logBase": 0,
+    "plannedBy": "coachB"
+   }
+  }
+ ]
+}

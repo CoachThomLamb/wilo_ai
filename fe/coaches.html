@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<!--
+  WILO for coaches (#242): the page the Instagram ads point at. It has to sell on its own.
+
+  - Same look as landing.html (colors, type, buttons), cut down to one screen of pitch, three points, the
+    price and one way in. No outside images; the client list is drawn in HTML. No made-up quotes or numbers.
+  - "Start free" signs in with Google, then makes the user a coach (coaches/{uid}, fe/coaching.js) and
+    goes to coach.html. A sign-in that falls back to a redirect comes back here and finishes then.
+  - Price: $29/mo, free during early access. We take no payment yet: the ad test counts sign-ups first.
+  - Meta pixel: set META_PIXEL_ID to turn it on. Empty = no pixel script, no cookies, every call a no-op.
+    Events: PageView on load, Lead on "Start free", CompleteRegistration when a new coach is made.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WILO for Coaches</title>
+<meta name="description" content="Your clients log workouts by telling Wilo what they did. You see every set and plan their next session.">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000; --panel: #0e0e10; --field: #1c1c1e; --line: #26262a;
+    --text: #f2f2f7; --dim: #8e8e96; --accent: #0a84ff; --coach: #bf5af2; --ok: #34c759; --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 400 17px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  .bar { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: #000c; border-bottom: 1px solid var(--line); }
+  .bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { font-weight: 800; font-size: 22px; letter-spacing: .04em; text-decoration: none; }
+  .logo span { color: var(--coach); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 50px; padding: 0 26px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--coach); color: #fff; font: 600 17px/1 Inter, sans-serif; text-decoration: none; white-space: nowrap;
+  }
+  .btn.small { height: 38px; padding: 0 16px; font-size: 14px; }
+  .btn[disabled] { opacity: .6; }
+  .hero { padding: 72px 0 56px; }
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+  .kicker { color: var(--coach); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 12px; }
+  h1 { margin: 0; font-size: clamp(38px, 6vw, 64px); line-height: 1.03; font-weight: 800; letter-spacing: -.02em; }
+  h1 em { font-style: normal; color: var(--coach); }
+  .lede { color: #c7c7cc; font-size: 20px; margin: 20px 0 28px; max-width: 520px; }
+  .fine { color: var(--dim); font-size: 14px; margin: 12px 0 0; }
+  .err { color: #ff6961; font-size: 14px; margin: 12px 0 0; min-height: 1em; }
+  /* the coach page, drawn small */
+  .mock { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 10px; }
+  .mock h4 { margin: 0 0 4px; font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .client { background: var(--field); border-radius: 14px; padding: 12px 14px; }
+  .client b { display: block; }
+  .client span { color: var(--dim); font-size: 14px; }
+  .client .ok { color: var(--ok); }
+  .client .pr { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #34c75926; color: var(--ok); margin-left: 6px; }
+  section.block { padding: 64px 0; border-top: 1px solid var(--line); }
+  h2 { margin: 0 0 28px; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight: 800; letter-spacing: -.015em; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+  .card h3 { margin: 0 0 8px; font-size: 21px; }
+  .card p { margin: 0; color: var(--dim); }
+  .price { max-width: 520px; background: linear-gradient(160deg, #1e1530, var(--panel) 60%); }
+  .price .num { font-size: 48px; font-weight: 800; letter-spacing: -.02em; }
+  .price .num small { font-size: 18px; color: var(--dim); font-weight: 500; }
+  .price ul { padding-left: 20px; color: #c7c7cc; margin: 12px 0 22px; }
+  footer { border-top: 1px solid var(--line); padding: 32px 0 calc(32px + env(safe-area-inset-bottom)); color: var(--dim); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 28px; }
+  footer a { color: var(--dim); text-decoration: none; }
+  @media (max-width: 860px) {
+    .hero { padding: 36px 0 32px; }
+    .hero .wrap, .three { grid-template-columns: 1fr; gap: 28px; }
+    .lede { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="logo" href="#top">WILO<span>.</span></a>
+    <button class="btn small" data-start>Start free</button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="kicker">For coaches</p>
+        <h1>Your clients log by talking. <em>You see every set.</em></h1>
+        <p class="lede">Clients tell Wilo what they did, in their own words, and it's logged. You plan their next session from your phone, and it shows up in their tracker.</p>
+        <button class="btn" data-start>Start free</button>
+        <p class="fine">$29/mo per coach. Free during early access. Sign in with Google.</p>
+        <p class="err" id="err" role="alert"></p>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <h4>Your clients</h4>
+        <div class="client"><b>Client A</b><span><span class="ok">✓ Legs</span> · today · Squat 185×5 <span class="pr">PR</span></span></div>
+        <div class="client"><b>Client B</b><span>Push planned for tomorrow</span></div>
+        <div class="client"><b>Client C</b><span><span class="ok">✓ Pull</span> · yesterday · "shoulder felt fine"</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Less chasing. More coaching.</h2>
+      <div class="three">
+        <div class="card"><h3>Invite with a link</h3><p>Send clients your link. They sign in with Google and they're on your list. No app store.</p></div>
+        <div class="card"><h3>See what they really did</h3><p>Every set, every weight, their notes, and their personal records, as they log them.</p></div>
+        <div class="card"><h3>Plan in seconds</h3><p>Type "Squat 3x5 @135". It lands in their tracker for the day you pick.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="card price">
+        <p class="kicker">Early access</p>
+        <div class="num">$29<small>/mo per coach</small></div>
+        <ul>
+          <li>Free while we're in early access. We'll ask before we ever charge.</li>
+          <li>Unlimited clients.</li>
+          <li>Your clients use Wilo free.</li>
+        </ul>
+        <button class="btn" data-start>Start free</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="landing.html">Wilo for lifters</a>
+    <a href="https://github.com/CoachThomLamb/wilo_ai">Built in the open on GitHub →</a>
+    <span>© 2026 Wilo</span>
+  </div>
+</footer>
+
+<script type="module">
+  import "./firebase.js";
+  import { becomeCoach } from "./coaching.js";
+
+  // Meta pixel (#242). Thom fills this in; empty = no pixel at all.
+  const META_PIXEL_ID = '';
+
+  function loadPixel(id) {
+    if (!id) return;
+    /* Meta's standard base code */
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', id);
+    window.fbq('track', 'PageView');
+  }
+  const track = event => { if (META_PIXEL_ID && window.fbq) window.fbq('track', event); };
+  loadPixel(META_PIXEL_ID);
+
+  const SIGNUP = 'wilo-coach-signup';   // set before sign-in, so a redirect sign-in finishes on the way back
+  const err = document.getElementById('err');
+  const buttons = [...document.querySelectorAll('[data-start]')];
+  let user = null, finishing = false;
+
+  async function finish(u) {
+    if (finishing) return;   // the popup's result and the sign-in event can both land here
+    finishing = true;
+    try { sessionStorage.removeItem(SIGNUP); } catch {}
+    buttons.forEach(b => { b.disabled = true; b.textContent = 'Setting up…'; });
+    try {
+      if (await becomeCoach(u)) track('CompleteRegistration');
+      location.href = 'coach.html';
+    } catch (e) {
+      err.textContent = "Couldn't set up your coach page: " + (e.code || e.message);
+      buttons.forEach(b => { b.disabled = false; b.textContent = 'Start free'; });
+      finishing = false;
+    }
+  }
+
+  window.addEventListener('wilo-user', ev => {
+    user = ev.detail;
+    let pending = false;
+    try { pending = !!sessionStorage.getItem(SIGNUP); } catch {}
+    if (user && pending) finish(user);
+    else if (user) buttons.forEach(b => b.textContent = 'Open your coach page');
+  });
+  window.addEventListener('wilo-auth-error', () => { err.textContent = "Couldn't load sign-in. Check your connection and reload."; });
+
+  buttons.forEach(b => b.addEventListener('click', async () => {
+    if (user) return finish(user);
+    if (!window.__auth) { err.textContent = 'Sign-in is still loading. Try again in a second.'; return; }
+    track('Lead');
+    try { sessionStorage.setItem(SIGNUP, '1'); } catch {}
+    try {
+      const u = await window.__auth.signIn();
+      if (u) finish(u);       // popup: done now. Redirect: finish() runs when the page comes back.
+    } catch (e) {
+      try { sessionStorage.removeItem(SIGNUP); } catch {}
+      err.textContent = 'Sign-in failed: ' + (e.code || e.message);
+    }
+  }));
+</script>
+</body>

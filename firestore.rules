@@ -2,10 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Per-user data: each signed-in user can only touch their own subtree.
+    // The one way in for someone else: a human coach the user joined (#242, below).
     // Everything else (legacy top-level collections, oauth_*) is denied to
     // browsers; the connector and scripts use service accounts, which bypass rules.
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
+    }
+
+    // The signed-in user is uid's coach: uid opened the coach's invite link, which wrote
+    // coaches/{coach}/clients/{uid}. Only the client can write that doc, so no one makes
+    // themselves someone's coach.
+    function isCoachOf(uid) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/coaches/$(request.auth.uid)/clients/$(uid));
     }
 
     match /users/{uid} {
@@ -15,8 +24,11 @@ service cloud.firestore {
     // Workouts (#126): the coach (server) writes the plan; the tracker writes only
     // the log, status, timestamps and how it felt (rating, #237). It may create a workout with no plan (one you
     // log without the coach), and never deletes one.
+    // A human coach (#242) reads their clients' workouts and plans new ones: a coach may create a
+    // planned, unlogged workout marked plannedBy = themselves, and rewrite it while it's still
+    // planned, unlogged and theirs. Never the log, the status or anyone else's plan.
     match /users/{uid}/workouts/{workoutId} {
-      allow read: if isOwner(uid);
+      allow read: if isOwner(uid) || isCoachOf(uid);
       allow create: if isOwner(uid)
         && request.resource.data.plan.size() == 0
         && request.resource.data.diffs.size() == 0
@@ -26,12 +38,49 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['log', 'logBase', 'status', 'updatedAt', 'finishedAt', 'rating'])
         && request.resource.data.status in ['planned', 'in progress', 'done'];
+      allow create: if isCoachOf(uid)
+        && request.resource.data.status == 'planned'
+        && request.resource.data.plannedBy == request.auth.uid
+        && request.resource.data.log.size() == 0
+        && request.resource.data.logBase == 0
+        && request.resource.data.diffs.size() == 0
+        && request.resource.data.keys().hasOnly(['id', 'name', 'assignedFor', 'status', 'createdAt', 'plannedBy',
+             'plan', 'diffs', 'exercises', 'nextExId', 'log', 'logBase']);
+      allow update: if isCoachOf(uid)
+        && resource.data.status == 'planned'
+        && resource.data.plannedBy == request.auth.uid
+        && resource.data.log.size() == 0
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'assignedFor', 'plan', 'exercises', 'nextExId']);
     }
 
-    // Everything else under the user (todos, coach profile, the old assigned and
-    // completed collections, ...).
+    // Wilo's coaching docs (coach/profile, coach/records = PRs): a human coach may read them too.
+    // Everything else under the user (todos, days, events, the old assigned and
+    // completed collections, ...) stays the user's alone.
     match /users/{uid}/{collection}/{document=**} {
-      allow read, write: if isOwner(uid) && collection != 'workouts';
+      allow read: if (isOwner(uid) || (collection == 'coach' && isCoachOf(uid))) && collection != 'workouts';
+      allow write: if isOwner(uid) && collection != 'workouts';
+    }
+
+    // Human coaches (#242). coaches/{coach}: the coach's card, shown on the invite page, so any
+    // signed-in user may read it; only the coach writes it, and only a name.
+    match /coaches/{coachId} {
+      allow read: if request.auth != null;
+      allow create, update: if isOwner(coachId)
+        && request.resource.data.keys().hasOnly(['name', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100;
+    }
+
+    // coaches/{coach}/clients/{client}: the client joins by writing their own doc (the invite
+    // link), to a coach that exists, never to themselves. Either side can end it by deleting it.
+    match /coaches/{coachId}/clients/{clientId} {
+      allow read: if isOwner(coachId) || isOwner(clientId);
+      allow create: if isOwner(clientId)
+        && clientId != coachId
+        && exists(/databases/$(database)/documents/coaches/$(coachId))
+        && request.resource.data.keys().hasOnly(['name', 'email', 'joinedAt']);
+      allow delete: if isOwner(coachId) || isOwner(clientId);
     }
   }
 }

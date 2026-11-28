@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+  The coach's invite link (#242): join.html?coach=<coach uid>.
+
+  The client signs in, sees who the coach is and what the coach will see, and taps Join. Joining writes
+  coaches/{coach}/clients/{client} (fe/coaching.js), the only thing that lets a coach read someone's
+  workouts and plan for them (firestore.rules). Nothing is joined without the tap. Already joined: the
+  page says so and offers Leave, which deletes that doc and ends the coach's access at once.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Join your coach on WILO</title>
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #000; --panel: #0e0e10; --field: #1c1c1e; --line: #26262a; --text: #f2f2f7; --dim: #8e8e96; --accent: #0a84ff; --coach: #bf5af2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--bg); color: var(--text);
+    font: 400 17px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  .card { width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; }
+  .logo { font-weight: 800; font-size: 20px; letter-spacing: .04em; margin-bottom: 18px; }
+  .logo span { color: var(--coach); }
+  h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.15; }
+  p { color: #c7c7cc; margin: 0 0 14px; }
+  ul { color: var(--dim); margin: 0 0 20px; padding-left: 20px; font-size: 15px; }
+  .btn { display: flex; width: 100%; align-items: center; justify-content: center; height: 50px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--coach); color: #fff; font: 600 17px/1 Inter, sans-serif; text-decoration: none; margin-top: 10px; }
+  .btn.ghost { background: var(--field); color: var(--text); }
+  .btn[disabled] { opacity: .6; }
+  .msg { color: var(--dim); font-size: 14px; min-height: 1em; margin-top: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">WILO<span>.</span></div>
+  <h1 id="title">Your coach invited you to Wilo</h1>
+  <p id="lede">Wilo is a workout tracker you talk to: tell it what you did and it's logged.</p>
+  <div id="what" hidden>
+    <p>If you join, <b id="who">your coach</b> can:</p>
+    <ul>
+      <li>See your workouts, sets, notes and personal records.</li>
+      <li>See what you've told Wilo about your training (your coaching profile).</li>
+      <li>Plan workouts that show up in your tracker.</li>
+    </ul>
+    <p style="font-size:14px;color:var(--dim)">Not your days, to-dos or calendar. You can leave any time from this link.</p>
+  </div>
+  <button class="btn" id="signin" hidden>Sign in with Google</button>
+  <button class="btn" id="join" hidden>Join</button>
+  <a class="btn" id="open" href="index.html" hidden>Open Wilo</a>
+  <button class="btn ghost" id="leave" hidden>Leave this coach</button>
+  <p class="msg" id="msg" role="status"></p>
+</div>
+
+<script type="module">
+  import "./firebase.js";
+  import { coachCard, joined, joinCoach, leaveCoach } from "./coaching.js";
+
+  const $ = id => document.getElementById(id);
+  const coach = new URLSearchParams(location.search).get('coach') || '';
+  const show = (...ids) => ['signin', 'join', 'open', 'leave', 'what'].forEach(id => $(id).hidden = !ids.includes(id));
+  let user = null, card = null;
+
+  async function draw() {
+    if (!/^[A-Za-z0-9]{10,128}$/.test(coach)) {
+      $('title').textContent = "This invite link doesn't work";
+      $('lede').textContent = 'Ask your coach to send it again.';
+      return show();
+    }
+    if (!user) { $('msg').textContent = ''; return show('signin'); }
+    if (user.uid === coach) {
+      $('title').textContent = 'This is your invite link';
+      $('lede').textContent = 'Send it to your clients. When they join, they show up on your coach page.';
+      $('open').href = 'coach.html'; $('open').textContent = 'Open your coach page';
+      return show('open');
+    }
+    try {
+      card = card || await coachCard(coach);
+      if (!card) {
+        $('title').textContent = "This invite link doesn't work";
+        $('lede').textContent = 'Ask your coach to send it again.';
+        return show();
+      }
+      $('who').textContent = card.name;
+      if (await joined(coach, user)) {
+        $('title').textContent = `You're coached by ${card.name}`;
+        $('lede').textContent = 'They can see your workouts and plan new ones.';
+        return show('open', 'leave');
+      }
+      $('title').textContent = `${card.name} invited you to Wilo`;
+      show('what', 'join');
+    } catch (e) {
+      $('msg').textContent = "Couldn't load the invite: " + (e.code || e.message);
+    }
+  }
+
+  window.addEventListener('wilo-user', ev => { user = ev.detail; draw(); });
+  window.addEventListener('wilo-auth-error', () => { $('msg').textContent = "Couldn't load sign-in. Check your connection and reload."; });
+
+  $('signin').addEventListener('click', async () => {
+    try { await window.__auth.signIn(); }
+    catch (e) { $('msg').textContent = 'Sign-in failed: ' + (e.code || e.message); }
+  });
+  $('join').addEventListener('click', async () => {
+    $('join').disabled = true;
+    try { await joinCoach(coach, user); $('msg').textContent = 'Joined.'; await draw(); }
+    catch (e) { $('msg').textContent = "Couldn't join: " + (e.code || e.message); }
+    $('join').disabled = false;
+  });
+  $('leave').addEventListener('click', async () => {
+    $('leave').disabled = true;
+    try { await leaveCoach(coach, user); $('msg').textContent = `You left. ${card.name} can't see your workouts any more.`; await draw(); }
+    catch (e) { $('msg').textContent = "Couldn't leave: " + (e.code || e.message); }
+    $('leave').disabled = false;
+  });
+  draw();
+</script>
+</body>
+</html>

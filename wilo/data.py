@@ -135,15 +135,26 @@ def _outline(exercises):
     return [{'exId': x['exId'], 'name': x['name'], 'sets': len(x.get('sets', []))} for x in exercises]
 
 
-def assign(db, uid, workout, write, now):
-    """Plan a new workout: status planned, every exercise gets an exId. Dry run unless write."""
-    errors = validate(workout, 'plannedWorkout')
-    if errors:
-        return {'ok': False, 'errors': errors}
+def planned_doc(workout, now, planned_by=None):
+    """The stored doc for a new planned workout: status planned, every exercise gets an exId, nothing logged.
+    planned_by: a human coach's uid (#242), so the coach page can tell its own plans from Wilo's. fe/coach.html
+    builds the same doc (plannedDoc); tests/fixtures/coach_plan_cases.json holds both to it."""
     plan, next_id = _with_ids(_planned_sets(workout['exercises']), 1)
     doc = {'id': f'prog_{int(now.timestamp() * 1000)}', 'name': workout['name'],
            'assignedFor': workout.get('assignedFor') or _iso(now), 'status': 'planned', 'createdAt': _iso(now),
            'plan': plan, 'diffs': [], 'exercises': plan, 'nextExId': next_id, 'log': [], 'logBase': 0}
+    if planned_by:
+        doc['plannedBy'] = planned_by
+    return doc
+
+
+def assign(db, uid, workout, write, now, planned_by=None):
+    """Plan a new workout (see planned_doc). Dry run unless write."""
+    errors = validate(workout, 'plannedWorkout')
+    if errors:
+        return {'ok': False, 'errors': errors}
+    doc = planned_doc(workout, now, planned_by)
+    plan = doc['plan']
     key = doc_id(doc, now)
     path = f'users/{uid}/{WORKOUTS}/{key}'
     errors = validate(doc)
@@ -197,6 +208,36 @@ def change(db, uid, doc_id, ops, write, now):
         return {'ok': True, 'dryRun': True, 'path': path, **out}
     ref.update(update)  # only the plan's fields: the tracker's log is left as it is
     return {'ok': True, 'path': path, **out}
+
+
+# ---- human coaches (#242) ----------------------------------------------------
+# coaches/{coachUid}: the coach's public card ({name, createdAt}), written by the coach at sign-up.
+# coaches/{coachUid}/clients/{clientUid}: written only by the client, when they open the coach's invite link.
+# That doc is what lets the coach read the client's workouts and plan new ones (firestore.rules).
+
+COACHES = 'coaches'
+
+
+def coach(db, coach_uid):
+    snap = db.collection(COACHES).document(coach_uid).get()
+    return snap.to_dict() if snap.exists else None
+
+
+def clients(db, coach_uid):
+    """A coach's clients, by name: [{uid, name, email, joinedAt}]."""
+    rows = [{'uid': s.id, **s.to_dict()} for s in db.collection(COACHES).document(coach_uid).collection('clients').stream()]
+    return sorted(rows, key=lambda r: (str(r.get('name') or r.get('email') or '').lower(), r['uid']))
+
+
+def is_coach_of(db, coach_uid, client_uid):
+    return db.collection(COACHES).document(coach_uid).collection('clients').document(client_uid).get().exists
+
+
+def assign_for_client(db, coach_uid, client_uid, workout, write, now):
+    """A human coach plans a workout for one of their clients. Refuses anyone who hasn't joined the coach."""
+    if not is_coach_of(db, coach_uid, client_uid):
+        return {'ok': False, 'errors': [f'{client_uid} is not a client of {coach_uid}']}
+    return assign(db, client_uid, workout, write, now, planned_by=coach_uid)
 
 
 # ---- reading ---------------------------------------------------------------
