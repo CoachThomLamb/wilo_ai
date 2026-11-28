@@ -1134,6 +1134,15 @@
         state.workoutName = cur.doc.name;
         if (document.activeElement !== sessName) sessName.value = cur.doc.name;
       }
+      // Reopened somewhere else (Wilo's reopen_workout, #250, or another phone): in progress here too, so the
+      // coach's changes merge in below and a later edit doesn't save it as done again.
+      if (state.finished && prev && prev.status === 'done' && cur.doc.status === 'in progress') {
+        state.finished = false;
+        state.finishedAt = null;
+        persist();
+        redraw = true;
+        note('Reopened', 'ok');
+      }
       if (!state.finished && (cur.doc.diffs || []).length > state.logBase) {
         const logged = state.exercises.flatMap(x => x.sets).filter(s => s.done).length;
         mergeWorkout(loadedWorkout, prev);
