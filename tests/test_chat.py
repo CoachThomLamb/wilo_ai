@@ -12,7 +12,7 @@ from anthropic.types.beta import BetaMessage
 from starlette.testclient import TestClient
 from test_wilo_data import FakeDB, MINIMAL, done
 
-from wilo import chat
+from wilo import chat, token_cost
 from wilo import mcp_server as srv
 
 ME, OTHER = 'thom', 'someone-else'
@@ -288,6 +288,72 @@ class ChatTest(unittest.TestCase):
         self.claude(message('end_turn', text('hi')))
         self.post({'message': 'hello'})
         self.assertIsNone(srv.CHAT_UID.get())
+
+
+class FakeKimi:
+    """Stands in for the httpx client: returns scripted OpenAI chat responses and records each request body."""
+
+    def __init__(self, *messages):
+        self.messages, self.requests = list(messages), []
+
+    async def post(self, url, json):
+        import json as j
+        self.requests.append(j.loads(j.dumps(json)))
+        msg = self.messages.pop(0)
+        body = {'model': 'kimi-k2.6', 'choices': [{'message': msg}], 'usage': {'prompt_tokens': 1000, 'completion_tokens': 50}}
+
+        class R:
+            def raise_for_status(self): pass
+            def json(self): return body
+        return R()
+
+
+class KimiChatTest(ChatTest.__base__):
+    """#228: uids in WILO_CHAT_KIMI_UIDS chat with Kimi over the same tools; chats are stored in the same shape."""
+    setUp, tearDown, post = ChatTest.setUp, ChatTest.tearDown, ChatTest.post
+
+    def kimi(self, *messages):
+        chat._kimi = FakeKimi(*messages)
+        self.addCleanup(setattr, chat, '_kimi', None)
+        chat.kimi_uids = lambda: {ME}
+        self.addCleanup(setattr, chat, 'kimi_uids', lambda: set())
+        return chat._kimi
+
+    def test_tool_loop_in_openai_format(self):
+        fake = self.kimi({'role': 'assistant', 'content': '', 'reasoning_content': 'read first',
+                          'tool_calls': [{'id': 'c1', 'type': 'function',
+                                          'function': {'name': 'recent_workouts', 'arguments': '{}'}}]},
+                         {'role': 'assistant', 'content': 'You benched 135.'})
+        r = self.post({'message': 'how am I doing?'})
+        self.assertEqual(r.json()['reply'], 'You benched 135.')
+        self.assertEqual(r.json()['tools'], ['recent_workouts'])
+        first, second = fake.requests
+        self.assertEqual(first['model'], chat.KIMI_MODEL)
+        self.assertEqual(first['messages'][0]['role'], 'system')
+        self.assertIn('Coaching method', first['messages'][0]['content'])
+        self.assertEqual(first['messages'][1], {'role': 'user', 'content': 'how am I doing?'})
+        self.assertEqual(first['tools'][0]['type'], 'function')
+        self.assertEqual(second['messages'][2]['tool_calls'][0]['function']['name'], 'recent_workouts')
+        self.assertEqual(second['messages'][2]['reasoning_content'], 'read first')
+        tool_msg = second['messages'][3]
+        self.assertEqual((tool_msg['role'], tool_msg['tool_call_id']), ('tool', 'c1'))
+        self.assertIn('135', tool_msg['content'])  # acted on the signed-in user's data
+        chat_id = r.json()['chatId']
+        self.assertEqual(self.db.store[f'chat_threads/{chat_id}']['engine'], 'kimi')
+        usage = next(v for k, v in self.db.store.items() if k.startswith(f'chat_threads/{chat_id}/usage/'))
+        self.assertEqual(usage['calls'][0]['model'], 'kimi-k2.6')
+
+    def test_switching_engine_starts_a_fresh_chat(self):
+        chat._client = FakeClaude(message('end_turn', text('Hi.')))
+        old = self.post({'message': 'hello'}).json()['chatId']
+        self.kimi({'role': 'assistant', 'content': 'Hi from Kimi.'})
+        r = self.post({'message': 'again', 'chatId': old})
+        self.assertNotEqual(r.json()['chatId'], old)
+        self.assertEqual(r.json()['reply'], 'Hi from Kimi.')
+
+    def test_kimi_is_priced(self):
+        self.assertAlmostEqual(token_cost.call_cost({'model': 'kimi-k2.6', 'usage': {'input_tokens': 1_000_000,
+                                                                                    'output_tokens': 1_000_000}}), 4.95)
 
 
 if __name__ == '__main__':

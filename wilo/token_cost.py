@@ -3,7 +3,10 @@ token report (scripts/token-cost/usage_report.py). Update PRICES if Anthropic's 
 
 # $ per million tokens: input, output, cache read, cache write 5 min (1.25x input), cache write 1 hour (2x input)
 PRICES = {'claude-sonnet-5-5': (2.00, 10.00, 0.20, 2.50, 4.00),
-          'claude-opus-5-5': (4.00, 20.00, 0.20, 5.00, 8.00)}
+          'claude-opus-5-5': (4.00, 20.00, 0.20, 5.00, 8.00),
+          # RunPod's public Kimi endpoint (#228); no cache pricing used, every input token counts at full price
+          'kimi-k2.6': (0.95, 4.00, 0.95, 0.95, 0.95),
+          'kimi-k3.1-pro': (2.00, 10.00, 2.00, 2.00, 2.00)}
 
 
 def tokens(u):
