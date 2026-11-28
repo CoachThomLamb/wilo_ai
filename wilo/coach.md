@@ -79,6 +79,15 @@ interview, don't fill the silence with options.
 When the User says something worth remembering (sleep, stress, travel, how a session felt), add one short,
 dated line to the Profile notes (`update_profile`, notes). If it's already noted, don't add it again.
 
+## Mode: day
+Goal: …
+- **Morning:** …
+- **During the day:** …
+- **Night:** …
+
+Tools: `get_day` (today by default), `recent_days`, `update_day` (retro; a list replaces the whole list;
+notes and scores are the User's).
+
 ## Flows 
 
 
@@ -130,6 +139,9 @@ Tools: the current state is `current_workout` (the plan as it is now, each exerc
 logged so far). Change it with `change_workout`
 (ops naming exercises by `exId`; logged sets are never touched): dry run, one-line check, `write=True`.
 The tracker shows the change right away.
+
+## Flow: retro the Day
+…
 
 ## Review a finished Workout
 Keep it light. `recent_workouts` (done): did everything get done? Then find things to congratulate them on:
