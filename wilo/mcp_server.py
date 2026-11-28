@@ -10,7 +10,7 @@ Over HTTP (local test of the remote transport; localhost only):
     .venv/bin/python -m wilo.mcp_server --http --auth [--port 8000]   → with sign-in (OAuth + Firebase login, wilo/auth.py)
 
 Same config and key as the script (config/wilo.json; GOOGLE_APPLICATION_CREDENTIALS overrides).
-Workout and profile writes (assign_workout, change_workout, update_profile) are dry runs unless write=True.
+Workout and profile writes (assign_workout, change_workout, reopen_workout, update_profile) are dry runs unless write=True.
 Todo, day and event writes save immediately.
 """
 
@@ -153,6 +153,12 @@ def change_workout(doc_id: str, ops: list[dict[str, Any]], write: bool = False) 
     return wilo_data.change(db(), current_uid(), doc_id, ops, write, datetime.now(timezone.utc))
 
 
+def reopen_workout(doc_id: str, write: bool = False) -> dict[str, Any]:
+    """Reopen a finished workout: back to in progress, the same as tapping Done ✓ in the tracker. Its logged
+    sets stay, and change_workout works on it again; the tracker shows it right away. Dry run unless write=True."""
+    return wilo_data.reopen(db(), current_uid(), doc_id, write, datetime.now(timezone.utc))
+
+
 def list_todos(include_done: bool = False) -> dict[str, Any]:
     """The user's todos, open ones first: dated by due (earliest first), then undated. Each has a docId."""
     return {'todos': wilo_data.todos(db(), current_uid(), include_done)}
@@ -227,7 +233,7 @@ def delete_event(doc_id: str) -> dict[str, Any]:
 
 
 TOOLS = [coaching_method, get_profile, update_profile, workout_schema, current_workout, training_summary, recent_workouts, get_workout, exercise_history, exercise_names,
-         assign_workout, change_workout, list_todos, add_todo, update_todo, delete_todo, get_day, recent_days, update_day,
+         assign_workout, change_workout, reopen_workout, list_todos, add_todo, update_todo, delete_todo, get_day, recent_days, update_day,
          list_events, add_event, update_event, delete_event]
 
 

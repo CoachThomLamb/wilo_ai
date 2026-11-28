@@ -15,7 +15,7 @@ from wilo import mcp_server as srv
 ME, OTHER = 'thom', 'someone-else'
 TOOLS = {'coaching_method', 'get_profile', 'update_profile', 'workout_schema', 'current_workout', 'training_summary',
          'recent_workouts', 'get_workout',
-         'exercise_history', 'exercise_names', 'assign_workout', 'change_workout',
+         'exercise_history', 'exercise_names', 'assign_workout', 'change_workout', 'reopen_workout',
          'list_todos', 'add_todo', 'update_todo', 'delete_todo', 'get_day', 'recent_days', 'update_day',
          'list_events', 'add_event', 'update_event', 'delete_event'}
 
