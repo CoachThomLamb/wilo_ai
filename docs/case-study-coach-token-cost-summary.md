@@ -2,6 +2,8 @@
 
 *Thom Lamb, WILO (hiwilo.com). Deep dive with all the numbers: `case-study-coach-token-cost.md`.*
 
+While building Wilo I wanted people to try it, but as a bootstrapped business I couldn't just share it with anyone, because every message costs tokens. So my first problem was getting the token cost as low as possible while making sure the harness still gave people the best possible experience. Here's what I found after 6 weeks of real-world use.
+
 ## The problem
 
 WILO's coach is a Claude agent inside a workout tracker. It reads and writes each user's training data through tools
@@ -39,8 +41,23 @@ prove a smaller model coaches as well.
 ## Result
 
 - Modeled on all stored chats: **input per message −48%** (90k → 47k chars), median chat 81k → 24k.
-- Real, Nov 5–17 (4 users, 102 messages): **$0.024 per message, down from $0.055 (−56%)**. Light users are inside
-  the $1–2/month target; a daily user is ~$4/month. Next lever: cache writes (62% of what's left).
+- Real, Nov 5–24 (7 users, 183 messages): **$0.024 per message, down from $0.055 (−56%)**, and it held as usage
+  nearly doubled. Light users are inside the $1–2/month target; a daily user is ~$4/month. Next lever: cache writes
+  (60% of what's left).
+
+## Next: the cache itself (modeled, not shipped)
+
+Cache writes are now the biggest cost. Each coach call caches the new part of the chat for 1 hour, and a 1-hour write
+costs 2× the input price (a 5-minute write 1.25×; a read 0.05×). Per message, with **P** = tokens already cached,
+**N** = new tokens and **g** = minutes since the last message ($ per million tokens, Sonnet 5.5):
+
+- 1-hour cache: `4·N + 0.10·P`
+- 5-minute cache: `2.5·N + 0.10·P` if g ≤ 5, else `2.5·(P + N)` (the whole chat is written again)
+- 5-minute cache + keep-alive: `2.5·N + 0.10·P + k·0.10·P`, with k ≈ g ÷ 4.5 pings while the user rests
+
+Replayed on the real usage (42 chats, 183 messages): the median gap between messages is 42 seconds, but 25 of 141 gaps
+are 5–60 minutes (rests, warm-ups). A 5-minute cache alone saves nothing: those rewrites eat the savings. A 5-minute
+cache plus a keep-alive ping during rests: **$0.0211 → $0.0168 per message (−20%)**.
 
 ## Lessons
 
