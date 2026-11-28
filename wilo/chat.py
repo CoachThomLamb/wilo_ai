@@ -9,7 +9,8 @@ handed to the tools through mcp_server.CHAT_UID.
     POST /chat   Authorization: Bearer <Firebase ID token>
                  {"message": "...", "chatId": "<from an earlier reply, or omitted for a new chat>",
                   "screen": <optional: the workout on the tracker's screen, see screen_line>}
-              →  {"chatId": "...", "reply": "...", "tools": ["recent_workouts", ...]}
+              →  {"chatId": "...", "reply": "...", "tools": ["recent_workouts", ...],
+                  "choices": ["Yes", "No"] (only when the coach called offer_choices: the tracker shows buttons, #246)}
 
 Who may use it: WILO_CHAT_UIDS (comma-separated), default the uid in config/wilo.json. It spends our API key,
 so it is not open to every Google account that can sign in. Each user also has a daily cap (WILO_CHAT_DAILY_LIMIT).
@@ -78,6 +79,28 @@ Follow the coaching method below."""
 _client = None
 _tools = None
 
+# Chat-only tool (#246): not on the connector, since it drives this chat's UI. Its description says what it does,
+# never when to use it: that is coach.md's business. Calling it ends the turn (see turn()).
+CHOICES = 'offer_choices'
+MAX_CHOICES, MAX_CHOICE = 6, 60
+CHOICES_TOOL = {
+    'name': CHOICES,
+    'description': ('Shows short options as tap buttons under your message in the tracker chat. A tap sends that '
+                    "option's text as the user's next message; the user can still type instead. Calling it ends "
+                    'your turn: their answer comes back as their next message.'),
+    'input_schema': {
+        'type': 'object',
+        'properties': {
+            'options': {'type': 'array', 'items': {'type': 'string', 'maxLength': MAX_CHOICE},
+                        'minItems': 2, 'maxItems': MAX_CHOICES,
+                        'description': 'The button labels, in order, e.g. ["Yes", "No"].'},
+            'question': {'type': 'string', 'description': 'Shown as your message if you wrote no text with it.'},
+        },
+        'required': ['options'],
+    },
+}
+CHOICES_SHOWN = 'Shown to the user as buttons. Their answer is their next message.'
+
 
 def client():
     global _client
@@ -116,7 +139,29 @@ async def tools():
         listed = await srv.server.list_tools()
         _tools = [{'name': t.name, 'description': t.description or '',
                    'input_schema': getattr(t, 'input_schema', None) or getattr(t, 'inputSchema', None)} for t in listed]
+        _tools.append(CHOICES_TOOL)  # last, so the connector tools' order (and the cache) stays the same
     return _tools
+
+
+def clean_choices(args):
+    """offer_choices' input → the option labels, or None if they aren't 2-6 short, distinct strings."""
+    opts = args.get('options') if isinstance(args, dict) else None
+    if not isinstance(opts, list) or not all(isinstance(o, str) for o in opts):
+        return None
+    opts = [' '.join(o.split()) for o in opts]
+    if not MAX_CHOICES >= len(opts) >= 2 or not all(0 < len(o) <= MAX_CHOICE for o in opts) or len(set(opts)) < len(opts):
+        return None
+    return opts
+
+
+def pending_results(history):
+    """Tool results the last stored turn still owes: offer_choices ends a turn before its result is sent, so the
+    user's next message carries it. [] when the last message isn't an assistant's tool call."""
+    last = history[-1] if history else None
+    if not last or last['role'] != 'assistant' or not isinstance(last['content'], list):
+        return []
+    return [{'type': 'tool_result', 'tool_use_id': b['id'], 'content': CHOICES_SHOWN}
+            for b in last['content'] if b.get('type') == 'tool_use']
 
 
 async def run_tool(name, args):
@@ -207,9 +252,14 @@ def reply_text(content):
 
 async def turn(ctx, history, message):
     """Run one user message through Claude and the tools. Returns (new messages to store, reply, tools used, calls:
-    each model call's usage). A refusal stores no messages, so the declined exchange never goes back to the API."""
-    new = [{'role': 'user', 'content': message}]
-    used, replies, calls = [], [], []
+    each model call's usage, choices: offer_choices' buttons or None). A refusal stores no messages, so the
+    declined exchange never goes back to the API.
+
+    offer_choices alone in a response ends the turn there, without a second model call: its tool result is owed and
+    goes in front of the user's next message (pending_results), so stored turns stay valid and unchanged."""
+    owed = pending_results(history)
+    new = [{'role': 'user', 'content': owed + [{'type': 'text', 'text': message}] if owed else message}]
+    used, replies, calls, choices = [], [], [], None
     for _ in range(MAX_STEPS):
         resp = await client().beta.messages.create(
             model=MODEL, max_tokens=16000, betas=BETAS, fallbacks='default',
@@ -221,22 +271,36 @@ async def turn(ctx, history, message):
         calls.append({'model': resp.model, 'stop': resp.stop_reason, 'usage': u.model_dump(mode='json', exclude_none=True),
                       'tools': [b.name for b in resp.content if b.type == 'tool_use']})
         if resp.stop_reason == 'refusal':
-            return [], "Sorry, I can't help with that one.", used, calls
+            return [], "Sorry, I can't help with that one.", used, calls, None
         content = [b.model_dump(mode='json', exclude_none=True) for b in resp.content]
         new.append({'role': 'assistant', 'content': content})
         replies.append(reply_text(content))
         if resp.stop_reason != 'tool_use':
             break
+        uses = [b for b in content if b['type'] == 'tool_use']
+        offered = [clean_choices(b['input']) for b in uses if b['name'] == CHOICES]
+        if uses and len(offered) == len(uses) and all(offered):
+            used.append(CHOICES)
+            choices = offered[-1]
+            question = uses[-1]['input'].get('question')
+            if not replies[-1] and isinstance(question, str):
+                replies[-1] = question.strip()
+            break
         results = []
-        for block in content:
-            if block['type'] == 'tool_use':
-                used.append(block['name'])
+        for block in uses:
+            used.append(block['name'])
+            if block['name'] == CHOICES:
+                opts = clean_choices(block['input'])
+                choices = opts or choices
+                text, failed = (CHOICES_SHOWN, False) if opts else (
+                    f'options must be 2-{MAX_CHOICES} distinct labels, each up to {MAX_CHOICE} characters', True)
+            else:
                 text, failed = await run_tool(block['name'], block['input'])
-                results.append({'type': 'tool_result', 'tool_use_id': block['id'], 'content': text, 'is_error': failed})
+            results.append({'type': 'tool_result', 'tool_use_id': block['id'], 'content': text, 'is_error': failed})
         new.append({'role': 'user', 'content': results})
     else:
         replies.append('(I stopped there: that took more steps than I allow myself. Ask me to carry on.)')
-    return new, '\n\n'.join(r for r in replies if r), used, calls
+    return new, '\n\n'.join(r for r in replies if r), used, calls, choices
 
 
 def cors(request):
@@ -339,7 +403,7 @@ def add_chat_routes(s):
         line = screen_line(body.get('screen'))
         reset = srv.CHAT_UID.set(uid)
         try:
-            new, reply, used, calls = await turn(ctx, history, f'{line}\n{message.strip()}' if line else message.strip())
+            new, reply, used, calls, choices = await turn(ctx, history, f'{line}\n{message.strip()}' if line else message.strip())
         except anthropic.APIError as err:
             print(f'chat: API error {err!r}', flush=True)
             return fail(502, 'the coach is unavailable right now; try again in a minute')
@@ -351,7 +415,10 @@ def add_chat_routes(s):
         if new:
             n = len(list(ref.collection('turns').stream())) + 1
             ref.collection('turns').document(f'{n:04d}').set({'messages': json.dumps(new), 'at': now.isoformat()})
-        return JSONResponse({'chatId': chat_id, 'reply': reply, 'tools': used}, headers=headers)
+        out = {'chatId': chat_id, 'reply': reply, 'tools': used}
+        if choices:
+            out['choices'] = choices
+        return JSONResponse(out, headers=headers)
 
 
 # Last: mcp_server imports this module while it builds its server, so it must find add_chat_routes defined.
