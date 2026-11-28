@@ -310,6 +310,14 @@
   }
   .chat-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chat-form .finish:disabled { opacity: .5; }
+  .chat-mic {
+    flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--accent);
+    background: #000; color: var(--accent); display: grid; place-items: center; cursor: pointer;
+  }
+  .chat-mic[hidden] { display: none; }
+  .chat-mic.listening { background: #c0392b; border-color: #c0392b; color: #fff; animation: mic 1.2s ease-in-out infinite; }
+  @keyframes mic { 50% { box-shadow: 0 0 0 6px rgba(192, 57, 43, .3); } }
+  @media (prefers-reduced-motion: reduce) { .chat-mic.listening { animation: none; } }
 </style>
 </head>
 <body class="train">
@@ -368,6 +376,9 @@
   <div class="chat-log" id="chatLog" aria-live="polite"></div>
   <form class="chat-form" id="chatForm">
     <textarea id="chatInput" rows="1" placeholder="Message Wilo" enterkeyhint="send"></textarea>
+    <button class="chat-mic" id="chatMic" type="button" aria-label="Talk to Wilo" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12z"/></svg>
+    </button>
     <button class="finish" type="submit">Send</button>
   </form>
 </div>
