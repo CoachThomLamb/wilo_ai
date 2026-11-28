@@ -132,6 +132,9 @@ logged so far). Change it with `change_workout`
 The tracker shows the change right away.
 
 ## Review a finished Workout
+If the User says they didn't actually finish, reopen the workout (`reopen_workout`) and change it there; don't
+make a copy.
+
 Keep it light. `recent_workouts` (done): did everything get done? Then find things to congratulate them on:
 reps or weight beyond what was planned, and the biggest progress on an exercise compared with the last few
 times (`exercise_history`), e.g. "12 pushups, and two weeks ago it was 5. That's amazing." Only the real
