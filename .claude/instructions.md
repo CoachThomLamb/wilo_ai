@@ -61,7 +61,9 @@ still matters: it's how Wilo gets better.
 - **Tech debt:** the `tech-debt` label, prioritized P1 / P2 / P3 on the board (project 5).
 - **Scaling:** Firestore's free tier is 50k reads a day for the whole app, and we hit it on 2026-11-19.
   Readers that load a user's whole history (#225) are the fix to make before more users.
-- **On hold:** the Postgres migration. Stay on Firestore; keep the app design DB-agnostic.
+- **Postgres migration (#241, started 2026-11-25):** Render Postgres behind `wilo/data.py` (`wilo/pg.py`, `WILO_DB`),
+  the tracker moves to the `/api/*` routes (`wilo/api.py`), then backfill, dual-write, switch reads. Firestore stays as
+  the backup. Until the switch, build on Firestore through `wilo/data.py` only.
 
 ## What's parked (do not touch)
 

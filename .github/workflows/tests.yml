@@ -18,6 +18,27 @@ jobs:
           cache: pip
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
+  # The same Python tests again on a throwaway Postgres (#241): FakeDB becomes wilo/pg.py (tests/pg_fake.py).
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      WILO_TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - run: pip install -e .
+      - run: python -m unittest discover -s tests -v
   tracker:
     runs-on: ubuntu-latest
     steps:

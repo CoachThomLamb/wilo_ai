@@ -15,7 +15,7 @@ Earlier: does an AI *plan* make Thom's training better (#25, from 2026-10-05).
   `wilo` stdio server.
 - Firestore free tier: 50k reads a day for the whole app (hit on 2026-11-19 by a polling admin viewer). Reads that
   load a user's whole history are #225.
-- Postgres migration on hold (since 2026-10-06): stay on Firestore, but don't over-invest in Firestore-only
+- Postgres migration started 2026-11-25 (#241; on hold 2026-10-06 to 2026-11-25): don't over-invest in Firestore-only
   infrastructure.
 
 ## Decisions

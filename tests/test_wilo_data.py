@@ -4,6 +4,7 @@
 """
 
 import json
+import os
 import unittest
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -71,6 +72,12 @@ class FakeDB:
 
     def collection(self, name):
         return Ref(self.store, name)
+
+
+MemoryDB = FakeDB  # the in-memory one, also when FakeDB is Postgres (tests/test_pg.py uses it as Firestore)
+
+if os.environ.get('WILO_TEST_DATABASE_URL'):  # every test that uses FakeDB runs on Postgres instead (#241)
+    from pg_fake import FakeDB  # noqa: E402,F811
 
 
 UID = 'thom'
@@ -282,7 +289,9 @@ class HistoryNamesTest(unittest.TestCase):
         self.assertEqual(len(wilo_data.history(self.db, UID, 'push up', limit=1)), 1)
 
     def test_deleted_exercises_are_not_history(self):
-        self.db.store[f'{WORKOUTS}/b']['log'][0]['removed'] = True
+        doc = self.db.store[f'{WORKOUTS}/b']
+        doc['log'][0]['removed'] = True
+        self.db.store[f'{WORKOUTS}/b'] = doc  # written back, so it also works on Postgres (pg_fake.py)
         self.assertEqual([x['name'] for x in wilo_data.history(self.db, UID, 'push up', limit=5)], ['Pushups '])
 
     def test_names_counts_and_last_done(self):

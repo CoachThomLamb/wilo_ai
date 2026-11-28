@@ -9,6 +9,8 @@ dependencies = [
     "firebase-admin",
     "jsonschema",
     "mcp",
+    "psycopg[binary]",
+    "psycopg-pool",
 ]
 
 [build-system]
