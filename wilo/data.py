@@ -169,7 +169,7 @@ def change(db, uid, doc_id, ops, write, now):
         return {'ok': False, 'errors': [f'{path} not found']}
     doc = snap.to_dict()
     if doc.get('status') == 'done':
-        return {'ok': False, 'errors': [f'{path} is done; its plan is history']}
+        return {'ok': False, 'errors': [f'{path} is done; its plan is history until reopened (reopen_workout)']}
     if not ops:
         return {'ok': False, 'errors': ['no ops']}
     errors = [f'ops/{i}/{e}' for i, op in enumerate(ops) for e in validate(op, 'op')]
@@ -197,6 +197,23 @@ def change(db, uid, doc_id, ops, write, now):
         return {'ok': True, 'dryRun': True, 'path': path, **out}
     ref.update(update)  # only the plan's fields: the tracker's log is left as it is
     return {'ok': True, 'path': path, **out}
+
+
+def reopen(db, uid, doc_id, write, now):
+    """A done workout back to in progress, the same as tapping Done ✓ in the tracker (#237, #250): its log,
+    finishedAt and rating stay, and change works on it again. Dry run unless write."""
+    path = f'users/{uid}/{WORKOUTS}/{doc_id}'
+    ref = collection(db, uid, WORKOUTS).document(doc_id)
+    snap = ref.get()
+    if not snap.exists:
+        return {'ok': False, 'errors': [f'{path} not found']}
+    status = snap.to_dict().get('status')
+    if status != 'done':
+        return {'ok': False, 'errors': [f'{path} is {status}, not done; nothing to reopen']}
+    if not write:
+        return {'ok': True, 'dryRun': True, 'path': path, 'status': 'in progress'}
+    ref.update({'status': 'in progress', 'updatedAt': _iso(now)})
+    return {'ok': True, 'path': path, 'status': 'in progress'}
 
 
 # ---- reading ---------------------------------------------------------------

@@ -219,6 +219,24 @@ class DiffTest(unittest.TestCase):
         self.assertFalse(wilo_data.change(self.db, UID, 'nope', [{'op': 'remove', 'exId': 'x1'}], True, NOW)['ok'])
 
 
+    def test_reopen_a_done_workout_then_change_it(self):
+        log = [{'exId': 'x1', 'name': 'squat', 'sets': [{'lbs': 135, 'reps': 5, 'done': True}]}]
+        self.db.store[self.path] = {**self.db.store[self.path], 'log': log, 'status': 'done',
+                                    'finishedAt': '2026-11-24T23:31:57Z', 'rating': 'good'}
+        before = dict(self.db.store[self.path])
+        self.assertTrue(wilo_data.reopen(self.db, UID, self.doc_id, False, NOW)['dryRun'])
+        self.assertEqual(self.db.store[self.path], before)
+        self.assertTrue(wilo_data.reopen(self.db, UID, self.doc_id, True, NOW)['ok'])
+        doc = self.db.store[self.path]
+        self.assertEqual(doc['status'], 'in progress')
+        self.assertEqual((doc['log'], doc['finishedAt'], doc['rating']), (log, before['finishedAt'], 'good'))
+        self.assertTrue(self.change([{'op': 'remove', 'exId': 'x1'}])['ok'])
+
+    def test_reopen_refuses_a_workout_that_isnt_done_and_a_missing_one(self):
+        self.assertIn('not done', wilo_data.reopen(self.db, UID, self.doc_id, True, NOW)['errors'][0])
+        self.assertFalse(wilo_data.reopen(self.db, UID, 'nope', True, NOW)['ok'])
+
+
 class ViewTest(unittest.TestCase):
     """What the coach reads in a list (#143: every result is resent on each later call of a chat)."""
 
