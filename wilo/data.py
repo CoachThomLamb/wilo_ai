@@ -135,9 +135,19 @@ def _outline(exercises):
     return [{'exId': x['exId'], 'name': x['name'], 'sets': len(x.get('sets', []))} for x in exercises]
 
 
+def _unnamed_columns(exercises):
+    """Sets with custom values but no custom_name: the tracker only shows the column when it has a name, so the
+    values would be invisible (#232). Returned as schema-style errors the coach can fix."""
+    return [f'{x.get("exId") or f"exercises/{i}"} {x.get("name", "").strip()}: sets have custom values '
+            f'({", ".join(sorted({str(s["custom"]) for s in x.get("sets", []) if s.get("custom")}))}) '
+            f'but no custom_name; name the column, e.g. "Side"'
+            for i, x in enumerate(exercises)
+            if any(s.get('custom') for s in x.get('sets', [])) and not (x.get('custom_name') or '').strip()]
+
+
 def assign(db, uid, workout, write, now):
     """Plan a new workout: status planned, every exercise gets an exId. Dry run unless write."""
-    errors = validate(workout, 'plannedWorkout')
+    errors = validate(workout, 'plannedWorkout') or _unnamed_columns(workout['exercises'])
     if errors:
         return {'ok': False, 'errors': errors}
     plan, next_id = _with_ids(_planned_sets(workout['exercises']), 1)
@@ -189,7 +199,9 @@ def change(db, uid, doc_id, ops, write, now):
     except ValueError as e:
         return {'ok': False, 'errors': [str(e)]}
     update = {'diffs': diffs, 'exercises': exercises, 'nextExId': next_id, **fields}
-    errors = validate({**doc, **update})
+    touched = {op.get('exId') for op in stored} | {op['exercise']['exId'] for op in stored if op.get('exercise')}
+    errors = validate({**doc, **update}) or _unnamed_columns(
+        [x for x in exercises if x.get('exId') in touched])
     if errors:
         return {'ok': False, 'errors': errors}
     out = {'exercises': _outline(exercises), **fields}
@@ -290,9 +302,16 @@ def _media(e):
     return f' [{", ".join(parts)}]' if parts else ''
 
 
+def _col(*exercises):
+    """' [Side]': the name of the exercise's custom column (#232). Without it the coach saw 'R'/'L' values with no
+    label, and plans lost the column. The first exercise that names one wins (the user may add it in the tracker)."""
+    name = next((n for e in exercises if e and (n := (e.get('custom_name') or '').strip())), '')
+    return f' [{name}]' if name else ''
+
+
 def _done_line(e, timed):
     done = [s for s in e.get('sets', []) if s.get('done')]
-    return f'{e["name"].strip()} {_sets(done, timed)}{_note(e)}{_media(e)}' if done else None
+    return f'{e["name"].strip()}{_col(e)} {_sets(done, timed)}{_note(e)}{_media(e)}' if done else None
 
 
 def summary(db, uid, today, days=14):
@@ -311,7 +330,7 @@ def summary(db, uid, today, days=14):
             if e.get('removed'):
                 continue
             line = _done_line(e, timed.get(e.get('exId'), e.get('timed')))
-            (done.append(line) if line else skipped.append(e['name'].strip()))
+            (done.append(line) if line else skipped.append(e['name'].strip() + _col(e)))
         status = '' if w.get('status') == 'done' else f' [{w.get("status")}]'
         rest = f' | not done: {", ".join(skipped)}' if skipped else ''
         lines.append(f'{day} {w["name"]}{status}: {" | ".join(done) or "nothing logged"}{rest}')
@@ -341,7 +360,7 @@ def current(db, uid, today):
     for e in w.get('exercises', []):
         timed = e.get('timed')
         mine = log.pop(e.get('exId'), None)
-        name = (mine or e)['name'].strip()
+        name = (mine or e)['name'].strip() + _col(mine, e)
         line = f'{e.get("exId")} {name}: plan {_sets(e.get("sets", []), timed)}'
         if mine and mine.get('removed'):
             line += ' | removed by the user'
@@ -352,7 +371,7 @@ def current(db, uid, today):
     for e in log.values():   # what's left: exercises the user added in the tracker
         if not e.get('removed'):
             done = [s for s in e.get('sets', []) if s.get('done')]
-            lines.append(f'{e.get("exId")} {e["name"].strip()} (added by the user): done '
+            lines.append(f'{e.get("exId")} {e["name"].strip()}{_col(e)} (added by the user): done '
                          f'{_sets(done, e.get("timed")) if done else "none"}{_note(e)}')
     return '\n'.join(lines)
 
